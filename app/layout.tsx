@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { ClerkProvider, UserButton } from "@clerk/nextjs";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -41,15 +42,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <head>
+          <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        </head>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
+        >
+          <header className="flex items-center justify-end px-4 py-3">
+            <UserButton />
+          </header>
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
