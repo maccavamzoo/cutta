@@ -25,10 +25,16 @@ export default async function Home() {
           <h1 className="text-4xl font-bold tracking-tight text-white">Cutta</h1>
           <p className="text-zinc-400 text-sm">Your fuelling plan is coming.</p>
         </div>
-        <nav className="flex flex-col items-center gap-2">
+        <nav className="flex flex-col items-center gap-3">
+          <Link
+            href="/calendar"
+            className="text-sm font-semibold text-lime-400 hover:text-lime-300 transition-colors"
+          >
+            Calendar →
+          </Link>
           <Link
             href="/settings/protocol"
-            className="text-sm text-zinc-500 hover:text-lime-400 transition-colors"
+            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
           >
             Protocol →
           </Link>
