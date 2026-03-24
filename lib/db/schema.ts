@@ -1,0 +1,377 @@
+import {
+  pgTable,
+  serial,
+  text,
+  varchar,
+  integer,
+  numeric,
+  boolean,
+  timestamp,
+  date,
+  jsonb,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
+
+// ---------------------------------------------------------------------------
+// User Profile
+// Personal stats, goals, food tolerances, preferences, training habits.
+// One row per Clerk user.
+// ---------------------------------------------------------------------------
+export const userProfiles = pgTable(
+  "user_profiles",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull().unique(),
+
+    // Body stats
+    currentWeightKg: numeric("current_weight_kg", { precision: 5, scale: 2 }),
+    targetWeightKg: numeric("target_weight_kg", { precision: 5, scale: 2 }),
+    heightCm: integer("height_cm"),
+    age: integer("age"),
+    sex: varchar("sex", { length: 20 }),
+
+    // Calorie baseline
+    estimatedMaintenanceCalories: integer("estimated_maintenance_calories"),
+    usualCarbIntakeGrams: integer("usual_carb_intake_grams"),
+
+    // Training habits
+    typicalWeeklyHours: numeric("typical_weekly_hours", {
+      precision: 4,
+      scale: 1,
+    }),
+    sessionTypes: text("session_types").array(), // road | indoor | track
+    usualIntensity: varchar("usual_intensity", { length: 50 }),
+    fastedTraining: boolean("fasted_training"),
+    trainingTimePreference: varchar("training_time_preference", { length: 20 }), // morning | evening
+    trainingEnvironment: varchar("training_environment", { length: 20 }), // indoor | outdoor | mixed
+
+    // Diet & gut
+    gutSensitivity: text("gut_sensitivity"),
+    foodExclusions: text("food_exclusions").array(),
+    currentSupplements: text("current_supplements").array(),
+
+    // Appetite & timing preferences
+    appetiteProfile: text("appetite_profile"),
+    preferredMealTiming: text("preferred_meal_timing"),
+
+    // Living profile built from explicit inputs + learned patterns
+    // { positive: string[], negative: string[], gutTriggers: string[], supplementReactions: Record<string,string> }
+    foodProfile: jsonb("food_profile"),
+
+    // Onboarding complete flag
+    onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: uniqueIndex("user_profiles_clerk_user_id_idx").on(
+      t.clerkUserId
+    ),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Protocols
+// User-defined fuelling rulebook (JSON). Multiple allowed; one is active.
+// ---------------------------------------------------------------------------
+export const protocols = pgTable(
+  "protocols",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    name: varchar("name", { length: 255 }).notNull(),
+    content: jsonb("content").notNull(), // validated against ProtocolFile shape
+    isActive: boolean("is_active").default(false).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("protocols_clerk_user_id_idx").on(t.clerkUserId),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Calendar Events
+// Upcoming training sessions, races, and other events.
+// ---------------------------------------------------------------------------
+export const calendarEvents = pgTable(
+  "calendar_events",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    title: varchar("title", { length: 255 }).notNull(),
+    eventType: varchar("event_type", { length: 50 }).notNull(), // ride | race | rest | other
+    scheduledAt: timestamp("scheduled_at").notNull(),
+    durationMinutes: integer("duration_minutes"),
+    distanceKm: numeric("distance_km", { precision: 6, scale: 2 }),
+    intensity: varchar("intensity", { length: 50 }), // easy | moderate | hard | race
+    notes: text("notes"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("calendar_events_clerk_user_id_idx").on(
+      t.clerkUserId
+    ),
+    scheduledAtIdx: index("calendar_events_scheduled_at_idx").on(
+      t.scheduledAt
+    ),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Fuelling Plans
+// AI-generated daily plans. One row per day.
+// meals and onBikeFuelling are arrays of structured objects.
+// ---------------------------------------------------------------------------
+export const fuellingPlans = pgTable(
+  "fuelling_plans",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    planDate: date("plan_date").notNull(),
+    calendarEventId: integer("calendar_event_id").references(
+      () => calendarEvents.id,
+      { onDelete: "set null" }
+    ),
+
+    // Array of { name, timing, ingredients: [{ item, grams }] }
+    meals: jsonb("meals").notNull().default([]),
+    // { pre: {...}, onBike: {...}, post: {...} }
+    onBikeFuelling: jsonb("on_bike_fuelling"),
+    // Array of { name, dose, timing }
+    supplements: jsonb("supplements"),
+
+    // Macro totals
+    totalCalories: integer("total_calories"),
+    totalCarbsG: integer("total_carbs_g"),
+    totalProteinG: integer("total_protein_g"),
+    totalFatG: integer("total_fat_g"),
+
+    // Short explanation of the AI's reasoning for this day's plan
+    aiReasoning: text("ai_reasoning"),
+
+    generatedAt: timestamp("generated_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("fuelling_plans_clerk_user_id_idx").on(
+      t.clerkUserId
+    ),
+    planDateIdx: index("fuelling_plans_plan_date_idx").on(t.planDate),
+    // Enforce one plan per user per day
+    uniquePlanPerDay: uniqueIndex("fuelling_plans_user_date_idx").on(
+      t.clerkUserId,
+      t.planDate
+    ),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Food Log
+// What was actually eaten, when different from the plan.
+// ---------------------------------------------------------------------------
+export const foodLog = pgTable(
+  "food_log",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    loggedAt: timestamp("logged_at").defaultNow().notNull(),
+    planDate: date("plan_date").notNull(),
+    mealName: varchar("meal_name", { length: 255 }),
+    description: text("description"),
+    calories: integer("calories"),
+    carbsG: integer("carbs_g"),
+    proteinG: integer("protein_g"),
+    fatG: integer("fat_g"),
+    notes: text("notes"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("food_log_clerk_user_id_idx").on(t.clerkUserId),
+    planDateIdx: index("food_log_plan_date_idx").on(t.planDate),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Compliance Log
+// Daily yes/mostly/no check-in signal.
+// ---------------------------------------------------------------------------
+export const complianceLog = pgTable(
+  "compliance_log",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    logDate: date("log_date").notNull(),
+    compliance: varchar("compliance", { length: 10 }).notNull(), // yes | mostly | no
+    notes: text("notes"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    // One entry per user per day
+    uniquePerDay: uniqueIndex("compliance_log_user_date_idx").on(
+      t.clerkUserId,
+      t.logDate
+    ),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Feedback Log
+// Three focused signals: ride_energy | gut_comfort | hunger.
+// ---------------------------------------------------------------------------
+export const feedbackLog = pgTable(
+  "feedback_log",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    loggedAt: timestamp("logged_at").defaultNow().notNull(),
+    planDate: date("plan_date"),
+    feedbackType: varchar("feedback_type", { length: 50 }).notNull(), // ride_energy | gut_comfort | hunger
+    rating: integer("rating").notNull(), // 1 (poor) – 5 (excellent)
+    notes: text("notes"),
+
+    // Optional tags to link signal to a specific meal or supplement
+    taggedMeal: varchar("tagged_meal", { length: 255 }),
+    taggedSupplement: varchar("tagged_supplement", { length: 255 }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("feedback_log_clerk_user_id_idx").on(t.clerkUserId),
+    planDateIdx: index("feedback_log_plan_date_idx").on(t.planDate),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Training Log
+// Data extracted from Strava/Rouvy screenshots, with correction history.
+// ---------------------------------------------------------------------------
+export const trainingLog = pgTable(
+  "training_log",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    calendarEventId: integer("calendar_event_id").references(
+      () => calendarEvents.id,
+      { onDelete: "set null" }
+    ),
+
+    source: varchar("source", { length: 50 }).notNull(), // strava | rouvy
+    screenshotUrl: text("screenshot_url"),
+    activityDate: date("activity_date").notNull(),
+
+    // Extracted fields
+    durationMinutes: integer("duration_minutes"),
+    distanceKm: numeric("distance_km", { precision: 6, scale: 2 }),
+    avgPowerWatts: integer("avg_power_watts"),
+    avgHeartRate: integer("avg_heart_rate"),
+    elevationM: integer("elevation_m"),
+    estimatedCalories: integer("estimated_calories"),
+
+    // AI extraction metadata
+    extractionConfidence: integer("extraction_confidence"), // 0–100
+    extractedData: jsonb("extracted_data"), // raw AI output before user confirmation
+    corrections: jsonb("corrections"), // { field: { original, corrected } }
+    confirmed: boolean("confirmed").default(false).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("training_log_clerk_user_id_idx").on(t.clerkUserId),
+    activityDateIdx: index("training_log_activity_date_idx").on(
+      t.activityDate
+    ),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Audio Notes
+// Transcribed voice memos processed into structured profile/log data.
+// ---------------------------------------------------------------------------
+export const audioNotes = pgTable(
+  "audio_notes",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+    audioUrl: text("audio_url"),
+    transcript: text("transcript"),
+
+    // Structured data extracted from the note by the AI
+    // e.g. { symptoms: ["bloating"], energyLevel: "low", foods: ["pasta"] }
+    processedData: jsonb("processed_data"),
+    processingStatus: varchar("processing_status", { length: 20 })
+      .default("pending")
+      .notNull(), // pending | processing | done | failed
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("audio_notes_clerk_user_id_idx").on(t.clerkUserId),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Weight Log
+// Regular weigh-in entries for body composition tracking.
+// ---------------------------------------------------------------------------
+export const weightLog = pgTable(
+  "weight_log",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    weighedAt: timestamp("weighed_at").defaultNow().notNull(),
+    weightKg: numeric("weight_kg", { precision: 5, scale: 2 }).notNull(),
+    notes: text("notes"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("weight_log_clerk_user_id_idx").on(t.clerkUserId),
+    weighedAtIdx: index("weight_log_weighed_at_idx").on(t.weighedAt),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Shopping Lists
+// Auto-generated 3-day ingredient lists aggregated from fuelling plans.
+// ---------------------------------------------------------------------------
+export const shoppingLists = pgTable(
+  "shopping_lists",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    generatedForStart: date("generated_for_start").notNull(),
+    generatedForEnd: date("generated_for_end").notNull(),
+
+    // Array of { ingredient, totalGrams, unit, category }
+    items: jsonb("items").notNull().default([]),
+
+    generatedAt: timestamp("generated_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("shopping_lists_clerk_user_id_idx").on(
+      t.clerkUserId
+    ),
+  })
+);
