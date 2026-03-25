@@ -272,26 +272,39 @@ export default function PlanView({ initialPlans }: { initialPlans: StoredPlan[] 
     setError(null);
     setStatus("Sending your training data to the AI…");
 
+    let res: Response;
     try {
-      const res = await fetch("/api/fuelling-plan/generate", { method: "POST" });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? "Generation failed.");
-        setGenerating(false);
-        setStatus(null);
-        return;
-      }
-
-      setStatus(`Plan generated for ${data.generated} days.`);
-
-      // Reload the page to get fresh server-rendered data
-      setTimeout(() => window.location.reload(), 800);
-    } catch {
-      setError("Network error. Please try again.");
+      res = await fetch("/api/fuelling-plan/generate", { method: "POST" });
+    } catch (networkErr) {
+      setError(`Network error — could not reach the server. ${networkErr instanceof Error ? networkErr.message : ""}`);
       setGenerating(false);
       setStatus(null);
+      return;
     }
+
+    // Guard against non-JSON responses (e.g. HTML 500 page from Next.js)
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      setError(`Server error (${res.status}). Check server logs — ANTHROPIC_API_KEY may not be set in .env.local.`);
+      setGenerating(false);
+      setStatus(null);
+      return;
+    }
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error ?? `Generation failed (${res.status}).`);
+      setGenerating(false);
+      setStatus(null);
+      return;
+    }
+
+    const msg = `Plan generated for ${data.generated} day${data.generated !== 1 ? "s" : ""}${data.failed > 0 ? ` (${data.failed} failed to save)` : ""}.`;
+    setStatus(msg);
+
+    // Reload to get fresh server-rendered data
+    setTimeout(() => window.location.reload(), 900);
   }
 
   const hasPlan = plans.length > 0;
