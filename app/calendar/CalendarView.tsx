@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import AddEventSheet from "./AddEventSheet";
 import type { CalendarEvent } from "./AddEventSheet";
 
@@ -262,6 +263,22 @@ export default function CalendarView({
             ))}
           </div>
         )}
+
+        {/* Log training link */}
+        <div className="pt-2 border-t border-zinc-900">
+          <Link
+            href="/training/upload"
+            className="flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-colors"
+          >
+            <div>
+              <p className="text-white text-sm font-medium">Log training</p>
+              <p className="text-zinc-600 text-xs mt-0.5">
+                Upload a Strava or Rouvy screenshot
+              </p>
+            </div>
+            <span className="text-zinc-600 text-lg">→</span>
+          </Link>
+        </div>
 
         {addSheetOpen && (
           <AddEventSheet

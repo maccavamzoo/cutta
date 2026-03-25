@@ -33,6 +33,12 @@ export default async function Home() {
             Calendar →
           </Link>
           <Link
+            href="/training/upload"
+            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Log training →
+          </Link>
+          <Link
             href="/settings/protocol"
             className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
           >
