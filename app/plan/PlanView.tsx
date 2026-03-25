@@ -341,10 +341,13 @@ export default function PlanView({
   calorieMeta: CalorieMeta;
   todayStr: string;
 }) {
-  const [plans]     = useState<StoredPlan[]>(initialPlans);
-  const [generating, setGenerating] = useState(false);
-  const [status,   setStatus]   = useState<string | null>(null);
-  const [error,    setError]    = useState<string | null>(null);
+  const [plans]           = useState<StoredPlan[]>(initialPlans);
+  const [generating,  setGenerating]  = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [status,      setStatus]      = useState<string | null>(null);
+  const [error,       setError]       = useState<string | null>(null);
+
+  const busy = generating || regenerating;
 
   // Build index structures
   const plansByDate = new Map<string, StoredPlan>(plans.map((p) => [p.planDate, p]));
@@ -361,35 +364,36 @@ export default function PlanView({
   // Find the next start date for generation (first ungenerated date in window)
   const nextStartDate = allDates.find((d) => !plansByDate.has(d)) ?? null;
 
-  // Label for the generate button
-  const btnLabel = (() => {
+  // Show regenerate button when today's 3-day window is already at least partially planned
+  const todayWindowEnd = addDays(todayStr, BATCH_SIZE - 1);
+  const hasCurrentWindow = allDates
+    .slice(0, BATCH_SIZE)
+    .some((d) => plansByDate.has(d));
+
+  // Label for the extend button
+  const extendLabel = (() => {
     if (!nextStartDate) return "All planned";
     const end = addDays(nextStartDate, BATCH_SIZE - 1);
-    const label = plans.length === 0
+    return plans.length === 0
       ? `Generate ${fmtShortDate(nextStartDate)}–${fmtShortDate(end)}`
-      : `Generate next ${BATCH_SIZE} days (${fmtShortDate(nextStartDate)}–${fmtShortDate(end)})`;
-    return label;
+      : `Generate next 3 days (${fmtShortDate(nextStartDate)}–${fmtShortDate(end)})`;
   })();
 
-  const canGenerate = !!nextStartDate && !generating;
+  const canExtend = !!nextStartDate && !busy;
 
-  async function handleGenerate() {
-    if (!nextStartDate) return;
-
-    setGenerating(true);
+  async function doGenerate(startDate: string, label: string) {
     setError(null);
-    setStatus(`Generating ${fmtShortDate(nextStartDate)}–${fmtShortDate(addDays(nextStartDate, BATCH_SIZE - 1))}…`);
+    setStatus(`Generating ${label}…`);
 
     let res: Response;
     try {
       res = await fetch("/api/fuelling-plan/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate: nextStartDate }),
+        body: JSON.stringify({ startDate }),
       });
     } catch (networkErr) {
       setError(`Network error — could not reach the server. ${networkErr instanceof Error ? networkErr.message : ""}`);
-      setGenerating(false);
       setStatus(null);
       return;
     }
@@ -397,16 +401,13 @@ export default function PlanView({
     const contentType = res.headers.get("content-type") ?? "";
     if (!contentType.includes("application/json")) {
       setError(`Server error (${res.status}). Check server logs — ANTHROPIC_API_KEY may not be set in .env.local.`);
-      setGenerating(false);
       setStatus(null);
       return;
     }
 
     const data = await res.json();
-
     if (!res.ok) {
       setError(data.error ?? `Generation failed (${res.status}).`);
-      setGenerating(false);
       setStatus(null);
       return;
     }
@@ -414,6 +415,21 @@ export default function PlanView({
     const msg = `Saved ${data.generated} day${data.generated !== 1 ? "s" : ""}${data.failed > 0 ? ` (${data.failed} failed)` : ""}.`;
     setStatus(msg);
     setTimeout(() => window.location.reload(), 800);
+  }
+
+  async function handleExtend() {
+    if (!nextStartDate || busy) return;
+    setGenerating(true);
+    const end = addDays(nextStartDate, BATCH_SIZE - 1);
+    await doGenerate(nextStartDate, `${fmtShortDate(nextStartDate)}–${fmtShortDate(end)}`);
+    setGenerating(false);
+  }
+
+  async function handleRegenerate() {
+    if (busy) return;
+    setRegenerating(true);
+    await doGenerate(todayStr, `${fmtShortDate(todayStr)}–${fmtShortDate(todayWindowEnd)}`);
+    setRegenerating(false);
   }
 
   const lastGenerated = plans.length > 0
@@ -425,40 +441,69 @@ export default function PlanView({
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-0.5 min-w-0">
-          {lastGenerated && (
-            <p className="text-zinc-600 text-xs">Last generated {lastGenerated}</p>
-          )}
-          {plans.length > 0 && (
-            <p className="text-zinc-600 text-xs">
-              {plans.length}/{WINDOW_DAYS} days planned
-            </p>
-          )}
-          {status && <p className="text-lime-400 text-xs mt-0.5">{status}</p>}
-          {error  && <p className="text-red-400 text-sm mt-0.5">{error}</p>}
+      <div className="space-y-2">
+        {/* Meta line */}
+        <div className="flex items-center justify-between min-h-[1.25rem]">
+          <div className="space-y-0.5">
+            {lastGenerated && (
+              <p className="text-zinc-600 text-xs">Last generated {lastGenerated}</p>
+            )}
+            {plans.length > 0 && (
+              <p className="text-zinc-600 text-xs">{plans.length}/{WINDOW_DAYS} days planned</p>
+            )}
+          </div>
         </div>
 
-        <button
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-colors shrink-0 whitespace-nowrap ${
-            !canGenerate
-              ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-              : generating
-              ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-              : "bg-lime-400 text-black hover:bg-lime-300 active:bg-lime-500"
-          }`}
-        >
-          {generating ? (
-            <>
-              <span className="w-3 h-3 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
-              Generating…
-            </>
-          ) : (
-            btnLabel
+        {/* Status / error */}
+        {status && <p className="text-lime-400 text-xs">{status}</p>}
+        {error  && <p className="text-red-400 text-sm">{error}</p>}
+
+        {/* Button row */}
+        <div className="flex gap-2 flex-wrap">
+          {/* Regenerate current 3 days — only shown when they exist */}
+          {hasCurrentWindow && (
+            <button
+              onClick={handleRegenerate}
+              disabled={busy}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
+                busy
+                  ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                  : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:border-zinc-500 hover:text-white active:bg-zinc-700"
+              }`}
+            >
+              {regenerating ? (
+                <>
+                  <span className="w-3 h-3 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                  Regenerating…
+                </>
+              ) : (
+                <>↺ Regenerate {fmtShortDate(todayStr)}–{fmtShortDate(todayWindowEnd)}</>
+              )}
+            </button>
           )}
-        </button>
+
+          {/* Extend / generate next batch */}
+          <button
+            onClick={handleExtend}
+            disabled={!canExtend}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
+              !canExtend
+                ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                : generating
+                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                : "bg-lime-400 text-black hover:bg-lime-300 active:bg-lime-500"
+            }`}
+          >
+            {generating ? (
+              <>
+                <span className="w-3 h-3 border-2 border-zinc-700 border-t-transparent rounded-full animate-spin" />
+                Generating…
+              </>
+            ) : (
+              extendLabel
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Empty state */}
