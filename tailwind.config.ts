@@ -6,6 +6,14 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  safelist: [
+    // Meal card left-border palette — used via index modulo, must not be purged
+    "border-l-amber-400",
+    "border-l-sky-400",
+    "border-l-violet-400",
+    "border-l-lime-400",
+    "border-l-orange-400",
+  ],
   theme: {
     extend: {
       colors: {
