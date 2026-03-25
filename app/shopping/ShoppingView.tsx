@@ -157,11 +157,9 @@ function CategorySection({
 
 // ─── main component ───────────────────────────────────────────────────────────
 
-function fmtDayLabel(date: string, index: number): string {
+function fmtDayLabel(date: string): string {
   const d = new Date(date + "T12:00:00Z");
-  const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
-  const day     = d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  return `Day ${index + 1} · ${weekday} ${day}`;
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
 }
 
 const CATEGORY_ORDER = ["Protein", "Carbs", "Fruit & Veg", "Dairy", "Fats & Oils", "Supplements", "Other"];
@@ -287,7 +285,7 @@ export default function ShoppingView({
                   : "bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700"
               }`}
             >
-              {fmtDayLabel(day.date, i)}
+              {fmtDayLabel(day.date)}
             </button>
           ))}
         </div>
