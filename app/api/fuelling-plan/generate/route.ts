@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { eq, and, gte, lte } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
@@ -18,6 +18,8 @@ import {
 
 export const maxDuration = 60; // Vercel: allow up to 60s
 
+const DAYS = 3; // generate this many days per request
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function log(tag: string, msg: string, data?: unknown) {
@@ -35,7 +37,7 @@ function logError(tag: string, msg: string, err: unknown) {
 
 // ── route handler ─────────────────────────────────────────────────────────────
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   // ── 0. Validate ANTHROPIC_API_KEY at request time (not module load) ───────
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -46,7 +48,6 @@ export async function POST() {
     );
   }
 
-  // Instantiate inside the handler so a missing key never crashes the module
   const anthropic = new Anthropic({ apiKey });
 
   // ── 1. Auth ───────────────────────────────────────────────────────────────
@@ -57,18 +58,34 @@ export async function POST() {
 
   log("auth", "User authenticated", userId);
 
-  // ── 2. Fetch all required data in parallel ────────────────────────────────
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // ── 2. Parse optional startDate from body ────────────────────────────────
+  const todayUTC = new Date();
+  todayUTC.setUTCHours(0, 0, 0, 0);
+  const todayStr = todayUTC.toISOString().split("T")[0];
 
-  const windowEnd = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
-  const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
-  const todayStr = today.toISOString().split("T")[0];
+  let startDate = todayUTC;
+
+  try {
+    const body = await req.json();
+    if (body.startDate && typeof body.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.startDate)) {
+      startDate = new Date(body.startDate + "T00:00:00.000Z");
+      log("config", `Using requested startDate: ${body.startDate}`);
+    }
+  } catch {
+    // no body or invalid JSON — use today
+  }
+
+  const startStr  = startDate.toISOString().split("T")[0];
+  const windowEnd = new Date(startDate.getTime() + DAYS * 24 * 60 * 60 * 1000);
   const windowEndStr = windowEnd.toISOString().split("T")[0];
 
-  log("fetch", `Fetching data — window: ${todayStr} → ${windowEndStr}`);
+  // Training log always looks back 7 days from today for context
+  const sevenDaysAgo = new Date(todayUTC.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
 
+  log("config", `Generating ${DAYS} days: ${startStr} → ${windowEndStr}`);
+
+  // ── 3. Fetch all required data in parallel ────────────────────────────────
   let dbResults: [
     (typeof userProfiles.$inferSelect)[],
     (typeof protocols.$inferSelect)[],
@@ -92,18 +109,20 @@ export async function POST() {
         )
         .limit(1),
 
+      // Calendar events only within the generation window
       db
         .select()
         .from(calendarEvents)
         .where(
           and(
             eq(calendarEvents.clerkUserId, userId),
-            gte(calendarEvents.scheduledAt, today),
+            gte(calendarEvents.scheduledAt, startDate),
             lte(calendarEvents.scheduledAt, windowEnd)
           )
         )
         .orderBy(calendarEvents.scheduledAt),
 
+      // Training history: last 7 days from today for context regardless of startDate
       db
         .select()
         .from(trainingLog)
@@ -134,7 +153,7 @@ export async function POST() {
     trainingEntries: trainingRows.length,
   });
 
-  // ── 3. Guard checks with specific error messages ──────────────────────────
+  // ── 4. Guard checks ───────────────────────────────────────────────────────
   const profile = profileRows[0];
   if (!profile) {
     log("guard", "No user profile found");
@@ -161,32 +180,30 @@ export async function POST() {
     );
   }
 
-  log("guard", "Guards passed — building prompt");
+  log("guard", "Guards passed");
 
   if (eventRows.length === 0) {
-    log("info", "No calendar events in window — plan will be generated as rest days");
+    log("info", `No calendar events in ${startStr}→${windowEndStr} — plan will be rest days`);
   }
 
-  // ── 4. Build prompt ───────────────────────────────────────────────────────
-  const prompt = buildPlanPrompt(profile, protocol, eventRows, trainingRows, today);
+  // ── 5. Build prompt and call Claude ──────────────────────────────────────
+  const prompt = buildPlanPrompt(profile, protocol, eventRows, trainingRows, startDate, DAYS);
 
-  log("claude", `Prompt built — length: ${prompt.length} chars`);
+  log("claude", `Prompt built — ${prompt.length} chars`);
+  log("claude", `Sending request to claude-sonnet-4-20250514 (${DAYS} days)…`);
 
-  // ── 5. Call Claude ────────────────────────────────────────────────────────
   let raw: string;
 
   try {
-    log("claude", "Sending request to claude-sonnet-4-20250514...");
-
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 8000,
+      max_tokens: 3000, // 3 days needs far fewer tokens than 14
       messages: [{ role: "user", content: prompt }],
     });
 
     log("claude", "Response received", {
-      stop_reason: message.stop_reason,
-      input_tokens: message.usage.input_tokens,
+      stop_reason:   message.stop_reason,
+      input_tokens:  message.usage.input_tokens,
       output_tokens: message.usage.output_tokens,
     });
 
@@ -198,7 +215,6 @@ export async function POST() {
   } catch (err) {
     logError("claude", "Anthropic API call failed", err);
 
-    // Surface Anthropic API errors specifically
     const anthropicErr = err as { status?: number; message?: string };
     if (anthropicErr.status === 401) {
       return NextResponse.json(
@@ -231,15 +247,15 @@ export async function POST() {
     logError("parse", "JSON parse failed — raw response (first 500 chars):", raw.slice(0, 500));
     logError("parse", "Parse error:", err);
     return NextResponse.json(
-      { error: "Failed to parse AI response. The model may have returned malformed JSON. Please try again." },
+      { error: "Failed to parse AI response. Please try again." },
       { status: 502 }
     );
   }
 
   if (!Array.isArray(parsed.plans) || parsed.plans.length === 0) {
-    logError("parse", "Parsed response missing plans array:", JSON.stringify(parsed).slice(0, 200));
+    logError("parse", "No plans array in response:", JSON.stringify(parsed).slice(0, 200));
     return NextResponse.json(
-      { error: "AI returned an unexpected plan format (no plans array). Please try again." },
+      { error: "AI returned an unexpected format. Please try again." },
       { status: 502 }
     );
   }
@@ -301,13 +317,14 @@ export async function POST() {
     }
   }
 
-  log("upsert", `Saved ${saved.length} days, failed ${failed.length} days`, {
+  log("upsert", `Saved ${saved.length}, failed ${failed.length}`, {
     failed: failed.length > 0 ? failed : undefined,
   });
 
   return NextResponse.json({
     generated: saved.length,
     failed: failed.length,
+    startDate: startStr,
     plans: saved,
   });
 }
