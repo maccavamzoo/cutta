@@ -158,6 +158,9 @@ export const fuellingPlans = pgTable(
     // Short explanation of the AI's reasoning for this day's plan
     aiReasoning: text("ai_reasoning"),
 
+    // Estimated glycogen level 0–100 (displayed as battery on dashboard)
+    glycogenBattery: integer("glycogen_battery"),
+
     generatedAt: timestamp("generated_at").defaultNow().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -434,6 +434,18 @@ export default function CalendarView({
         </div>
       )}
 
+      {/* Plan link */}
+      <Link
+        href="/plan"
+        className="flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl hover:bg-zinc-800 transition-colors border border-zinc-800"
+      >
+        <div>
+          <p className="text-white text-sm font-medium">Fuelling plan</p>
+          <p className="text-zinc-600 text-xs mt-0.5">View your 14-day plan</p>
+        </div>
+        <span className="text-lime-400 text-sm font-semibold">View →</span>
+      </Link>
+
       {/* FAB */}
       <button
         onClick={() => openAdd(today)}

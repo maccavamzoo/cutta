@@ -27,8 +27,14 @@ export default async function Home() {
         </div>
         <nav className="flex flex-col items-center gap-3">
           <Link
-            href="/calendar"
+            href="/plan"
             className="text-sm font-semibold text-lime-400 hover:text-lime-300 transition-colors"
+          >
+            Fuelling plan →
+          </Link>
+          <Link
+            href="/calendar"
+            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
           >
             Calendar →
           </Link>
