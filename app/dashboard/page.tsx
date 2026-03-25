@@ -1,17 +1,20 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { eq, and, gte, lt } from "drizzle-orm";
+import { eq, and, gte, lt, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   fuellingPlans,
   calendarEvents,
   userProfiles,
+  complianceLog,
+  feedbackLog,
 } from "@/lib/db/schema";
 import DailyDashboard, {
   type TodayPlan,
   type TodayEvent,
   type ProfileSnapshot,
 } from "./DailyDashboard";
+import type { ExistingCheckIn } from "./CheckInSheet";
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -24,7 +27,9 @@ export default async function DashboardPage() {
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
   const todayStr   = todayStart.toISOString().split("T")[0];
 
-  const [planRows, eventRows, profileRows] = await Promise.all([
+  const VALID_FEEDBACK_TYPES = ["ride_energy", "gut_comfort", "hunger"] as const;
+
+  const [planRows, eventRows, profileRows, complianceRows, feedbackRows] = await Promise.all([
     db
       .select()
       .from(fuellingPlans)
@@ -57,6 +62,28 @@ export default async function DashboardPage() {
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
       .limit(1),
+
+    db
+      .select()
+      .from(complianceLog)
+      .where(
+        and(
+          eq(complianceLog.clerkUserId, userId),
+          eq(complianceLog.logDate, todayStr)
+        )
+      )
+      .limit(1),
+
+    db
+      .select()
+      .from(feedbackLog)
+      .where(
+        and(
+          eq(feedbackLog.clerkUserId, userId),
+          eq(feedbackLog.planDate, todayStr),
+          inArray(feedbackLog.feedbackType, [...VALID_FEEDBACK_TYPES])
+        )
+      ),
   ]);
 
   const planRow = planRows[0] ?? null;
@@ -98,12 +125,23 @@ export default async function DashboardPage() {
       }
     : null;
 
+  const complianceEntry = complianceRows[0] ?? null;
+  const existingCheckIn: ExistingCheckIn | null = complianceEntry
+    ? {
+        compliance: complianceEntry.compliance as ExistingCheckIn["compliance"],
+        rideEnergy: feedbackRows.find((f) => f.feedbackType === "ride_energy")?.rating ?? null,
+        gutComfort: feedbackRows.find((f) => f.feedbackType === "gut_comfort")?.rating ?? null,
+        hunger:     feedbackRows.find((f) => f.feedbackType === "hunger")?.rating ?? null,
+      }
+    : null;
+
   return (
     <DailyDashboard
       todayStr={todayStr}
       todayPlan={todayPlan}
       todayEvents={todayEvents}
       profile={profile}
+      existingCheckIn={existingCheckIn}
     />
   );
 }

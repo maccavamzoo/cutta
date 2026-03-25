@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
 import BottomNav from "@/components/BottomNav";
+import CheckInSheet, { type ExistingCheckIn } from "./CheckInSheet";
 
 // ─── exported types (used by page.tsx) ───────────────────────────────────────
 
@@ -318,17 +319,69 @@ function NoPlan({ events }: { events: TodayEvent[] }) {
 
 // ─── main component ───────────────────────────────────────────────────────────
 
+// ─── compliance badge ────────────────────────────────────────────────────────
+
+const COMPLIANCE_BADGE: Record<string, { label: string; colour: string }> = {
+  yes:    { label: "Followed the plan",   colour: "bg-lime-400/10 text-lime-400 border-lime-400/20" },
+  mostly: { label: "Mostly followed it",  colour: "bg-amber-400/10 text-amber-400 border-amber-400/20" },
+  no:     { label: "Didn't follow it",    colour: "bg-zinc-800 text-zinc-400 border-zinc-700" },
+};
+
+function CheckInCard({
+  existing,
+  onOpen,
+}: {
+  existing: ExistingCheckIn | null;
+  onOpen:   () => void;
+}) {
+  if (existing) {
+    const badge = COMPLIANCE_BADGE[existing.compliance];
+    return (
+      <button
+        onClick={onOpen}
+        className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-left"
+      >
+        <div className="space-y-0.5">
+          <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Daily check-in</p>
+          <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${badge.colour}`}>
+            {badge.label}
+          </span>
+        </div>
+        <span className="text-zinc-600 text-xs shrink-0 ml-3">Edit →</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={onOpen}
+      className="w-full flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-dashed border-zinc-700 hover:border-zinc-500 transition-colors text-left"
+    >
+      <div>
+        <p className="text-white text-sm font-medium">Daily check-in</p>
+        <p className="text-zinc-600 text-xs mt-0.5">Did you follow the plan today?</p>
+      </div>
+      <span className="text-lime-400 text-sm font-semibold shrink-0 ml-3">Check in →</span>
+    </button>
+  );
+}
+
 export default function DailyDashboard({
   todayStr,
   todayPlan,
   todayEvents,
   profile,
+  existingCheckIn,
 }: {
-  todayStr:    string;
-  todayPlan:   TodayPlan | null;
-  todayEvents: TodayEvent[];
-  profile:     ProfileSnapshot | null;
+  todayStr:       string;
+  todayPlan:      TodayPlan | null;
+  todayEvents:    TodayEvent[];
+  profile:        ProfileSnapshot | null;
+  existingCheckIn: ExistingCheckIn | null;
 }) {
+  const [checkInOpen,    setCheckInOpen]    = useState(false);
+  const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
+
   const trainingEvent = todayEvents.find(
     (e) => e.eventType === "ride" || e.eventType === "race"
   ) ?? null;
@@ -352,6 +405,9 @@ export default function DailyDashboard({
               </p>
             )}
           </div>
+
+          {/* Check-in card — always visible */}
+          <CheckInCard existing={savedCheckIn} onOpen={() => setCheckInOpen(true)} />
 
           {todayPlan ? (
             <>
@@ -449,6 +505,19 @@ export default function DailyDashboard({
           )}
         </div>
       </main>
+
+      {checkInOpen && (
+        <CheckInSheet
+          todayStr={todayStr}
+          isTrainingDay={isTrainingDay}
+          existing={savedCheckIn}
+          onClose={() => setCheckInOpen(false)}
+          onSaved={(result) => {
+            setSavedCheckIn(result);
+            setCheckInOpen(false);
+          }}
+        />
+      )}
 
       <BottomNav active="today" />
     </>
