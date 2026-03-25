@@ -75,18 +75,21 @@ export function buildPlanPrompt(
   protocol: Protocol,
   events: CalEvent[],
   recentTraining: TrainEntry[],
-  today: Date,
+  startDate: Date,
+  days: number = 3,
 ): string {
-  const startDate = fmtDate(today);
-  const endDate   = fmtDate(new Date(today.getTime() + 13 * 24 * 60 * 60 * 1000));
+  const startStr = fmtDate(startDate);
+  const endDate  = new Date(startDate.getTime() + (days - 1) * 24 * 60 * 60 * 1000);
+  const endStr   = fmtDate(endDate);
 
-  // Build 14 dates for reference
+  // Build exact date list
   const planDates: string[] = [];
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + i);
+  for (let i = 0; i < days; i++) {
+    const d = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
     planDates.push(fmtDate(d));
   }
+
+  const today = fmtDate(new Date());
 
   const foodProfile = profile.foodProfile as {
     positive?: string[];
@@ -127,29 +130,29 @@ ${foodProfile?.gutTriggers?.length ? `- Known gut triggers: ${foodProfile.gutTri
 ${JSON.stringify(protocol.content, null, 2)}
 `.trim();
 
-  // ── Section 3: Training calendar ─────────────────────────────────────────
+  // ── Section 3: Training calendar for the window ───────────────────────────
   const eventsForWindow = events.filter((e) => {
     const d = fmtDate(new Date(e.scheduledAt));
-    return d >= startDate && d <= endDate;
+    return d >= startStr && d <= endStr;
   });
 
   const calendarSection = eventsForWindow.length > 0
-    ? `## TRAINING CALENDAR (${startDate} to ${endDate})\n${eventsForWindow.map(fmtEvent).join("\n\n")}`
-    : `## TRAINING CALENDAR (${startDate} to ${endDate})\nNo sessions logged for this period.`;
+    ? `## TRAINING CALENDAR (${startStr} to ${endStr})\n${eventsForWindow.map(fmtEvent).join("\n\n")}`
+    : `## TRAINING CALENDAR (${startStr} to ${endStr})\nNo sessions logged for this period — treat all days as rest.`;
 
   // ── Section 4: Recent training log ────────────────────────────────────────
   const recentSection = recentTraining.length > 0
     ? `## RECENT TRAINING LOG (last 7 days)\n${recentTraining.map(fmtTrainEntry).join("\n\n")}`
     : `## RECENT TRAINING LOG\nNo recent training data.`;
 
-  // ── Section 5: Plan dates reference ──────────────────────────────────────
-  const datesSection = `## PLAN DATES TO GENERATE\n${planDates.join(", ")}`;
+  // ── Section 5: Exact dates to generate ───────────────────────────────────
+  const datesSection = `## DATES TO GENERATE (${days} days)\n${planDates.join(", ")}`;
 
   // ── Output format ─────────────────────────────────────────────────────────
   const formatSection = `
 ## REQUIRED OUTPUT FORMAT
-Return ONLY a valid JSON object with no markdown, no explanation, no commentary.
-The object must have exactly one key "plans" containing an array of exactly 14 objects, one per date in order.
+Return ONLY a valid JSON object — no markdown fences, no explanation, no extra text.
+The object must have exactly one key "plans" containing an array of exactly ${days} objects, one per date in order.
 
 Each object must have these exact keys:
 {
@@ -172,9 +175,9 @@ Each object must have these exact keys:
     }
   ],
   "on_bike_fuelling": {
-    "pre": { "description": "<what to eat/drink>", "timing": "<when relative to ride>", "items": [{ "item": "<name>", "amount": "<e.g. 500ml or 2 gels>" }] },
+    "pre":     { "description": "<what to eat/drink>", "timing": "<when relative to ride>", "items": [{ "item": "<name>", "amount": "<e.g. 500ml>" }] },
     "on_bike": { "carbs_per_hour": <integer>, "items": [{ "item": "<name>", "amount": "<amount>" }] },
-    "post": { "description": "<what to eat/drink>", "timing": "<within X min>", "items": [{ "item": "<name>", "amount": "<amount>" }] }
+    "post":    { "description": "<what to eat/drink>", "timing": "<within X min>", "items": [{ "item": "<name>", "amount": "<amount>" }] }
   },
   "supplements": [
     { "name": "<supplement>", "dose": "<e.g. 2g>", "timing": "<e.g. with breakfast>" }
@@ -184,25 +187,23 @@ Each object must have these exact keys:
 Rules:
 - on_bike_fuelling must be null for rest days and days without a training/race event
 - on_bike_fuelling must be populated for every training or race day
-- meals must have 2-4 entries per day (breakfast, lunch, dinner ± pre/post ride)
-- Each meal must have 4-8 ingredients with gram weights
-- Keep ai_reasoning under 150 characters
-- Ensure calorie and macro totals are arithmetically reasonable
+- meals: 2-4 entries per day; each meal 4-8 ingredients with gram weights
+- ai_reasoning: max 150 characters
 - glycogen_battery: 20=depleted, 50=moderate, 80=well fuelled, 100=fully loaded
+- supplements: only include current supplements from the profile
 `.trim();
 
-  // ── Full prompt ───────────────────────────────────────────────────────────
-  return `You are Cutta, an AI performance fuelling system for endurance cyclists. Your job is to generate a precise, practical 14-day rolling fuelling plan tailored to this athlete.
+  return `You are Cutta, an AI performance fuelling system for endurance cyclists. Generate a precise, practical ${days}-day fuelling plan for this athlete.
 
 RECOMMENDATION HIERARCHY (resolve conflicts in this order):
-1. Health & performance guardrails: energy availability must not drop dangerously low; cap weight loss at the protocol's max_weekly_loss_kg; prevent RED-S
+1. Health & performance guardrails: energy availability must not drop dangerously low; cap weight loss at protocol max_weekly_loss_kg; prevent RED-S
 2. Training demands: session fuelling, glycogen replenishment, recovery nutrition
 3. Protocol rules: follow the active protocol JSON exactly
 4. Food tolerances: avoid known gut triggers and excluded foods
 5. Preferences: use preferred foods where possible
 6. Convenience: practical meals, realistic portions
 
-Today is ${startDate}. Generate a plan from ${startDate} to ${endDate}.
+Today is ${today}. Generate a plan for ${startStr} to ${endStr}.
 
 ${profileSection}
 
