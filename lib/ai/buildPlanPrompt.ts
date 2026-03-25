@@ -24,6 +24,7 @@ export interface DayPlanOutput {
   meals: {
     name: string;
     timing: string;
+    cooking_note: string;
     ingredients: { item: string; grams: number }[];
   }[];
   on_bike_fuelling: {
@@ -172,6 +173,7 @@ Each object must have these exact keys:
     {
       "name": "<meal name e.g. 'Pre-ride oats'>",
       "timing": "<time or relative e.g. '07:00' or '2h before ride'>",
+      "cooking_note": "<one-line prep instruction e.g. 'Pan-fry salmon 3 min each side, steam asparagus, serve over quinoa with lemon.' Max 100 chars.>",
       "ingredients": [
         { "item": "<ingredient name>", "grams": <integer> }
       ]
@@ -191,6 +193,7 @@ Rules:
 - on_bike_fuelling must be null for rest days and days without a training/race event
 - on_bike_fuelling must be populated for every training or race day
 - meals: 2-4 entries per day; each meal 4-8 ingredients with gram weights
+- cooking_note: required on every meal; one concise sentence (max 100 chars); practical prep instruction, not a recipe title
 - CRITICAL: use scheduled_time to set meal timings. A 17:00 ride needs breakfast ~07:00, lunch ~12:00, pre-ride snack ~14:00, post-ride dinner ~19:30. An 07:00 ride needs pre-ride at ~05:30, post-ride breakfast ~09:00, lunch, dinner.
 - meal "timing" field: use clock times (e.g. "07:00", "14:00") NOT vague labels like "breakfast" or "pre-ride"
 - ai_reasoning: max 150 characters

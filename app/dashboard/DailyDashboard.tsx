@@ -301,6 +301,11 @@ function MealCard({
               </li>
             ))}
           </ul>
+          {meal.cooking_note && (
+            <p className="mt-2.5 text-xs text-zinc-500 italic leading-relaxed border-t border-zinc-800/60 pt-2">
+              {meal.cooking_note}
+            </p>
+          )}
         </div>
       )}
     </div>
