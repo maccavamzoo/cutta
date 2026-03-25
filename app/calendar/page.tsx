@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { calendarEvents } from "@/lib/db/schema";
 import CalendarView from "./CalendarView";
 import type { CalendarEvent } from "./AddEventSheet";
+import BottomNav from "@/components/BottomNav";
 
 function getMondayOfWeek(date: Date): Date {
   const d = new Date(date);
@@ -45,11 +46,14 @@ export default async function CalendarPage() {
   }));
 
   return (
-    <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold tracking-tight text-white mb-6">
-        Calendar
-      </h1>
-      <CalendarView initialEvents={initialEvents} />
-    </main>
+    <>
+      <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 pb-24 max-w-lg mx-auto">
+        <h1 className="text-2xl font-bold tracking-tight text-white mb-6">
+          Calendar
+        </h1>
+        <CalendarView initialEvents={initialEvents} />
+      </main>
+      <BottomNav active="calendar" />
+    </>
   );
 }
