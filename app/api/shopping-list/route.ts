@@ -51,6 +51,14 @@ function categorise(ingredient: string): string {
   return "Other";
 }
 
+function sortItems<T extends { category: string; display: string }>(items: T[]): T[] {
+  return items.sort((a, b) => {
+    if (a.category < b.category) return -1;
+    if (a.category > b.category) return 1;
+    return a.display.localeCompare(b.display);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // POST — generate a shopping list from the next 3 days of fuelling plans
 // ---------------------------------------------------------------------------
@@ -66,7 +74,7 @@ export async function POST() {
   const startStr = todayStart.toISOString().split("T")[0];
   const endStr   = endDate.toISOString().split("T")[0];
 
-  // Fetch plans for the window
+  // Fetch plans for the window, ordered by date
   const plans = await db
     .select({ meals: fuellingPlans.meals, planDate: fuellingPlans.planDate })
     .from(fuellingPlans)
@@ -85,8 +93,13 @@ export async function POST() {
     );
   }
 
-  // Aggregate ingredients — map of normalized name → { totalGrams, category }
-  const aggregated = new Map<string, { display: string; totalGrams: number; category: string }>();
+  type RawItem = { display: string; totalGrams: number; category: string };
+
+  // Aggregated across all days
+  const aggregated = new Map<string, RawItem>();
+
+  // Per-day breakdown
+  const byDay: { date: string; items: RawItem[] }[] = [];
 
   for (const plan of plans) {
     const meals = plan.meals as {
@@ -95,29 +108,36 @@ export async function POST() {
       ingredients: { item: string; grams: number }[];
     }[];
 
+    const dayMap = new Map<string, RawItem>();
+
     for (const meal of meals ?? []) {
       for (const ing of meal.ingredients ?? []) {
         const key = ing.item.trim().toLowerCase();
-        const existing = aggregated.get(key);
-        if (existing) {
-          existing.totalGrams += ing.grams ?? 0;
-        } else {
-          aggregated.set(key, {
-            display:    ing.item.trim(),
-            totalGrams: ing.grams ?? 0,
-            category:   categorise(ing.item),
-          });
-        }
+        const grams = ing.grams ?? 0;
+
+        // Aggregate all-days
+        const agg = aggregated.get(key);
+        if (agg) { agg.totalGrams += grams; }
+        else { aggregated.set(key, { display: ing.item.trim(), totalGrams: grams, category: categorise(ing.item) }); }
+
+        // Per-day
+        const day = dayMap.get(key);
+        if (day) { day.totalGrams += grams; }
+        else { dayMap.set(key, { display: ing.item.trim(), totalGrams: grams, category: categorise(ing.item) }); }
       }
     }
+
+    byDay.push({ date: plan.planDate, items: sortItems(Array.from(dayMap.values())) });
   }
 
-  // Build items array sorted by category then name
-  const items = Array.from(aggregated.values()).sort((a, b) => {
-    if (a.category < b.category) return -1;
-    if (a.category > b.category) return 1;
-    return a.display.localeCompare(b.display);
-  });
+  // Sort byDay by date
+  byDay.sort((a, b) => a.date.localeCompare(b.date));
+
+  // The items JSONB stores both aggregated + per-day so the client can filter
+  const itemsPayload = {
+    aggregated: sortItems(Array.from(aggregated.values())),
+    byDay,
+  };
 
   // Save to shopping_lists table
   const [saved] = await db
@@ -126,7 +146,7 @@ export async function POST() {
       clerkUserId:       userId,
       generatedForStart: startStr,
       generatedForEnd:   endStr,
-      items,
+      items:             itemsPayload,
     })
     .returning();
 

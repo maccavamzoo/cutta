@@ -133,12 +133,22 @@ function MacroRow({ cal, carbs, protein, fat }: {
   );
 }
 
-function MealCard({ meal }: { meal: DayPlanOutput["meals"][number] }) {
+// Same index-based palette as DailyDashboard — must stay in sync
+const MEAL_PALETTE = [
+  { bar: "border-l-amber-400",  label: "text-amber-400"  },
+  { bar: "border-l-sky-400",    label: "text-sky-400"    },
+  { bar: "border-l-violet-400", label: "text-violet-400" },
+  { bar: "border-l-lime-400",   label: "text-lime-400"   },
+  { bar: "border-l-orange-400", label: "text-orange-400" },
+] as const;
+
+function MealCard({ meal, index }: { meal: DayPlanOutput["meals"][number]; index: number }) {
+  const accent = MEAL_PALETTE[index % MEAL_PALETTE.length];
   return (
-    <div className="bg-zinc-800/50 rounded-lg px-3 py-2.5">
+    <div className={`bg-zinc-800/50 rounded-lg px-3 py-2.5 border-l-2 ${accent.bar}`}>
       <div className="flex items-baseline justify-between gap-2 mb-1.5">
         <p className="text-white text-sm font-medium">{meal.name}</p>
-        <span className="text-zinc-600 text-xs shrink-0">{meal.timing}</span>
+        <span className={`text-xs shrink-0 ${accent.label}`}>{meal.timing}</span>
       </div>
       <ul className="space-y-0.5">
         {meal.ingredients.map((ing, i) => (
@@ -231,7 +241,7 @@ function FullDayCard({ plan, isToday }: { plan: StoredPlan; isToday: boolean }) 
           {plan.meals?.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Meals</p>
-              {plan.meals.map((meal, i) => <MealCard key={i} meal={meal} />)}
+              {plan.meals.map((meal, i) => <MealCard key={i} meal={meal} index={i} />)}
             </div>
           )}
           {plan.onBikeFuelling && <OnBikeCard fuelling={plan.onBikeFuelling} />}

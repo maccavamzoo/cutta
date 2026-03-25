@@ -43,8 +43,11 @@ function fmtDate(d: Date): string {
 }
 
 function fmtEvent(e: CalEvent): string {
+  const dt = new Date(e.scheduledAt);
+  const timeStr = dt.toISOString().substring(11, 16); // HH:MM UTC
   const parts = [
-    `  date: ${fmtDate(new Date(e.scheduledAt))}`,
+    `  date: ${fmtDate(dt)}`,
+    `  scheduled_time: ${timeStr} (use this to time meals correctly — pre-ride meal ~2-3h before, post-ride meal immediately after)`,
     `  id: ${e.id}`,
     `  title: ${e.title}`,
     `  type: ${e.eventType}`,
@@ -188,6 +191,8 @@ Rules:
 - on_bike_fuelling must be null for rest days and days without a training/race event
 - on_bike_fuelling must be populated for every training or race day
 - meals: 2-4 entries per day; each meal 4-8 ingredients with gram weights
+- CRITICAL: use scheduled_time to set meal timings. A 17:00 ride needs breakfast ~07:00, lunch ~12:00, pre-ride snack ~14:00, post-ride dinner ~19:30. An 07:00 ride needs pre-ride at ~05:30, post-ride breakfast ~09:00, lunch, dinner.
+- meal "timing" field: use clock times (e.g. "07:00", "14:00") NOT vague labels like "breakfast" or "pre-ride"
 - ai_reasoning: max 150 characters
 - glycogen_battery: 20=depleted, 50=moderate, 80=well fuelled, 100=fully loaded
 - supplements: only include current supplements from the profile
