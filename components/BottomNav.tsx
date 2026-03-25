@@ -4,6 +4,7 @@ const NAV_ITEMS = [
   { key: "today",    href: "/dashboard",       label: "Today",    icon: "◉" },
   { key: "calendar", href: "/calendar",        label: "Calendar", icon: "▦" },
   { key: "plan",     href: "/plan",            label: "Plan",     icon: "≡" },
+  { key: "notes",    href: "/audio",           label: "Notes",    icon: "◎" },
   { key: "log",      href: "/training/upload", label: "Log",      icon: "↑" },
 ] as const;
 
