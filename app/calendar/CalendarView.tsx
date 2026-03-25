@@ -449,7 +449,7 @@ export default function CalendarView({
       {/* FAB */}
       <button
         onClick={() => openAdd(today)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-lime-400 text-black rounded-full text-2xl font-bold shadow-xl hover:bg-lime-300 active:bg-lime-500 transition-colors flex items-center justify-center z-30"
+        className="fixed bottom-20 right-6 w-14 h-14 bg-lime-400 text-black rounded-full text-2xl font-bold shadow-xl hover:bg-lime-300 active:bg-lime-500 transition-colors flex items-center justify-center z-50"
         aria-label="Add session"
       >
         +

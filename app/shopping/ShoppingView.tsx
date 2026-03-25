@@ -10,12 +10,28 @@ export interface ShoppingItem {
   category:   string;
 }
 
+interface DayItems {
+  date:  string;
+  items: ShoppingItem[];
+}
+
+// items JSONB can be either the new { aggregated, byDay } shape
+// or the legacy flat array (from rows generated before this change)
+type ItemsPayload =
+  | { aggregated: ShoppingItem[]; byDay: DayItems[] }
+  | ShoppingItem[];
+
 export interface ShoppingList {
   id:                number;
   generatedForStart: string;
   generatedForEnd:   string;
   generatedAt:       string;
-  items:             ShoppingItem[];
+  items:             ItemsPayload;
+}
+
+function resolveItems(items: ItemsPayload): { all: ShoppingItem[]; byDay: DayItems[] } {
+  if (Array.isArray(items)) return { all: items, byDay: [] };
+  return { all: items.aggregated, byDay: items.byDay };
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -141,20 +157,39 @@ function CategorySection({
 
 // ─── main component ───────────────────────────────────────────────────────────
 
+function fmtDayLabel(date: string, index: number): string {
+  const d = new Date(date + "T12:00:00Z");
+  const weekday = d.toLocaleDateString("en-GB", { weekday: "short" });
+  const day     = d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return `Day ${index + 1} · ${weekday} ${day}`;
+}
+
+const CATEGORY_ORDER = ["Protein", "Carbs", "Fruit & Veg", "Dairy", "Fats & Oils", "Supplements", "Other"];
+
+function groupByCategory(items: ShoppingItem[]): Record<string, ShoppingItem[]> {
+  return items.reduce<Record<string, ShoppingItem[]>>((acc, item) => {
+    (acc[item.category] ??= []).push(item);
+    return acc;
+  }, {});
+}
+
 export default function ShoppingView({
   initialList,
 }: {
   initialList: ShoppingList | null;
 }) {
-  const [list,       setList]       = useState<ShoppingList | null>(initialList);
-  const [ticked,     setTicked]     = useState<Set<string>>(new Set());
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const [list,      setList]     = useState<ShoppingList | null>(initialList);
+  const [ticked,    setTicked]   = useState<Set<string>>(new Set());
+  const [loading,   setLoading]  = useState(false);
+  const [error,     setError]    = useState<string | null>(null);
+  // null = show all; index = show that day's items
+  const [dayFilter, setDayFilter] = useState<number | null>(null);
 
   const generate = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setTicked(new Set()); // reset ticks on regenerate
+    setTicked(new Set());
+    setDayFilter(null);
 
     try {
       const res = await fetch("/api/shopping-list", { method: "POST" });
@@ -182,21 +217,20 @@ export default function ShoppingView({
     });
   }, []);
 
-  // Group items by category
-  const grouped = list
-    ? list.items.reduce<Record<string, ShoppingItem[]>>((acc, item) => {
-        (acc[item.category] ??= []).push(item);
-        return acc;
-      }, {})
-    : {};
+  const { all: allItems, byDay } = list ? resolveItems(list.items) : { all: [], byDay: [] };
 
-  const categories = Object.keys(grouped).sort((a, b) => {
-    const order = ["Protein", "Carbs", "Fruit & Veg", "Dairy", "Fats & Oils", "Supplements", "Other"];
-    return (order.indexOf(a) ?? 99) - (order.indexOf(b) ?? 99);
-  });
+  // Active items based on filter
+  const activeItems = dayFilter !== null && byDay[dayFilter]
+    ? byDay[dayFilter].items
+    : allItems;
 
-  const totalItems  = list?.items.length ?? 0;
-  const tickedCount = [...(list?.items ?? [])].filter((it) => ticked.has(it.display.toLowerCase())).length;
+  const grouped    = groupByCategory(activeItems);
+  const categories = Object.keys(grouped).sort((a, b) =>
+    (CATEGORY_ORDER.indexOf(a) ?? 99) - (CATEGORY_ORDER.indexOf(b) ?? 99)
+  );
+
+  const totalItems  = activeItems.length;
+  const tickedCount = activeItems.filter((it) => ticked.has(it.display.toLowerCase())).length;
 
   return (
     <div className="space-y-5">
@@ -229,6 +263,35 @@ export default function ShoppingView({
           </div>
         )}
       </div>
+
+      {/* Day filter toggle — only shown when per-day data is available */}
+      {byDay.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+          <button
+            onClick={() => setDayFilter(null)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              dayFilter === null
+                ? "bg-lime-400 text-black"
+                : "bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700"
+            }`}
+          >
+            All {byDay.length} days
+          </button>
+          {byDay.map((day, i) => (
+            <button
+              key={day.date}
+              onClick={() => setDayFilter(dayFilter === i ? null : i)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
+                dayFilter === i
+                  ? "bg-lime-400 text-black"
+                  : "bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700"
+              }`}
+            >
+              {fmtDayLabel(day.date, i)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Progress bar */}
       {totalItems > 0 && (

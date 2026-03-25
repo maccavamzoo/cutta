@@ -86,17 +86,34 @@ function batteryLabel(v: number): string {
 }
 
 function GlyBattery({ value }: { value: number }) {
+  const [showInfo, setShowInfo] = useState(false);
   const colours = batteryColour(value);
   const filled  = Math.round((value / 100) * BATTERY_SEGMENTS);
 
   return (
     <div className={`rounded-2xl border px-5 py-4 ${colours.label}`}>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-white text-sm font-semibold">Glycogen battery</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-white text-sm font-semibold">Approx. glycogen battery</p>
+          <button
+            onClick={() => setShowInfo((x) => !x)}
+            className="text-zinc-600 hover:text-zinc-400 transition-colors leading-none text-sm"
+            aria-label="About glycogen battery"
+          >
+            ⓘ
+          </button>
+        </div>
         <span className={`text-2xl font-bold tabular-nums ${colours.text}`}>
           {value}%
         </span>
       </div>
+
+      {showInfo && (
+        <p className="text-zinc-500 text-xs leading-relaxed mb-3 border-b border-white/5 pb-3">
+          Estimated by the AI from your training load, plan carb content, and session intensity.
+          It&apos;s an approximation — not a precise measurement. Use it as a relative guide, not an exact figure.
+        </p>
+      )}
 
       {/* Segmented bar */}
       <div className="flex gap-1.5 mb-2">
