@@ -239,37 +239,30 @@ function SessionHero({
 
 // ─── meal card ────────────────────────────────────────────────────────────────
 
-type MealSlot = "breakfast" | "lunch" | "dinner" | "snack" | "other";
-
-const MEAL_ACCENT: Record<MealSlot, { border: string; label: string; divider: string }> = {
-  breakfast: { border: "border-l-4 border-l-amber-400",  label: "text-amber-400",  divider: "border-amber-400/10" },
-  lunch:     { border: "border-l-4 border-l-sky-400",    label: "text-sky-400",    divider: "border-sky-400/10"   },
-  dinner:    { border: "border-l-4 border-l-violet-400", label: "text-violet-400", divider: "border-violet-400/10" },
-  snack:     { border: "border-l-4 border-l-lime-400",   label: "text-lime-400",   divider: "border-lime-400/10"  },
-  other:     { border: "border-l-4 border-l-zinc-700",   label: "text-zinc-500",   divider: "border-zinc-800"     },
-};
-
-function mealSlot(name: string, timing: string): MealSlot {
-  const s = (name + " " + timing).toLowerCase();
-  if (/breakfast|morning|wake|porridge|oat|06:|07:|08:/.test(s))             return "breakfast";
-  if (/lunch|midday|noon|12:|13:/.test(s))                                    return "lunch";
-  if (/dinner|evening|supper|17:|18:|19:|20:/.test(s))                        return "dinner";
-  if (/snack|pre.?ride|post.?ride|recovery|between|gel|bar|11:|15:|16:/.test(s)) return "snack";
-  return "other";
-}
+// Fixed palette — index-based, guaranteed distinct colours for each meal slot.
+// Static strings so Tailwind never purges them.
+const MEAL_PALETTE = [
+  { dot: "bg-amber-400",  bar: "border-l-amber-400",  label: "text-amber-400",  divider: "border-amber-400/20" },
+  { dot: "bg-sky-400",    bar: "border-l-sky-400",    label: "text-sky-400",    divider: "border-sky-400/20"   },
+  { dot: "bg-violet-400", bar: "border-l-violet-400", label: "text-violet-400", divider: "border-violet-400/20" },
+  { dot: "bg-lime-400",   bar: "border-l-lime-400",   label: "text-lime-400",   divider: "border-lime-400/20"  },
+  { dot: "bg-orange-400", bar: "border-l-orange-400", label: "text-orange-400", divider: "border-orange-400/20" },
+] as const;
 
 function MealCard({
   meal,
+  index,
   defaultOpen,
 }: {
-  meal: TodayPlan["meals"][number];
+  meal:        TodayPlan["meals"][number];
+  index:       number;
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const accent = MEAL_ACCENT[mealSlot(meal.name, meal.timing)];
+  const accent = MEAL_PALETTE[index % MEAL_PALETTE.length];
 
   return (
-    <div className={`bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden ${accent.border}`}>
+    <div className={`bg-zinc-900 rounded-xl border-zinc-800 border border-l-4 overflow-hidden ${accent.bar}`}>
       <button
         onClick={() => setOpen((x) => !x)}
         className="w-full flex items-center justify-between px-4 py-3 text-left"
@@ -495,7 +488,7 @@ export default function DailyDashboard({
                     Meals
                   </p>
                   {todayPlan.meals.map((meal, i) => (
-                    <MealCard key={i} meal={meal} defaultOpen={i === 0} />
+                    <MealCard key={i} meal={meal} index={i} defaultOpen={i === 0} />
                   ))}
                 </div>
               )}
