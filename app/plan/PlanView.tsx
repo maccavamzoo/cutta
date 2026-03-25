@@ -158,6 +158,11 @@ function MealCard({ meal, index }: { meal: DayPlanOutput["meals"][number]; index
           </li>
         ))}
       </ul>
+      {meal.cooking_note && (
+        <p className="mt-2 text-xs text-zinc-600 italic leading-relaxed border-t border-zinc-700/40 pt-1.5">
+          {meal.cooking_note}
+        </p>
+      )}
     </div>
   );
 }
