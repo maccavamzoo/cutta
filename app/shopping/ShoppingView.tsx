@@ -87,7 +87,9 @@ function CategorySection({
             <button
               key={key}
               onClick={() => onToggle(key)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-white/5"
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all active:bg-white/5 ${
+                bought ? "opacity-50" : ""
+              }`}
             >
               {/* Checkbox */}
               <span
@@ -113,7 +115,9 @@ function CategorySection({
               {/* Label */}
               <span
                 className={`flex-1 text-sm transition-colors ${
-                  bought ? "text-zinc-600 line-through" : "text-zinc-200"
+                  bought
+                    ? "text-zinc-500 line-through decoration-zinc-500 decoration-2"
+                    : "text-zinc-200"
                 }`}
               >
                 {item.display}

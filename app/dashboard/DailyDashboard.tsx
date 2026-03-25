@@ -239,6 +239,25 @@ function SessionHero({
 
 // ─── meal card ────────────────────────────────────────────────────────────────
 
+type MealSlot = "breakfast" | "lunch" | "dinner" | "snack" | "other";
+
+const MEAL_ACCENT: Record<MealSlot, { border: string; label: string; divider: string }> = {
+  breakfast: { border: "border-l-4 border-l-amber-400",  label: "text-amber-400",  divider: "border-amber-400/10" },
+  lunch:     { border: "border-l-4 border-l-sky-400",    label: "text-sky-400",    divider: "border-sky-400/10"   },
+  dinner:    { border: "border-l-4 border-l-violet-400", label: "text-violet-400", divider: "border-violet-400/10" },
+  snack:     { border: "border-l-4 border-l-lime-400",   label: "text-lime-400",   divider: "border-lime-400/10"  },
+  other:     { border: "border-l-4 border-l-zinc-700",   label: "text-zinc-500",   divider: "border-zinc-800"     },
+};
+
+function mealSlot(name: string, timing: string): MealSlot {
+  const s = (name + " " + timing).toLowerCase();
+  if (/breakfast|morning|wake|porridge|oat|06:|07:|08:/.test(s))             return "breakfast";
+  if (/lunch|midday|noon|12:|13:/.test(s))                                    return "lunch";
+  if (/dinner|evening|supper|17:|18:|19:|20:/.test(s))                        return "dinner";
+  if (/snack|pre.?ride|post.?ride|recovery|between|gel|bar|11:|15:|16:/.test(s)) return "snack";
+  return "other";
+}
+
 function MealCard({
   meal,
   defaultOpen,
@@ -247,22 +266,23 @@ function MealCard({
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const accent = MEAL_ACCENT[mealSlot(meal.name, meal.timing)];
 
   return (
-    <div className="bg-zinc-900 rounded-xl border border-zinc-800">
+    <div className={`bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden ${accent.border}`}>
       <button
         onClick={() => setOpen((x) => !x)}
         className="w-full flex items-center justify-between px-4 py-3 text-left"
       >
         <div>
           <p className="text-white text-sm font-medium">{meal.name}</p>
-          <p className="text-zinc-600 text-xs mt-0.5">{meal.timing}</p>
+          <p className={`text-xs mt-0.5 ${accent.label}`}>{meal.timing}</p>
         </div>
         <span className="text-zinc-700 text-sm shrink-0 ml-2">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
-        <div className="px-4 pb-3 border-t border-zinc-800 pt-2.5">
+        <div className={`px-4 pb-3 border-t pt-2.5 ${accent.divider}`}>
           <ul className="space-y-1.5">
             {meal.ingredients.map((ing, i) => (
               <li key={i} className="flex items-baseline justify-between">
