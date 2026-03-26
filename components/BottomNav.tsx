@@ -7,7 +7,6 @@ import PlanStatusBar from "./PlanStatusBar";
 
 const NAV_ITEMS = [
   { key: "today",    href: "/dashboard", label: "Today",    icon: "◉" },
-  { key: "calendar", href: "/calendar",  label: "Calendar", icon: "▦" },
   { key: "plan",     href: "/plan",      label: "Plan",     icon: "≡" },
   { key: "progress", href: "/progress",  label: "Progress", icon: "↗" },
 ] as const;
@@ -20,7 +19,7 @@ const MORE_ITEMS = [
   { label: "Settings",      href: "/settings",         icon: "⚙" },
 ];
 
-type NavKey = (typeof NAV_ITEMS)[number]["key"] | "more";
+type NavKey = (typeof NAV_ITEMS)[number]["key"] | "more" | "calendar";
 
 export default function BottomNav({ active }: { active: NavKey }) {
   const [moreOpen, setMoreOpen] = useState(false);

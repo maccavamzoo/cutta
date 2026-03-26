@@ -1,28 +1,16 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { eq, and, gte, lte, lt, gt } from "drizzle-orm";
+import { eq, and, gte, lte, lt, gt, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   fuellingPlans,
   calendarEvents,
   userProfiles,
   protocols,
+  weightLog,
 } from "@/lib/db/schema";
 import PlanView, { type StoredPlan, type PlanCalendarEvent, type CalorieMeta } from "./PlanView";
 import BottomNav from "@/components/BottomNav";
-
-function roughCalories(
-  isTraining: boolean,
-  maintenance: number | null,
-  protocolContent: unknown,
-): number | null {
-  if (!maintenance) return null;
-  const c = protocolContent as Record<string, Record<string, unknown>> | null;
-  const rule = isTraining ? c?.training_day?.calories : c?.rest_day?.calories;
-  if (typeof rule === "number") return rule;
-  if (!isTraining) return maintenance - 350;
-  return maintenance;
-}
 
 export default async function PlanPage() {
   const { userId } = await auth();
@@ -32,12 +20,13 @@ export default async function PlanPage() {
   today.setUTCHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
 
-  // 3-day window: today, +1, +2
+  // 3-day window for meal plans: today, +1, +2
   const day2    = new Date(today.getTime() + 2 * 86_400_000);
   const day2Str = day2.toISOString().split("T")[0];
-  const day3    = new Date(today.getTime() + 3 * 86_400_000);
+  // 10-day window for calendar events: today through today+9
+  const day10 = new Date(today.getTime() + 10 * 86_400_000);
 
-  // ── Clean up stale rows: past days and anything beyond day+2 ─────────────
+  // ── Clean up stale plan rows ───────────────────────────────────────────────
   await Promise.all([
     db.delete(fuellingPlans).where(
       and(eq(fuellingPlans.clerkUserId, userId), lt(fuellingPlans.planDate, todayStr))
@@ -47,8 +36,8 @@ export default async function PlanPage() {
     ),
   ]);
 
-  // ── Fetch plan data ───────────────────────────────────────────────────────
-  const [planRows, eventRows, profileRows, protocolRows] = await Promise.all([
+  // ── Fetch all data ─────────────────────────────────────────────────────────
+  const [planRows, eventRows, profileRows, protocolRows, latestWeightRows] = await Promise.all([
     db
       .select()
       .from(fuellingPlans)
@@ -68,13 +57,17 @@ export default async function PlanPage() {
         and(
           eq(calendarEvents.clerkUserId, userId),
           gte(calendarEvents.scheduledAt, today),
-          lte(calendarEvents.scheduledAt, day3)
+          lte(calendarEvents.scheduledAt, day10)
         )
       )
       .orderBy(calendarEvents.scheduledAt),
 
     db
-      .select({ estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories })
+      .select({
+        estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
+        currentWeightKg:              userProfiles.currentWeightKg,
+        unitSystem:                   userProfiles.unitSystem,
+      })
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
       .limit(1),
@@ -84,12 +77,46 @@ export default async function PlanPage() {
       .from(protocols)
       .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
       .limit(1),
+
+    db
+      .select({ weightKg: weightLog.weightKg })
+      .from(weightLog)
+      .where(eq(weightLog.clerkUserId, userId))
+      .orderBy(desc(weightLog.weighedAt))
+      .limit(1),
   ]);
 
   const maintenance     = profileRows[0]?.estimatedMaintenanceCalories
     ? Number(profileRows[0].estimatedMaintenanceCalories)
     : null;
-  const protocolContent = protocolRows[0]?.content ?? null;
+  const protocolContent = protocolRows[0]?.content as Record<string, Record<string, unknown>> | null;
+  const unitSystem      = (profileRows[0]?.unitSystem ?? "metric") as "metric" | "imperial";
+
+  // Rest-day calorie estimate from protocol
+  const restDayCals = typeof protocolContent?.rest_day?.calories === "number"
+    ? protocolContent.rest_day.calories
+    : maintenance ? maintenance - 350 : null;
+
+  // Daily weight-loss projection (kg/day based on calorie deficit)
+  const dailyWeightLossKg = maintenance && restDayCals
+    ? Math.max(0, (maintenance - restDayCals) / 7700)
+    : null;
+
+  const currentWeightKg = latestWeightRows[0]?.weightKg
+    ? Number(latestWeightRows[0].weightKg)
+    : profileRows[0]?.currentWeightKg
+    ? Number(profileRows[0].currentWeightKg)
+    : null;
+
+  function roughCalories(isTraining: boolean): number | null {
+    if (!maintenance) return null;
+    const rule = isTraining
+      ? protocolContent?.training_day?.calories
+      : protocolContent?.rest_day?.calories;
+    if (typeof rule === "number") return rule;
+    if (!isTraining) return maintenance - 350;
+    return maintenance;
+  }
 
   const initialPlans: StoredPlan[] = planRows.map((r) => ({
     id:              r.id,
@@ -112,30 +139,31 @@ export default async function PlanPage() {
     title:           e.title,
     eventType:       e.eventType,
     scheduledDate:   e.scheduledAt.toISOString().split("T")[0],
+    scheduledAt:     e.scheduledAt.toISOString(),
     durationMinutes: e.durationMinutes,
     intensity:       e.intensity,
-    roughCalories:   roughCalories(
-      e.eventType === "ride" || e.eventType === "race",
-      maintenance,
-      protocolContent,
-    ),
+    notes:           e.notes,
+    roughCalories:   roughCalories(e.eventType === "ride" || e.eventType === "race"),
   }));
 
   const calorieMeta: CalorieMeta = {
     maintenance,
-    restDayCalories:     roughCalories(false, maintenance, protocolContent),
-    trainingDayCalories: roughCalories(true,  maintenance, protocolContent),
+    restDayCalories:     roughCalories(false),
+    trainingDayCalories: roughCalories(true),
   };
 
   return (
     <>
       <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 pb-32 max-w-lg mx-auto">
-        <h1 className="text-xl font-bold tracking-tight text-white mb-5">Fuelling plan</h1>
+        <h1 className="text-xl font-bold tracking-tight text-white mb-5">Plan</h1>
         <PlanView
           initialPlans={initialPlans}
           calendarEvents={planCalendarEvents}
           calorieMeta={calorieMeta}
           todayStr={todayStr}
+          currentWeightKg={currentWeightKg}
+          dailyWeightLossKg={dailyWeightLossKg}
+          unitSystem={unitSystem}
         />
       </main>
       <BottomNav active="plan" />

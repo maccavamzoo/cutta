@@ -24,92 +24,77 @@ function toDatetimeLocal(d: Date): string {
 }
 
 const EVENT_TYPES = [
-  { value: "ride", label: "Ride" },
-  { value: "race", label: "Race" },
-  { value: "rest", label: "Rest" },
+  { value: "ride",  label: "Ride"  },
+  { value: "race",  label: "Race"  },
+  { value: "rest",  label: "Rest"  },
   { value: "other", label: "Other" },
 ];
 
 const INTENSITIES = [
-  { value: "easy", label: "Easy" },
-  { value: "moderate", label: "Mod" },
-  { value: "hard", label: "Hard" },
-  { value: "race", label: "Race" },
+  { value: "easy",     label: "Easy" },
+  { value: "moderate", label: "Mod"  },
+  { value: "hard",     label: "Hard" },
+  { value: "race",     label: "Race" },
 ];
 
 export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) {
-  const [title, setTitle] = useState("");
+  const [title,     setTitle]     = useState("");
   const [eventType, setEventType] = useState("ride");
-  const [datetime, setDatetime] = useState(toDatetimeLocal(defaultDate));
-  const [duration, setDuration] = useState("");
+  const [datetime,  setDatetime]  = useState(toDatetimeLocal(defaultDate));
+  const [duration,  setDuration]  = useState("");
   const [intensity, setIntensity] = useState("moderate");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [notes,     setNotes]     = useState("");
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) {
-      setError("Title is required.");
-      return;
-    }
+    if (!title.trim()) { setError("Title is required."); return; }
 
     setSaving(true);
     setError(null);
 
     const res = await fetch("/api/calendar", {
-      method: "POST",
+      method:  "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: title.trim(),
+        title:           title.trim(),
         eventType,
-        scheduledAt: new Date(datetime).toISOString(),
+        scheduledAt:     new Date(datetime).toISOString(),
         durationMinutes: duration ? parseInt(duration, 10) : undefined,
-        intensity: eventType !== "rest" ? intensity : undefined,
-        notes: notes.trim() || undefined,
+        intensity:       eventType !== "rest" ? intensity : undefined,
+        notes:           notes.trim() || undefined,
       }),
     });
 
     const data = await res.json();
-
     if (!res.ok) {
       setError(data.error ?? "Failed to save. Try again.");
       setSaving(false);
       return;
     }
 
-    // Normalize timestamps to ISO strings
     onAdded({
       ...data.event,
-      scheduledAt:
-        typeof data.event.scheduledAt === "string"
-          ? data.event.scheduledAt
-          : new Date(data.event.scheduledAt).toISOString(),
+      scheduledAt: typeof data.event.scheduledAt === "string"
+        ? data.event.scheduledAt
+        : new Date(data.event.scheduledAt).toISOString(),
     });
   }
 
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 bg-black/70 z-40" onClick={onClose} />
-
-      {/* Sheet */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900 rounded-t-2xl px-4 pt-3 pb-10 max-w-lg mx-auto">
-        {/* Handle */}
         <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
-
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-semibold">Add session</h2>
-          <button
-            onClick={onClose}
-            className="text-zinc-500 hover:text-white text-sm transition-colors"
-          >
+          <button onClick={onClose} className="text-zinc-500 hover:text-white text-sm transition-colors">
             Cancel
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Title */}
           <input
             type="text"
             value={title}
@@ -119,19 +104,13 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
             className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
           />
 
-          {/* Event type */}
           <div>
             <p className="text-xs text-zinc-500 mb-2">Type</p>
             <div className="grid grid-cols-4 gap-2">
               {EVENT_TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setEventType(t.value)}
+                <button key={t.value} type="button" onClick={() => setEventType(t.value)}
                   className={`py-2 rounded-lg text-sm font-medium transition-colors ${
-                    eventType === t.value
-                      ? "bg-lime-400 text-black"
-                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                    eventType === t.value ? "bg-lime-400 text-black" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
                   }`}
                 >
                   {t.label}
@@ -140,9 +119,8 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
             </div>
           </div>
 
-          {/* Date & time */}
           <div>
-            <p className="text-xs text-zinc-500 mb-2">Date & time</p>
+            <p className="text-xs text-zinc-500 mb-2">Date &amp; time</p>
             <input
               type="datetime-local"
               value={datetime}
@@ -151,7 +129,6 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
             />
           </div>
 
-          {/* Duration */}
           <div>
             <p className="text-xs text-zinc-500 mb-2">Duration (minutes)</p>
             <input
@@ -165,20 +142,14 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
             />
           </div>
 
-          {/* Intensity — hidden for rest days */}
           {eventType !== "rest" && (
             <div>
               <p className="text-xs text-zinc-500 mb-2">Intensity</p>
               <div className="grid grid-cols-4 gap-2">
                 {INTENSITIES.map((i) => (
-                  <button
-                    key={i.value}
-                    type="button"
-                    onClick={() => setIntensity(i.value)}
+                  <button key={i.value} type="button" onClick={() => setIntensity(i.value)}
                     className={`py-2 rounded-lg text-sm font-medium transition-colors ${
-                      intensity === i.value
-                        ? "bg-lime-400 text-black"
-                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                      intensity === i.value ? "bg-lime-400 text-black" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
                     }`}
                   >
                     {i.label}
@@ -188,7 +159,6 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
             </div>
           )}
 
-          {/* Notes */}
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -204,7 +174,7 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
             disabled={saving}
             className="w-full py-3 bg-lime-400 text-black font-semibold rounded-xl text-sm disabled:opacity-50 hover:bg-lime-300 transition-colors"
           >
-            {saving ? "Saving..." : "Save session"}
+            {saving ? "Saving…" : "Save session"}
           </button>
         </form>
       </div>

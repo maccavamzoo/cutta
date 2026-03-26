@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
+import AddEventSheet, { type CalendarEvent } from "./AddEventSheet";
+import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 
-// ─── exported types (consumed by page.tsx) ───────────────────────────────────
+// ─── exported types ───────────────────────────────────────────────────────────
 
 export interface StoredPlan {
   id: number;
@@ -26,8 +28,10 @@ export interface PlanCalendarEvent {
   title: string;
   eventType: string;
   scheduledDate: string; // YYYY-MM-DD
+  scheduledAt: string;   // ISO
   durationMinutes: number | null;
   intensity: string | null;
+  notes: string | null;
   roughCalories: number | null;
 }
 
@@ -37,7 +41,7 @@ export interface CalorieMeta {
   trainingDayCalories: number | null;
 }
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function addDays(dateStr: string, n: number): string {
   const d = new Date(dateStr + "T00:00:00.000Z");
@@ -73,16 +77,11 @@ function batteryLabel(v: number): string {
   return "Depleted";
 }
 
-const TYPE_BORDER: Record<string, string> = {
-  training: "border-lime-400/30",
-  race:     "border-orange-400/30",
-  rest:     "border-zinc-700",
-};
-
 const TYPE_BADGE: Record<string, string> = {
   training: "bg-lime-400/10 text-lime-400 border border-lime-400/30",
   race:     "bg-orange-400/10 text-orange-400 border border-orange-400/30",
   rest:     "bg-zinc-800 text-zinc-500 border border-zinc-700",
+  other:    "bg-zinc-800 text-zinc-500 border border-zinc-700",
 };
 
 const INTENSITY_LABEL: Record<string, string> = {
@@ -90,6 +89,13 @@ const INTENSITY_LABEL: Record<string, string> = {
   moderate: "Moderate",
   hard:     "Hard",
   race:     "Race pace",
+};
+
+const EVENT_TYPE_BADGE: Record<string, string> = {
+  ride:  "bg-lime-400/10 text-lime-400 border border-lime-400/30",
+  race:  "bg-orange-400/10 text-orange-400 border border-orange-400/30",
+  rest:  "bg-zinc-800 text-zinc-500 border border-zinc-700",
+  other: "bg-zinc-800 text-zinc-500 border border-zinc-700",
 };
 
 // ─── sub-components ───────────────────────────────────────────────────────────
@@ -199,108 +205,226 @@ function OnBikeCard({ fuelling }: { fuelling: NonNullable<DayPlanOutput["on_bike
   );
 }
 
-function FullDayCard({ plan, isToday }: { plan: StoredPlan; isToday: boolean }) {
-  const battery = plan.glycogenBattery ?? 50;
-  const dayType = plan.onBikeFuelling ? "training" : "rest";
-  const [expanded, setExpanded] = useState(isToday);
+// ─── DayCard ──────────────────────────────────────────────────────────────────
+
+interface DayCardProps {
+  dateStr:          string;
+  isToday:          boolean;
+  dayIndex:         number; // 0-9
+  plan:             StoredPlan | null;
+  events:           PlanCalendarEvent[];
+  calorieMeta:      CalorieMeta;
+  projectedWeight:  number | null;
+  unitSystem:       UnitSystem;
+  onEventAdded:     (event: CalendarEvent) => void;
+}
+
+function DayCard({
+  dateStr,
+  isToday,
+  dayIndex,
+  plan,
+  events,
+  calorieMeta,
+  projectedWeight,
+  unitSystem,
+  onEventAdded,
+}: DayCardProps) {
+  const [expanded,    setExpanded]    = useState(isToday);
+  const [sheetOpen,   setSheetOpen]   = useState(false);
+
+  const hasPlan      = plan !== null;
+  const hasEvents    = events.length > 0;
+  const isInPlanZone = dayIndex < 3; // first 3 days have AI meal plans
+  const battery      = plan?.glycogenBattery ?? null;
+
+  // Determine day type for border/badge
+  const isTrainingDay = events.some((e) => e.eventType === "ride" || e.eventType === "race");
+  const isRaceDay     = events.some((e) => e.eventType === "race");
+  const dayType       = isRaceDay ? "race" : isTrainingDay ? "training" : "rest";
+
+  const roughCals = isTrainingDay
+    ? calorieMeta.trainingDayCalories
+    : calorieMeta.restDayCalories;
+
+  const wLabel = weightLabel(unitSystem);
+  const projW  = projectedWeight != null
+    ? kgToDisplay(projectedWeight, unitSystem)
+    : null;
+
+  const borderClass = isToday
+    ? "border-lime-400/30"
+    : isRaceDay
+    ? "border-orange-400/20"
+    : isTrainingDay
+    ? "border-lime-400/20"
+    : "border-zinc-800";
+
+  const bgClass = isToday ? "bg-zinc-900" : "bg-zinc-900/50";
+
+  function handleEventAdded(event: CalendarEvent) {
+    setSheetOpen(false);
+    onEventAdded(event);
+  }
 
   return (
-    <div className={`rounded-xl border transition-colors ${
-      isToday ? "border-lime-400/30 bg-zinc-900" : "border-zinc-800 bg-zinc-900/50"
-    }`}>
-      <button className="w-full px-4 py-3 text-left" onClick={() => setExpanded((x) => !x)}>
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-sm font-bold ${isToday ? "text-lime-400" : "text-white"}`}>
-              {fmtDay(plan.planDate)}
-              {isToday && <span className="ml-1.5 text-xs font-normal text-lime-600">Today</span>}
-            </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${TYPE_BADGE[dayType]}`}>
-              {dayType}
-            </span>
-          </div>
-          <span className="text-zinc-700 text-sm shrink-0">{expanded ? "▲" : "▼"}</span>
-        </div>
-        <GlyBattery value={battery} />
-        {plan.aiReasoning && (
-          <p className="text-zinc-500 text-xs italic mt-2 leading-relaxed">{plan.aiReasoning}</p>
-        )}
-        <div className="mt-2">
-          <MacroRow cal={plan.totalCalories} carbs={plan.totalCarbsG} protein={plan.totalProteinG} fat={plan.totalFatG} />
-        </div>
-      </button>
+    <>
+      <div className={`rounded-xl border transition-colors ${borderClass} ${bgClass}`}>
+        {/* Collapsed header — always visible */}
+        <button
+          className="w-full px-4 py-3 text-left"
+          onClick={() => setExpanded((x) => !x)}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              {/* Date */}
+              <span className={`text-sm font-bold shrink-0 ${isToday ? "text-lime-400" : "text-white"}`}>
+                {fmtDay(dateStr)}
+                {isToday && <span className="ml-1.5 text-xs font-normal text-lime-600">Today</span>}
+              </span>
 
-      {expanded && (
-        <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
-          {plan.meals?.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Meals</p>
-              {plan.meals.map((meal, i) => <MealCard key={i} meal={meal} index={i} />)}
+              {/* Day-type badge */}
+              <span className={`text-xs px-2 py-0.5 rounded-full capitalize shrink-0 ${TYPE_BADGE[dayType]}`}>
+                {dayType}
+              </span>
+
+              {/* Green dot if plan exists */}
+              {hasPlan && (
+                <span className="w-1.5 h-1.5 rounded-full bg-lime-400 shrink-0" title="Meal plan ready" />
+              )}
             </div>
-          )}
-          {plan.onBikeFuelling && <OnBikeCard fuelling={plan.onBikeFuelling} />}
-          {plan.supplements?.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Supplements</p>
-              {plan.supplements.map((s, i) => (
-                <div key={i} className="flex items-baseline justify-between text-xs">
-                  <span className="text-zinc-300">{s.name} <span className="text-zinc-600">{s.dose}</span></span>
-                  <span className="text-zinc-600">{s.timing}</span>
-                </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Projected weight */}
+              {projW != null && (
+                <span className="text-zinc-600 text-xs tabular-nums">
+                  {projW} {wLabel}
+                </span>
+              )}
+              <span className="text-zinc-700 text-sm">{expanded ? "▲" : "▼"}</span>
+            </div>
+          </div>
+
+          {/* Activities summary in collapsed view */}
+          {hasEvents && (
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {events.map((ev) => (
+                <span key={ev.id} className={`text-xs px-2 py-0.5 rounded-full ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
+                  {ev.title}
+                  {ev.durationMinutes ? ` · ${ev.durationMinutes}m` : ""}
+                </span>
               ))}
             </div>
           )}
-        </div>
-      )}
-    </div>
-  );
-}
 
-function ShellCard({
-  dateStr,
-  isToday,
-  event,
-  calorieMeta,
-}: {
-  dateStr:     string;
-  isToday:     boolean;
-  event:       PlanCalendarEvent | null;
-  calorieMeta: CalorieMeta;
-}) {
-  const isTraining = event && (event.eventType === "ride" || event.eventType === "race");
-  const dayType: "training" | "race" | "rest" = event?.eventType === "race"
-    ? "race"
-    : isTraining ? "training" : "rest";
-  const roughCals = event?.roughCalories
-    ?? (isTraining ? calorieMeta.trainingDayCalories : calorieMeta.restDayCalories);
+          {/* Glycogen battery (plan zone only) */}
+          {hasPlan && battery != null && (
+            <div className="mt-2">
+              <GlyBattery value={battery} />
+            </div>
+          )}
 
-  return (
-    <div className={`rounded-xl border ${TYPE_BORDER[dayType]} bg-zinc-900/30`}>
-      <div className="px-4 py-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`text-sm font-bold ${isToday ? "text-lime-400" : "text-zinc-400"}`}>
-              {fmtDay(dateStr)}
-              {isToday && <span className="ml-1.5 text-xs font-normal text-lime-600">Today</span>}
-            </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${TYPE_BADGE[dayType]}`}>
-              {dayType}
-            </span>
-          </div>
-          {roughCals && <span className="text-zinc-600 text-xs tabular-nums">~{roughCals} kcal</span>}
-        </div>
-        {event && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-zinc-400 text-xs font-medium">{event.title}</span>
-            {event.durationMinutes && <span className="text-zinc-600 text-xs">{event.durationMinutes}m</span>}
-            {event.intensity && (
-              <span className="text-zinc-600 text-xs">{INTENSITY_LABEL[event.intensity] ?? event.intensity}</span>
+          {/* Macros summary */}
+          {hasPlan && (
+            <div className="mt-1.5">
+              <MacroRow
+                cal={plan.totalCalories}
+                carbs={plan.totalCarbsG}
+                protein={plan.totalProteinG}
+                fat={plan.totalFatG}
+              />
+            </div>
+          )}
+
+          {/* Rough calories for non-plan days */}
+          {!hasPlan && roughCals != null && (
+            <p className="text-zinc-600 text-xs mt-1 tabular-nums">~{roughCals} kcal target</p>
+          )}
+        </button>
+
+        {/* Expanded content */}
+        {expanded && (
+          <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
+
+            {/* Activity details */}
+            {hasEvents && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Activities</p>
+                {events.map((ev) => (
+                  <div key={ev.id} className="bg-zinc-800/50 rounded-lg px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-white text-sm font-medium">{ev.title}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
+                        {ev.eventType}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-xs text-zinc-500 flex-wrap">
+                      {ev.durationMinutes && <span>{ev.durationMinutes} min</span>}
+                      {ev.intensity && <span>{INTENSITY_LABEL[ev.intensity] ?? ev.intensity}</span>}
+                      {ev.roughCalories && <span className="tabular-nums">~{ev.roughCalories} kcal</span>}
+                    </div>
+                    {ev.notes && (
+                      <p className="text-zinc-600 text-xs mt-1 italic">{ev.notes}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
+
+            {/* Meal plan (first 3 days) */}
+            {isInPlanZone && hasPlan && (
+              <>
+                {plan.aiReasoning && (
+                  <p className="text-zinc-500 text-xs italic leading-relaxed">{plan.aiReasoning}</p>
+                )}
+                {plan.meals?.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Meals</p>
+                    {plan.meals.map((meal, i) => <MealCard key={i} meal={meal} index={i} />)}
+                  </div>
+                )}
+                {plan.onBikeFuelling && <OnBikeCard fuelling={plan.onBikeFuelling} />}
+                {plan.supplements?.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Supplements</p>
+                    {plan.supplements.map((s, i) => (
+                      <div key={i} className="flex items-baseline justify-between text-xs">
+                        <span className="text-zinc-300">{s.name} <span className="text-zinc-600">{s.dose}</span></span>
+                        <span className="text-zinc-600">{s.timing}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* No plan yet for days 4-10 */}
+            {isInPlanZone && !hasPlan && (
+              <p className="text-zinc-700 text-xs">Not yet generated</p>
+            )}
+            {!isInPlanZone && (
+              <p className="text-zinc-700 text-xs">No meal plan for this day yet</p>
+            )}
+
+            {/* Add activity button */}
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="w-full py-2 border border-dashed border-zinc-700 rounded-lg text-zinc-600 text-xs hover:border-zinc-500 hover:text-zinc-400 transition-colors"
+            >
+              + Add activity
+            </button>
           </div>
         )}
-        <p className="text-zinc-700 text-xs">Not yet generated</p>
       </div>
-    </div>
+
+      {sheetOpen && (
+        <AddEventSheet
+          defaultDate={new Date(dateStr + "T09:00:00")}
+          onClose={() => setSheetOpen(false)}
+          onAdded={handleEventAdded}
+        />
+      )}
+    </>
   );
 }
 
@@ -311,36 +435,91 @@ export default function PlanView({
   calendarEvents,
   calorieMeta,
   todayStr,
+  currentWeightKg,
+  dailyWeightLossKg,
+  unitSystem,
 }: {
-  initialPlans:   StoredPlan[];
-  calendarEvents: PlanCalendarEvent[];
-  calorieMeta:    CalorieMeta;
-  todayStr:       string;
+  initialPlans:      StoredPlan[];
+  calendarEvents:    PlanCalendarEvent[];
+  calorieMeta:       CalorieMeta;
+  todayStr:          string;
+  currentWeightKg:   number | null;
+  dailyWeightLossKg: number | null;
+  unitSystem:        UnitSystem;
 }) {
+  const [events, setEvents] = useState<PlanCalendarEvent[]>(calendarEvents);
+  const [futureSheetOpen, setFutureSheetOpen] = useState(false);
+
   const plansByDate  = new Map<string, StoredPlan>(initialPlans.map((p) => [p.planDate, p]));
-  const eventsByDate = new Map<string, PlanCalendarEvent>(calendarEvents.map((e) => [e.scheduledDate, e]));
-  const dates        = [todayStr, addDays(todayStr, 1), addDays(todayStr, 2)];
+  const eventsByDate = new Map<string, PlanCalendarEvent[]>();
+  for (const e of events) {
+    const arr = eventsByDate.get(e.scheduledDate) ?? [];
+    arr.push(e);
+    eventsByDate.set(e.scheduledDate, arr);
+  }
+
+  const dates = Array.from({ length: 10 }, (_, i) => addDays(todayStr, i));
+
+  function handleEventAdded(event: CalendarEvent) {
+    const dateStr = new Date(event.scheduledAt).toISOString().split("T")[0];
+    const newEvent: PlanCalendarEvent = {
+      id:              event.id,
+      title:           event.title,
+      eventType:       event.eventType,
+      scheduledDate:   dateStr,
+      scheduledAt:     event.scheduledAt,
+      durationMinutes: event.durationMinutes,
+      intensity:       event.intensity,
+      notes:           event.notes,
+      roughCalories:   null,
+    };
+    setEvents((prev) => [...prev, newEvent]);
+  }
+
+  function projectedWeight(dayIndex: number): number | null {
+    if (currentWeightKg == null || dailyWeightLossKg == null) return null;
+    return currentWeightKg - dailyWeightLossKg * dayIndex;
+  }
 
   return (
     <div className="space-y-3">
-      {dates.map((dateStr) => {
-        const plan  = plansByDate.get(dateStr);
-        const event = eventsByDate.get(dateStr) ?? null;
-        if (plan) return <FullDayCard key={dateStr} plan={plan} isToday={dateStr === todayStr} />;
-        return (
-          <ShellCard
-            key={dateStr}
-            dateStr={dateStr}
-            isToday={dateStr === todayStr}
-            event={event}
-            calorieMeta={calorieMeta}
-          />
-        );
-      })}
-      {initialPlans.length === 0 && (
-        <p className="text-zinc-600 text-xs text-center pt-2">
-          No plan yet — use the Regenerate button to generate your plan
-        </p>
+      {dates.map((dateStr, i) => (
+        <DayCard
+          key={dateStr}
+          dateStr={dateStr}
+          isToday={i === 0}
+          dayIndex={i}
+          plan={plansByDate.get(dateStr) ?? null}
+          events={eventsByDate.get(dateStr) ?? []}
+          calorieMeta={calorieMeta}
+          projectedWeight={projectedWeight(i)}
+          unitSystem={unitSystem}
+          onEventAdded={handleEventAdded}
+        />
+      ))}
+
+      {/* Future events button */}
+      <button
+        onClick={() => setFutureSheetOpen(true)}
+        className="w-full py-3 border border-dashed border-zinc-800 rounded-xl text-zinc-600 text-sm hover:border-zinc-600 hover:text-zinc-400 transition-colors"
+      >
+        + Schedule future event (beyond 10 days)
+      </button>
+
+      {futureSheetOpen && (
+        <AddEventSheet
+          defaultDate={(() => {
+            const d = new Date(todayStr + "T09:00:00");
+            d.setDate(d.getDate() + 11);
+            return d;
+          })()}
+          onClose={() => setFutureSheetOpen(false)}
+          onAdded={(event) => {
+            setFutureSheetOpen(false);
+            // Future events don't show in this view, but they're saved
+            void event;
+          }}
+        />
       )}
     </div>
   );
