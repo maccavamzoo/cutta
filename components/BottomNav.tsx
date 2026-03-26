@@ -31,10 +31,10 @@ export default function BottomNav({ active }: { active: NavKey }) {
 
   return (
     <>
-      {/* Drop-up overlay backdrop */}
+      {/* Drop-up overlay backdrop — dims content behind */}
       {moreOpen && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-40 bg-black/50"
           onClick={() => setMoreOpen(false)}
         />
       )}
@@ -43,12 +43,12 @@ export default function BottomNav({ active }: { active: NavKey }) {
       {moreOpen && (
         <div className="fixed bottom-[52px] left-0 right-0 z-50 flex justify-center pointer-events-none">
           <div className="w-full max-w-lg px-4 pointer-events-auto">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl mb-2">
+            <div className="bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden shadow-[0_-8px_40px_rgba(0,0,0,0.7)] mb-2">
               {MORE_ITEMS.map((item, i) => (
                 <button
                   key={item.href}
                   onClick={() => handleMoreItem(item.href)}
-                  className={`w-full flex items-center gap-3 px-5 py-4 text-left text-sm font-medium text-zinc-200 active:bg-zinc-800 transition-colors ${
+                  className={`w-full flex items-center gap-3 px-5 py-4 text-left text-sm font-medium text-zinc-100 hover:bg-zinc-800 active:bg-zinc-800 transition-colors ${
                     i > 0 ? "border-t border-zinc-800" : ""
                   }`}
                 >
