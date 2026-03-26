@@ -41,7 +41,7 @@ export default async function AudioNotesPage() {
         </div>
       </main>
 
-      <BottomNav active="notes" />
+      <BottomNav active="more" />
     </>
   );
 }

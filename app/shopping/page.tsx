@@ -44,7 +44,7 @@ export default async function ShoppingPage() {
         </div>
       </main>
 
-      <BottomNav active="shop" />
+      <BottomNav active="more" />
     </>
   );
 }

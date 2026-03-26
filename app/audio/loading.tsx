@@ -19,7 +19,7 @@ export default function AudioLoading() {
           </div>
         </div>
       </main>
-      <BottomNav active="notes" />
+      <BottomNav active="more" />
     </>
   );
 }
