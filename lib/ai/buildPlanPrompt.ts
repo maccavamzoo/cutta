@@ -6,6 +6,17 @@ import type {
   trainingLog,
 } from "@/lib/db/schema";
 
+export interface RecentComplianceEntry {
+  logDate:    string;
+  compliance: string;
+}
+
+export interface RecentFeedbackEntry {
+  planDate:     string | null;
+  feedbackType: string;
+  rating:       number;
+}
+
 type UserProfile = InferSelectModel<typeof userProfiles>;
 type Protocol    = InferSelectModel<typeof protocols>;
 type CalEvent    = InferSelectModel<typeof calendarEvents>;
@@ -81,6 +92,8 @@ export function buildPlanPrompt(
   recentTraining: TrainEntry[],
   startDate: Date,
   days: number = 3,
+  recentCompliance: RecentComplianceEntry[] = [],
+  recentFeedback: RecentFeedbackEntry[] = [],
 ): string {
   const startStr = fmtDate(startDate);
   const endDate  = new Date(startDate.getTime() + (days - 1) * 24 * 60 * 60 * 1000);
@@ -149,7 +162,65 @@ ${JSON.stringify(protocol.content, null, 2)}
     ? `## RECENT TRAINING LOG (last 7 days)\n${recentTraining.map(fmtTrainEntry).join("\n\n")}`
     : `## RECENT TRAINING LOG\nNo recent training data.`;
 
-  // ── Section 5: Exact dates to generate ───────────────────────────────────
+  // ── Section 5: Recent feedback and compliance ─────────────────────────────
+  let feedbackSection = "## RECENT FEEDBACK (last 7 days)\nNo feedback data yet.";
+  if (recentCompliance.length > 0 || recentFeedback.length > 0) {
+    const lines: string[] = ["## RECENT FEEDBACK (last 7 days)"];
+
+    if (recentCompliance.length > 0) {
+      const compLines = recentCompliance
+        .slice(-7)
+        .map((c) => `  ${c.logDate}: ${c.compliance}`)
+        .join("\n");
+      lines.push(`Compliance (did they follow the plan):\n${compLines}`);
+    }
+
+    const byType: Record<string, { date: string; rating: number }[]> = {};
+    for (const f of recentFeedback) {
+      if (!byType[f.feedbackType]) byType[f.feedbackType] = [];
+      byType[f.feedbackType].push({ date: f.planDate ?? "unknown", rating: f.rating });
+    }
+    for (const [type, entries] of Object.entries(byType)) {
+      const typeLabel = type === "ride_energy" ? "Ride energy" : type === "gut_comfort" ? "Gut comfort" : "Hunger";
+      const entryLines = entries.slice(-7).map((e) => `  ${e.date}: ${e.rating}/5`).join("\n");
+      lines.push(`${typeLabel}:\n${entryLines}`);
+    }
+
+    // ── Compute guardrail triggers ───────────────────────────────────────
+    const guardrailNotes: string[] = [];
+
+    const hungerEntries = (byType["hunger"] ?? []).slice(-7);
+    const highHungerDays = hungerEntries.filter((e) => e.rating >= 4).length;
+    if (highHungerDays >= 3) {
+      guardrailNotes.push(
+        `GUARDRAIL TRIGGERED — high hunger (4-5) on ${highHungerDays} of the last 7 days: increase daily calories by ~200 kcal (priority: carbs around training).`
+      );
+    }
+
+    const energyEntries = (byType["ride_energy"] ?? []).slice(-7);
+    const lowEnergyDays = energyEntries.filter((e) => e.rating <= 2).length;
+    if (lowEnergyDays >= 3) {
+      guardrailNotes.push(
+        `GUARDRAIL TRIGGERED — low ride energy (1-2) on ${lowEnergyDays} of the last 7 sessions: reduce calorie deficit and increase pre/during ride carbohydrate intake.`
+      );
+    }
+
+    const lowComplianceDays = recentCompliance.slice(-7).filter((c) => c.compliance === "no").length;
+    if (lowComplianceDays >= 3) {
+      guardrailNotes.push(
+        `GUARDRAIL TRIGGERED — low compliance ("no") on ${lowComplianceDays} of the last 7 days: simplify meal templates (fewer ingredients, shorter prep, more familiar foods).`
+      );
+    }
+
+    if (guardrailNotes.length > 0) {
+      lines.push("\nADAPTIVE ADJUSTMENTS REQUIRED:");
+      guardrailNotes.forEach((n) => lines.push(`- ${n}`));
+    }
+
+    feedbackSection = lines.join("\n\n");
+  }
+
+  // ── Section 6: Exact dates to generate ───────────────────────────────────
   const datesSection = `## DATES TO GENERATE (${days} days)\n${planDates.join(", ")}`;
 
   // ── Output format ─────────────────────────────────────────────────────────
@@ -220,6 +291,8 @@ ${protocolSection}
 ${calendarSection}
 
 ${recentSection}
+
+${feedbackSection}
 
 ${datesSection}
 

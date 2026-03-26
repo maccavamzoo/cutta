@@ -33,6 +33,22 @@ export default async function SettingsPage() {
         <SettingsView unitSystem={unitSystem} />
 
         {/* Protocol */}
+        {/* Profile */}
+        <div className="space-y-2">
+          <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Profile</p>
+          <Link
+            href="/settings/profile"
+            className="flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
+          >
+            <div>
+              <p className="text-white text-sm font-medium">Edit profile</p>
+              <p className="text-zinc-600 text-xs mt-0.5">Target weight, training habits, food exclusions, gut sensitivity</p>
+            </div>
+            <span className="text-zinc-500 text-sm">→</span>
+          </Link>
+        </div>
+
+        {/* Protocol */}
         <div className="space-y-2">
           <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Protocol</p>
           <Link

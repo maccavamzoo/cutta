@@ -12,10 +12,11 @@ const NAV_ITEMS = [
 ] as const;
 
 const MORE_ITEMS = [
-  { label: "Shopping list",      href: "/shopping",         icon: "☑" },
-  { label: "Log training",       href: "/training/upload",  icon: "⊕" },
-  { label: "Record note",        href: "/audio",            icon: "◎" },
-  { label: "Settings",            href: "/settings",          icon: "⚙" },
+  { label: "Shopping list", href: "/shopping",         icon: "☑" },
+  { label: "Log training",  href: "/training/upload",  icon: "⊕" },
+  { label: "Record note",   href: "/audio",            icon: "◎" },
+  { label: "Edit profile",  href: "/settings/profile", icon: "◑" },
+  { label: "Settings",      href: "/settings",         icon: "⚙" },
 ];
 
 type NavKey = (typeof NAV_ITEMS)[number]["key"] | "more";

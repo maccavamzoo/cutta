@@ -723,12 +723,15 @@ export default function DailyDashboard({
           todayStr={todayStr}
           isTrainingDay={isTrainingDay}
           existing={savedCheckIn}
+          latestWeight={{ weightKg: displayWeight, bodyFatPct: displayBf }}
           unitSystem={unitSystem}
           onClose={() => setCheckInOpen(false)}
+          onWeightSaved={(weightKg, bodyFatPct) => {
+            setDisplayWeight(weightKg);
+            if (bodyFatPct !== null) setDisplayBf(bodyFatPct);
+          }}
           onSaved={(result) => {
             setSavedCheckIn(result);
-            if (result.weightKg !== null) setDisplayWeight(result.weightKg);
-            if (result.bodyFatPct !== null) setDisplayBf(result.bodyFatPct);
             setCheckInOpen(false);
           }}
         />
