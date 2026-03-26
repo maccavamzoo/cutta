@@ -131,11 +131,11 @@ ${transcript}
         supplementReactions?: Record<string, string>;
       } | null) ?? {};
 
-      function mergeUnique(current: string[] = [], toAdd: string[] = []): string[] {
+      const mergeUnique = (current: string[] = [], toAdd: string[] = []): string[] => {
         const lower = new Set(current.map((s) => s.toLowerCase()));
         const additions = toAdd.filter((s) => !lower.has(s.toLowerCase()));
         return [...current, ...additions];
-      }
+      };
 
       const merged = {
         ...existing,
@@ -153,7 +153,8 @@ ${transcript}
     }
 
     // Strip profile_updates from processedData before returning (internal detail)
-    const { profile_updates: _pu, ...publicData } = processedData;
+    const publicData = { ...processedData };
+    delete publicData.profile_updates;
 
     return NextResponse.json({ id: inserted.id, transcript, processedData: publicData, profileChanges });
   } catch (err) {
