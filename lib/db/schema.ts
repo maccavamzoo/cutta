@@ -343,6 +343,7 @@ export const weightLog = pgTable(
 
     weighedAt: timestamp("weighed_at").defaultNow().notNull(),
     weightKg: numeric("weight_kg", { precision: 5, scale: 2 }).notNull(),
+    bodyFatPct: numeric("body_fat_pct", { precision: 4, scale: 1 }),
     notes: text("notes"),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),

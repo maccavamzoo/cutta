@@ -407,15 +407,23 @@ export default function DailyDashboard({
   todayEvents,
   profile,
   existingCheckIn,
+  firstName,
+  latestWeightKg,
+  latestBodyFatPct,
 }: {
-  todayStr:       string;
-  todayPlan:      TodayPlan | null;
-  todayEvents:    TodayEvent[];
-  profile:        ProfileSnapshot | null;
-  existingCheckIn: ExistingCheckIn | null;
+  todayStr:          string;
+  todayPlan:         TodayPlan | null;
+  todayEvents:       TodayEvent[];
+  profile:           ProfileSnapshot | null;
+  existingCheckIn:   ExistingCheckIn | null;
+  firstName:         string | null;
+  latestWeightKg:    number | null;
+  latestBodyFatPct:  number | null;
 }) {
   const [checkInOpen,    setCheckInOpen]    = useState(false);
   const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
+  const [displayWeight,  setDisplayWeight]  = useState<number | null>(latestWeightKg);
+  const [displayBf,      setDisplayBf]      = useState<number | null>(latestBodyFatPct);
 
   const trainingEvent = todayEvents.find(
     (e) => e.eventType === "ride" || e.eventType === "race"
@@ -428,16 +436,58 @@ export default function DailyDashboard({
       <main className="min-h-[calc(100dvh-52px)] bg-black pb-24">
         <div className="max-w-lg mx-auto px-4 pt-4 pb-6 space-y-5">
           {/* Header */}
-          <div>
-            <p className="text-zinc-500 text-sm">{greeting()}</p>
-            <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
-              {fmtLongDate(todayStr)}
-            </h1>
-            {profile?.currentWeightKg && profile.targetWeightKg && (
-              <p className="text-zinc-600 text-xs mt-1">
-                {profile.currentWeightKg} kg
-                {" · "}target {profile.targetWeightKg} kg
+          <div className="space-y-3">
+            <div>
+              <p className="text-zinc-500 text-sm">
+                {greeting()}{firstName ? `, ${firstName}` : ""}
               </p>
+              <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
+                {fmtLongDate(todayStr)}
+              </h1>
+            </div>
+
+            {/* Weight summary */}
+            {(displayWeight || profile?.targetWeightKg) && (
+              <div className="flex items-center gap-3">
+                {displayWeight && (
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-white text-2xl font-bold tabular-nums">
+                      {displayWeight.toFixed(1)}
+                    </span>
+                    <span className="text-zinc-500 text-sm">kg</span>
+                    {displayBf && (
+                      <span className="text-zinc-600 text-xs ml-1">· {displayBf.toFixed(1)}% bf</span>
+                    )}
+                  </div>
+                )}
+                {displayWeight && profile?.targetWeightKg && (
+                  <>
+                    <div className="w-px h-5 bg-zinc-800" />
+                    {(() => {
+                      const diff = parseFloat((displayWeight - profile.targetWeightKg).toFixed(1));
+                      if (diff > 0) return (
+                        <p className="text-zinc-500 text-sm">
+                          <span className="text-lime-400 font-semibold">{diff} kg</span> to go
+                        </p>
+                      );
+                      if (diff < 0) return (
+                        <p className="text-zinc-500 text-sm">
+                          <span className="text-lime-400 font-semibold">{Math.abs(diff)} kg</span> above target
+                        </p>
+                      );
+                      return <p className="text-lime-400 text-sm font-semibold">Target reached</p>;
+                    })()}
+                  </>
+                )}
+                {!displayWeight && profile?.targetWeightKg && (
+                  <button
+                    onClick={() => setCheckInOpen(true)}
+                    className="text-zinc-600 text-xs hover:text-zinc-400 transition-colors"
+                  >
+                    Log today&apos;s weight →
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -565,6 +615,8 @@ export default function DailyDashboard({
           onClose={() => setCheckInOpen(false)}
           onSaved={(result) => {
             setSavedCheckIn(result);
+            if (result.weightKg !== null) setDisplayWeight(result.weightKg);
+            if (result.bodyFatPct !== null) setDisplayBf(result.bodyFatPct);
             setCheckInOpen(false);
           }}
         />

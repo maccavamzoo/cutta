@@ -1,6 +1,6 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { eq, and, gte, lt, inArray } from "drizzle-orm";
+import { eq, and, gte, lt, inArray, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   fuellingPlans,
@@ -8,6 +8,7 @@ import {
   userProfiles,
   complianceLog,
   feedbackLog,
+  weightLog,
 } from "@/lib/db/schema";
 import DailyDashboard, {
   type TodayPlan,
@@ -29,7 +30,8 @@ export default async function DashboardPage() {
 
   const VALID_FEEDBACK_TYPES = ["ride_energy", "gut_comfort", "hunger"] as const;
 
-  const [planRows, eventRows, profileRows, complianceRows, feedbackRows] = await Promise.all([
+  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weightRows] = await Promise.all([
+    currentUser(),
     db
       .select()
       .from(fuellingPlans)
@@ -84,6 +86,16 @@ export default async function DashboardPage() {
           inArray(feedbackLog.feedbackType, [...VALID_FEEDBACK_TYPES])
         )
       ),
+
+    db
+      .select({
+        weightKg:   weightLog.weightKg,
+        bodyFatPct: weightLog.bodyFatPct,
+      })
+      .from(weightLog)
+      .where(eq(weightLog.clerkUserId, userId))
+      .orderBy(desc(weightLog.weighedAt))
+      .limit(1),
   ]);
 
   const planRow = planRows[0] ?? null;
@@ -126,14 +138,21 @@ export default async function DashboardPage() {
     : null;
 
   const complianceEntry = complianceRows[0] ?? null;
+  const weightRow = weightRows[0] ?? null;
   const existingCheckIn: ExistingCheckIn | null = complianceEntry
     ? {
-        compliance: complianceEntry.compliance as ExistingCheckIn["compliance"],
-        rideEnergy: feedbackRows.find((f) => f.feedbackType === "ride_energy")?.rating ?? null,
-        gutComfort: feedbackRows.find((f) => f.feedbackType === "gut_comfort")?.rating ?? null,
-        hunger:     feedbackRows.find((f) => f.feedbackType === "hunger")?.rating ?? null,
+        compliance:  complianceEntry.compliance as ExistingCheckIn["compliance"],
+        rideEnergy:  feedbackRows.find((f) => f.feedbackType === "ride_energy")?.rating ?? null,
+        gutComfort:  feedbackRows.find((f) => f.feedbackType === "gut_comfort")?.rating ?? null,
+        hunger:      feedbackRows.find((f) => f.feedbackType === "hunger")?.rating ?? null,
+        weightKg:    weightRow ? Number(weightRow.weightKg)   : null,
+        bodyFatPct:  weightRow?.bodyFatPct ? Number(weightRow.bodyFatPct) : null,
       }
     : null;
+
+  const firstName = clerkUser?.firstName ?? null;
+  const latestWeightKg   = weightRow ? Number(weightRow.weightKg)   : null;
+  const latestBodyFatPct = weightRow?.bodyFatPct ? Number(weightRow.bodyFatPct) : null;
 
   return (
     <DailyDashboard
@@ -142,6 +161,9 @@ export default async function DashboardPage() {
       todayEvents={todayEvents}
       profile={profile}
       existingCheckIn={existingCheckIn}
+      firstName={firstName}
+      latestWeightKg={latestWeightKg}
+      latestBodyFatPct={latestBodyFatPct}
     />
   );
 }
