@@ -39,6 +39,7 @@ export default async function CalendarPage() {
       .select({
         currentWeightKg: userProfiles.currentWeightKg,
         estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
+        unitSystem: userProfiles.unitSystem,
       })
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
@@ -98,6 +99,7 @@ export default async function CalendarPage() {
           initialEvents={initialEvents}
           currentWeightKg={currentWeightKg}
           dailyWeightLossKg={dailyWeightLossKg}
+          unitSystem={(profileRows[0]?.unitSystem ?? "metric") as "metric" | "imperial"}
         />
       </main>
       <BottomNav active="calendar" />

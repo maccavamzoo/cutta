@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { kgToDisplay, displayToKg, weightLabel, weightInputRange, type UnitSystem } from "@/lib/units";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ interface Props {
   todayStr:      string;
   isTrainingDay: boolean;
   existing:      ExistingCheckIn | null;
+  unitSystem?:   UnitSystem;
   onClose:       () => void;
   onSaved:       (result: ExistingCheckIn) => void;
 }
@@ -101,14 +103,21 @@ export default function CheckInSheet({
   todayStr,
   isTrainingDay,
   existing,
+  unitSystem = "metric",
   onClose,
   onSaved,
 }: Props) {
+  const wLabel = weightLabel(unitSystem);
+  const wRange = weightInputRange(unitSystem);
+
   const [compliance,  setCompliance]  = useState<ComplianceValue | null>(existing?.compliance ?? null);
   const [rideEnergy,  setRideEnergy]  = useState<number | null>(existing?.rideEnergy  ?? null);
   const [gutComfort,  setGutComfort]  = useState<number | null>(existing?.gutComfort  ?? null);
   const [hunger,      setHunger]      = useState<number | null>(existing?.hunger      ?? null);
-  const [weightStr,   setWeightStr]   = useState(existing?.weightKg   != null ? String(existing.weightKg)   : "");
+  // Pre-fill in display units (convert from stored kg if needed)
+  const [weightStr,   setWeightStr]   = useState(
+    existing?.weightKg   != null ? String(kgToDisplay(existing.weightKg, unitSystem))   : ""
+  );
   const [bfStr,       setBfStr]       = useState(existing?.bodyFatPct != null ? String(existing.bodyFatPct) : "");
   const [notes,       setNotes]       = useState("");
   const [saving,      setSaving]      = useState(false);
@@ -120,11 +129,12 @@ export default function CheckInSheet({
     e.preventDefault();
     if (!compliance) return;
 
-    const weightKg   = weightStr.trim()  ? parseFloat(weightStr.trim())  : null;
+    const displayVal = weightStr.trim() ? parseFloat(weightStr.trim()) : null;
+    const weightKg   = displayVal !== null ? displayToKg(displayVal, unitSystem) : null;
     const bodyFatPct = bfStr.trim()      ? parseFloat(bfStr.trim())      : null;
 
-    if (weightKg !== null && (isNaN(weightKg) || weightKg < 20 || weightKg > 400)) {
-      setError("Enter a valid weight (20–400 kg).");
+    if (displayVal !== null && (isNaN(displayVal) || displayVal < wRange.min || displayVal > wRange.max)) {
+      setError(`Enter a valid weight (${wRange.min}–${wRange.max} ${wLabel}).`);
       return;
     }
     if (bodyFatPct !== null && (isNaN(bodyFatPct) || bodyFatPct < 1 || bodyFatPct > 70)) {
@@ -242,15 +252,15 @@ export default function CheckInSheet({
                     <input
                       type="number"
                       inputMode="decimal"
-                      step="0.1"
-                      min="20"
-                      max="400"
-                      placeholder="e.g. 73.4"
+                      step={wRange.step}
+                      min={wRange.min}
+                      max={wRange.max}
+                      placeholder={unitSystem === "imperial" ? "e.g. 161.8" : "e.g. 73.4"}
                       value={weightStr}
                       onChange={(e) => setWeightStr(e.target.value)}
                       className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">kg</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">{wLabel}</span>
                   </div>
                 </div>
                 <div className="flex-1">

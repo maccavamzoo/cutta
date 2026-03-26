@@ -47,7 +47,7 @@ export default async function ProgressPage() {
 
   const [profileRows, weightRows, complianceRows, energyRows] = await Promise.all([
     db
-      .select({ targetWeightKg: userProfiles.targetWeightKg })
+      .select({ targetWeightKg: userProfiles.targetWeightKg, unitSystem: userProfiles.unitSystem })
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
       .limit(1),
@@ -210,7 +210,10 @@ export default async function ProgressPage() {
             <p className="text-zinc-500 text-sm mt-1">Your trends at a glance.</p>
           </div>
 
-          <ProgressView data={data} />
+          <ProgressView
+            data={data}
+            unitSystem={(profileRows[0]?.unitSystem ?? "metric") as "metric" | "imperial"}
+          />
         </div>
       </main>
 

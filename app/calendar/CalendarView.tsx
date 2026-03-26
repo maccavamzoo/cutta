@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import AddEventSheet from "./AddEventSheet";
 import type { CalendarEvent } from "./AddEventSheet";
+import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 
 export type { CalendarEvent };
 
@@ -161,10 +162,12 @@ export default function CalendarView({
   initialEvents,
   currentWeightKg,
   dailyWeightLossKg,
+  unitSystem = "metric",
 }: {
   initialEvents: CalendarEvent[];
   currentWeightKg: number | null;
   dailyWeightLossKg: number | null;
+  unitSystem?: UnitSystem;
 }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -391,7 +394,7 @@ export default function CalendarView({
                   : null;
                 return proj !== null ? (
                   <span className="text-[9px] text-zinc-600 tabular-nums leading-none">
-                    {proj}
+                    {kgToDisplay(proj, unitSystem)}{weightLabel(unitSystem)}
                   </span>
                 ) : <span className="min-h-[9px]" />;
               })()}
@@ -427,22 +430,12 @@ export default function CalendarView({
                     })}
                     {isToday ? " · Today" : ""}
                   </button>
-                  <div className="flex items-center gap-2.5">
-                    {(() => {
-                      const proj = currentWeightKg && dailyWeightLossKg
-                        ? projectedWeightOn(day, today, currentWeightKg, dailyWeightLossKg)
-                        : null;
-                      return proj !== null ? (
-                        <span className="text-zinc-600 text-xs tabular-nums">{proj} kg</span>
-                      ) : null;
-                    })()}
-                    <button
-                      onClick={() => openAdd(day)}
-                      className="text-zinc-700 text-xs hover:text-zinc-400 transition-colors"
-                    >
-                      + Add
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => openAdd(day)}
+                    className="text-zinc-700 text-xs hover:text-zinc-400 transition-colors"
+                  >
+                    + Add
+                  </button>
                 </div>
 
                 {dayEvents.length === 0 ? (
