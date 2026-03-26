@@ -4,7 +4,7 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { weightLog, userProfiles } from "@/lib/db/schema";
 
-// POST /api/weight-log — save a weigh-in entry and update profile current weight
+// POST /api/weight-log — upsert today's weigh-in (one entry per user per day)
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
@@ -20,16 +20,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid body fat percentage." }, { status: 400 });
   }
 
-  await db.insert(weightLog).values({
-    clerkUserId: userId,
-    weightKg:    weightKg.toFixed(1),
-    bodyFatPct:  bodyFatPct !== null ? bodyFatPct.toFixed(1) : null,
-  });
+  const todayStr = new Date().toISOString().split("T")[0];
+  const now = new Date();
+
+  // Upsert: one row per user per day
+  await db
+    .insert(weightLog)
+    .values({
+      clerkUserId: userId,
+      logDate:     todayStr,
+      weighedAt:   now,
+      weightKg:    weightKg.toFixed(1),
+      bodyFatPct:  bodyFatPct !== null ? bodyFatPct.toFixed(1) : null,
+    })
+    .onConflictDoUpdate({
+      target: [weightLog.clerkUserId, weightLog.logDate],
+      set: {
+        weighedAt:  now,
+        weightKg:   weightKg.toFixed(1),
+        bodyFatPct: bodyFatPct !== null ? bodyFatPct.toFixed(1) : null,
+      },
+    });
 
   // Keep profile current weight in sync
   await db
     .update(userProfiles)
-    .set({ currentWeightKg: weightKg.toFixed(1), updatedAt: new Date() })
+    .set({ currentWeightKg: weightKg.toFixed(1), updatedAt: now })
     .where(eq(userProfiles.clerkUserId, userId));
 
   return NextResponse.json({ ok: true });

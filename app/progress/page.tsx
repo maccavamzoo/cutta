@@ -94,6 +94,13 @@ export default async function ProgressPage() {
   let slopeKgPerWeek:   number | null = null;
   let weightChartPoints: ProgressData["weightPoints"] = [];
 
+  // Always build actual points first — chart must show even with 1 entry or same-day data
+  weightChartPoints = actualWeightPoints.map((p) => ({
+    date:   p.date,
+    label:  fmtDateLabel(p.date),
+    actual: p.actual,
+  }));
+
   if (actualWeightPoints.length >= 2) {
     const firstDate = new Date(actualWeightPoints[0].date);
     const regPoints = actualWeightPoints.map((p) => ({
@@ -104,27 +111,23 @@ export default async function ProgressPage() {
 
     if (reg) {
       slopeKgPerWeek = Math.round(reg.slope * 7 * 100) / 100;
-      const lastPoint = actualWeightPoints.at(-1)!;
+      const lastPoint  = actualWeightPoints.at(-1)!;
       const lastDayIdx = daysBetween(firstDate, new Date(lastPoint.date));
       const todayIdx   = daysBetween(firstDate, new Date());
 
-      // Build merged chart points: actual entries
-      weightChartPoints = actualWeightPoints.map((p, i) => ({
-        date:      p.date,
-        label:     fmtDateLabel(p.date),
-        actual:    p.actual,
-        projected: i === actualWeightPoints.length - 1 ? p.actual : undefined,
+      // Attach projected anchor to last actual point so the projection line starts there
+      weightChartPoints = weightChartPoints.map((p, i) => ({
+        ...p,
+        projected: i === weightChartPoints.length - 1 ? p.actual : undefined,
       }));
 
       // Project forward if slope is negative (losing weight) and target set
       if (reg.slope < -0.001 && targetWeightKg !== null) {
-        // Days from start when weight hits target
         const targetDayIdx = (targetWeightKg - reg.intercept) / reg.slope;
         const daysToTarget = Math.round(targetDayIdx - todayIdx);
 
         if (daysToTarget > 0 && daysToTarget < 730) {
-          const predictedMs = Date.now() + daysToTarget * 86_400_000;
-          projectedDate = new Date(predictedMs).toLocaleDateString("en-GB", {
+          projectedDate = new Date(Date.now() + daysToTarget * 86_400_000).toLocaleDateString("en-GB", {
             day: "numeric", month: "long", year: "numeric",
           });
 
@@ -142,10 +145,6 @@ export default async function ProgressPage() {
         }
       }
     }
-  } else {
-    weightChartPoints = actualWeightPoints.map((p) => ({
-      date: p.date, label: fmtDateLabel(p.date), actual: p.actual,
-    }));
   }
 
   // ── body fat trend ───────────────────────────────────────────────────────

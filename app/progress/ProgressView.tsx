@@ -343,18 +343,12 @@ export default function ProgressView({
 
         {/* Chart */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-2 pt-4 pb-2">
-          {hasWeight && weightPoints.length >= 2 ? (
+          {hasWeight ? (
             mounted ? (
               <WeightChart points={weightPoints} targetWeightKg={targetWeightKg} unitSystem={unitSystem} />
             ) : chartSkeleton
           ) : (
-            <EmptyState
-              message={
-                hasWeight
-                  ? "Log one more weigh-in to see your trend"
-                  : "Log your first weigh-in via the daily check-in"
-              }
-            />
+            <EmptyState message="Log your first weigh-in via the daily check-in" />
           )}
         </div>
 

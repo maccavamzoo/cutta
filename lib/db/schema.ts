@@ -344,6 +344,7 @@ export const weightLog = pgTable(
     id: serial("id").primaryKey(),
     clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
 
+    logDate: date("log_date").notNull(),
     weighedAt: timestamp("weighed_at").defaultNow().notNull(),
     weightKg: numeric("weight_kg", { precision: 5, scale: 2 }).notNull(),
     bodyFatPct: numeric("body_fat_pct", { precision: 4, scale: 1 }),
@@ -354,6 +355,7 @@ export const weightLog = pgTable(
   (t) => ({
     clerkUserIdIdx: index("weight_log_clerk_user_id_idx").on(t.clerkUserId),
     weighedAtIdx: index("weight_log_weighed_at_idx").on(t.weighedAt),
+    uniquePerDay: uniqueIndex("weight_log_user_date_idx").on(t.clerkUserId, t.logDate),
   })
 );
 
