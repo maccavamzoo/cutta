@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { audioNotes } from "@/lib/db/schema";
+import { audioNotes, userProfiles } from "@/lib/db/schema";
 import Anthropic from "@anthropic-ai/sdk";
 
 // ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   try {
     const message = await anthropic.messages.create({
       model:      "claude-sonnet-4-20250514",
-      max_tokens: 800,
+      max_tokens: 900,
       messages: [
         {
           role: "user",
@@ -63,7 +63,13 @@ Return ONLY valid JSON — no markdown, no prose — matching exactly this shape
   "foods_mentioned": ["specific foods", "supplements", "drinks"],
   "sentiment": "positive" | "neutral" | "negative",
   "action_items": ["brief action to take, e.g. 'Avoid gels on long rides'"],
-  "plan_impact": "one sentence explaining how this note will affect the fuelling plan, or 'No plan impact — observation logged' if nothing actionable"
+  "plan_impact": "one sentence explaining how this note will affect the fuelling plan, or 'No plan impact — observation logged' if nothing actionable",
+  "profile_updates": {
+    "gut_triggers_add": ["foods that caused gut problems — only if clearly linked to symptoms"],
+    "negative_add": ["foods user dislikes or reacts badly to"],
+    "positive_add": ["foods user responded well to or prefers"],
+    "change_summary": "one sentence describing what is being added to the profile"
+  } | null
 }
 
 Rules:
@@ -73,8 +79,12 @@ Rules:
 - plan_impact must always be a non-empty string. Examples:
     "Wheat flagged as potential gut trigger — will be avoided in upcoming meal plans"
     "Low energy reported post-ride — pre-ride carb timing will be reviewed in next plan"
-    "Bloating noted after gel use — alternative on-bike fuelling will be suggested"
     "No plan impact — observation logged"
+- profile_updates: only populate if there is a clear, specific food reaction mentioned. Set to null if no food-reaction insights. Examples of when to populate:
+    bloating after pasta → gut_triggers_add: ["pasta"]
+    felt great on rice cakes → positive_add: ["rice cakes"]
+    stomach cramps after gels → gut_triggers_add: ["energy gels"]
+- profile_updates.change_summary: short, plain English, e.g. "Pasta added as gut trigger"
 - If nothing relevant to sports nutrition is mentioned, still return the schema with empty arrays and null values
 
 Transcript:
@@ -98,14 +108,61 @@ ${transcript}
       .set({ processedData, processingStatus: "done" })
       .where(eq(audioNotes.id, inserted.id));
 
-    return NextResponse.json({ id: inserted.id, transcript, processedData });
+    // ── Merge profile updates into user_profiles.food_profile ────────────────
+    let profileChanges: string | null = null;
+    const updates = processedData.profile_updates;
+
+    if (
+      updates &&
+      (updates.gut_triggers_add?.length ||
+       updates.negative_add?.length ||
+       updates.positive_add?.length)
+    ) {
+      const [profileRow] = await db
+        .select({ foodProfile: userProfiles.foodProfile })
+        .from(userProfiles)
+        .where(eq(userProfiles.clerkUserId, userId))
+        .limit(1);
+
+      const existing = (profileRow?.foodProfile as {
+        positive?:    string[];
+        negative?:    string[];
+        gutTriggers?: string[];
+        supplementReactions?: Record<string, string>;
+      } | null) ?? {};
+
+      function mergeUnique(current: string[] = [], toAdd: string[] = []): string[] {
+        const lower = new Set(current.map((s) => s.toLowerCase()));
+        const additions = toAdd.filter((s) => !lower.has(s.toLowerCase()));
+        return [...current, ...additions];
+      }
+
+      const merged = {
+        ...existing,
+        positive:    mergeUnique(existing.positive,    updates.positive_add),
+        negative:    mergeUnique(existing.negative,    updates.negative_add),
+        gutTriggers: mergeUnique(existing.gutTriggers, updates.gut_triggers_add),
+      };
+
+      await db
+        .update(userProfiles)
+        .set({ foodProfile: merged, updatedAt: new Date() })
+        .where(eq(userProfiles.clerkUserId, userId));
+
+      profileChanges = updates.change_summary ?? "Profile updated from voice note";
+    }
+
+    // Strip profile_updates from processedData before returning (internal detail)
+    const { profile_updates: _pu, ...publicData } = processedData;
+
+    return NextResponse.json({ id: inserted.id, transcript, processedData: publicData, profileChanges });
   } catch (err) {
     console.error("[audio-notes] structuring failed:", err);
     await db
       .update(audioNotes)
       .set({ processingStatus: "failed" })
       .where(eq(audioNotes.id, inserted.id));
-    return NextResponse.json({ id: inserted.id, transcript, processedData: null });
+    return NextResponse.json({ id: inserted.id, transcript, processedData: null, profileChanges: null });
   }
 }
 
