@@ -5,14 +5,15 @@ import { useState, useRef, useEffect, useCallback } from "react";
 // ─── types ────────────────────────────────────────────────────────────────────
 
 interface ProcessedData {
-  summary:        string;
-  tags:           string[];
-  energy_level:   "low" | "moderate" | "high" | null;
-  gut_comfort:    number | null;
-  symptoms:       string[];
+  summary:         string;
+  tags:            string[];
+  energy_level:    "low" | "moderate" | "high" | null;
+  gut_comfort:     number | null;
+  symptoms:        string[];
   foods_mentioned: string[];
-  sentiment:      "positive" | "neutral" | "negative";
-  action_items:   string[];
+  sentiment:       "positive" | "neutral" | "negative";
+  action_items:    string[];
+  plan_impact:     string | null;
 }
 
 interface AudioNote {
@@ -70,10 +71,28 @@ function getSpeechRecognition(): (new () => AnySpeechRecognition) | null {
 // ─── processed result card ───────────────────────────────────────────────────
 
 function ProcessedCard({ data }: { data: ProcessedData }) {
+  const isImpact = data.plan_impact && !data.plan_impact.toLowerCase().startsWith("no plan impact");
+
   return (
     <div className="space-y-3">
       {data.summary && (
         <p className="text-zinc-300 text-sm leading-relaxed">{data.summary}</p>
+      )}
+
+      {/* Plan impact */}
+      {data.plan_impact && (
+        <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border ${
+          isImpact
+            ? "bg-lime-400/5 border-lime-400/20"
+            : "bg-zinc-800/50 border-zinc-700"
+        }`}>
+          <span className={`text-xs mt-0.5 shrink-0 ${isImpact ? "text-lime-400" : "text-zinc-600"}`}>
+            {isImpact ? "→" : "·"}
+          </span>
+          <p className={`text-xs leading-relaxed ${isImpact ? "text-lime-300" : "text-zinc-500"}`}>
+            {data.plan_impact}
+          </p>
+        </div>
       )}
 
       {/* Tags */}
@@ -166,10 +185,19 @@ function NoteItem({ note }: { note: AudioNote }) {
                 ● {data.sentiment}
               </span>
             )}
-            {data?.tags.slice(0, 3).map((t) => (
+            {data?.tags.slice(0, 2).map((t) => (
               <span key={t} className="text-xs text-zinc-600">{t}</span>
             ))}
           </div>
+          {data?.plan_impact && (
+            <p className={`text-xs mt-1 leading-snug ${
+              !data.plan_impact.toLowerCase().startsWith("no plan impact")
+                ? "text-lime-600"
+                : "text-zinc-600"
+            }`}>
+              {data.plan_impact}
+            </p>
+          )}
         </div>
         <span className="text-zinc-700 text-xs shrink-0 pt-0.5">{open ? "▲" : "▼"}</span>
       </button>
@@ -252,16 +280,14 @@ export default function RecordView({ initialNotes }: { initialNotes: AudioNote[]
       results: { isFinal: boolean; [index: number]: { transcript: string } }[];
       resultIndex: number;
     }) => {
-      let interimTranscript = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTextRef.current += t + " ";
-        } else {
-          interimTranscript += t;
+          finalTextRef.current += event.results[i][0].transcript + " ";
         }
       }
-      setTranscript((finalTextRef.current + interimTranscript).trim());
+      // Only display committed (final) text — no interim results shown,
+      // which prevents the echo/doubling effect.
+      setTranscript(finalTextRef.current.trim());
     };
 
     rec.onerror = (e: { error: string }) => {

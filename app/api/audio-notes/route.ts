@@ -62,13 +62,19 @@ Return ONLY valid JSON — no markdown, no prose — matching exactly this shape
   "symptoms": ["bloating", "cramping", "nausea", etc.],
   "foods_mentioned": ["specific foods", "supplements", "drinks"],
   "sentiment": "positive" | "neutral" | "negative",
-  "action_items": ["brief action to take, e.g. 'Avoid gels on long rides'"]
+  "action_items": ["brief action to take, e.g. 'Avoid gels on long rides'"],
+  "plan_impact": "one sentence explaining how this note will affect the fuelling plan, or 'No plan impact — observation logged' if nothing actionable"
 }
 
 Rules:
 - Only include fields you can infer from the transcript — set others to null or []
 - tags should be concise keywords: energy, gut, recovery, sleep, food, hydration, ride, weight, mood, etc.
 - action_items should be specific and actionable for a fuelling/training context
+- plan_impact must always be a non-empty string. Examples:
+    "Wheat flagged as potential gut trigger — will be avoided in upcoming meal plans"
+    "Low energy reported post-ride — pre-ride carb timing will be reviewed in next plan"
+    "Bloating noted after gel use — alternative on-bike fuelling will be suggested"
+    "No plan impact — observation logged"
 - If nothing relevant to sports nutrition is mentioned, still return the schema with empty arrays and null values
 
 Transcript:
