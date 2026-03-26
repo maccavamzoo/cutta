@@ -69,67 +69,94 @@ function fmtDuration(mins: number): string {
 
 // ─── glycogen battery ─────────────────────────────────────────────────────────
 
-const BATTERY_SEGMENTS = 5;
+function BatterySVG({ value, color }: { value: number; color: string }) {
+  const bodyW = 220, bodyH = 46;
+  const capW = 10, capH = 20;
+  const pad = 5;
+  const fillW = Math.max(0, (value / 100) * (bodyW - pad * 2));
 
-function batteryColour(v: number) {
-  if (v >= 70) return { bar: "bg-lime-400", text: "text-lime-400", label: "bg-lime-400/10 border-lime-400/20" };
-  if (v >= 40) return { bar: "bg-amber-400", text: "text-amber-400", label: "bg-amber-400/10 border-amber-400/20" };
-  return          { bar: "bg-red-500",   text: "text-red-400",   label: "bg-red-500/10 border-red-500/20" };
-}
-
-function batteryLabel(v: number): string {
-  if (v >= 80) return "Loaded";
-  if (v >= 60) return "Good";
-  if (v >= 40) return "Moderate";
-  if (v >= 20) return "Low";
-  return "Depleted";
+  return (
+    <svg
+      viewBox={`0 0 ${bodyW + capW + 4} ${bodyH}`}
+      width="100%"
+      aria-hidden="true"
+    >
+      {/* Body outline */}
+      <rect
+        x={0} y={0} width={bodyW} height={bodyH}
+        rx={8} fill="none" stroke={color} strokeWidth={2} opacity={0.3}
+      />
+      {/* Terminal cap */}
+      <rect
+        x={bodyW + 4} y={(bodyH - capH) / 2}
+        width={capW} height={capH}
+        rx={3} fill={color} opacity={0.45}
+      />
+      {/* Fill */}
+      {value > 0 && (
+        <rect
+          x={pad} y={pad}
+          width={fillW} height={bodyH - pad * 2}
+          rx={4} fill={color} opacity={0.85}
+        />
+      )}
+    </svg>
+  );
 }
 
 function GlyBattery({ value }: { value: number }) {
   const [showInfo, setShowInfo] = useState(false);
-  const colours = batteryColour(value);
-  const filled  = Math.round((value / 100) * BATTERY_SEGMENTS);
+
+  const scheme =
+    value >= 70
+      ? { hex: "#a3e635", text: "text-lime-400",  card: "border-lime-400/20 bg-lime-400/5"   }
+      : value >= 40
+      ? { hex: "#f59e0b", text: "text-amber-400", card: "border-amber-400/20 bg-amber-400/5" }
+      : { hex: "#ef4444", text: "text-red-400",   card: "border-red-500/20 bg-red-500/5"     };
+
+  const message =
+    value >= 70 ? "Ready for a hard session" :
+    value >= 40 ? "Enough for moderate effort" :
+                  "Low — refuel before training";
 
   return (
-    <div className={`rounded-2xl border px-5 py-4 ${colours.label}`}>
-      <div className="flex items-center justify-between mb-3">
+    <div className={`rounded-2xl border px-5 py-4 space-y-3 ${scheme.card}`}>
+      {/* Title + % */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <p className="text-white text-sm font-semibold">Approx. glycogen battery</p>
+          <span className="text-zinc-400 text-xs uppercase tracking-wider font-semibold">
+            Approx. Glycogen
+          </span>
           <button
             onClick={() => setShowInfo((x) => !x)}
-            className="text-zinc-600 hover:text-zinc-400 transition-colors leading-none text-sm"
-            aria-label="About glycogen battery"
+            className="text-zinc-600 hover:text-zinc-400 transition-colors text-sm leading-none"
+            aria-label="What is glycogen?"
           >
             ⓘ
           </button>
         </div>
-        <span className={`text-2xl font-bold tabular-nums ${colours.text}`}>
+        <span className={`text-3xl font-bold tabular-nums leading-none ${scheme.text}`}>
           {value}%
         </span>
       </div>
 
+      {/* Info popup */}
       {showInfo && (
-        <p className="text-zinc-500 text-xs leading-relaxed mb-3 border-b border-white/5 pb-3">
-          Estimated by the AI from your training load, plan carb content, and session intensity.
-          It&apos;s an approximation — not a precise measurement. Use it as a relative guide, not an exact figure.
-        </p>
+        <div className="bg-black/50 rounded-xl px-4 py-3 space-y-1.5 border border-white/5">
+          <p className="text-zinc-200 text-xs font-semibold">What is glycogen?</p>
+          <p className="text-zinc-500 text-xs leading-relaxed">
+            Glycogen is your body&apos;s stored energy for exercise — like a battery. When it&apos;s
+            full, you&apos;re ready to perform. When it&apos;s low, you need carbs to refuel. This
+            estimate is based on what you&apos;ve eaten and how hard you&apos;ve trained.
+          </p>
+        </div>
       )}
 
-      {/* Segmented bar */}
-      <div className="flex gap-1.5 mb-2">
-        {Array.from({ length: BATTERY_SEGMENTS }).map((_, i) => (
-          <div
-            key={i}
-            className={`flex-1 h-4 rounded ${
-              i < filled ? colours.bar : "bg-zinc-800"
-            }`}
-          />
-        ))}
-      </div>
+      {/* Battery icon */}
+      <BatterySVG value={value} color={scheme.hex} />
 
-      <p className={`text-xs font-semibold ${colours.text}`}>
-        {batteryLabel(value)}
-      </p>
+      {/* Contextual message */}
+      <p className={`text-sm font-semibold ${scheme.text}`}>{message}</p>
     </div>
   );
 }
