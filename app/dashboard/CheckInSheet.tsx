@@ -5,10 +5,12 @@ import { useState } from "react";
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface ExistingCheckIn {
-  compliance: "yes" | "mostly" | "no";
+  compliance:  "yes" | "mostly" | "no";
   rideEnergy:  number | null;
   gutComfort:  number | null;
   hunger:      number | null;
+  weightKg:    number | null;
+  bodyFatPct:  number | null;
 }
 
 interface Props {
@@ -106,6 +108,8 @@ export default function CheckInSheet({
   const [rideEnergy,  setRideEnergy]  = useState<number | null>(existing?.rideEnergy  ?? null);
   const [gutComfort,  setGutComfort]  = useState<number | null>(existing?.gutComfort  ?? null);
   const [hunger,      setHunger]      = useState<number | null>(existing?.hunger      ?? null);
+  const [weightStr,   setWeightStr]   = useState(existing?.weightKg   != null ? String(existing.weightKg)   : "");
+  const [bfStr,       setBfStr]       = useState(existing?.bodyFatPct != null ? String(existing.bodyFatPct) : "");
   const [notes,       setNotes]       = useState("");
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState<string | null>(null);
@@ -115,6 +119,18 @@ export default function CheckInSheet({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!compliance) return;
+
+    const weightKg   = weightStr.trim()  ? parseFloat(weightStr.trim())  : null;
+    const bodyFatPct = bfStr.trim()      ? parseFloat(bfStr.trim())      : null;
+
+    if (weightKg !== null && (isNaN(weightKg) || weightKg < 20 || weightKg > 400)) {
+      setError("Enter a valid weight (20–400 kg).");
+      return;
+    }
+    if (bodyFatPct !== null && (isNaN(bodyFatPct) || bodyFatPct < 1 || bodyFatPct > 70)) {
+      setError("Enter a valid body fat % (1–70).");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -160,11 +176,26 @@ export default function CheckInSheet({
         }
       }
 
+      // 3 — Save weight log entry (if provided)
+      if (weightKg !== null) {
+        const wRes = await fetch("/api/weight-log", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ weightKg, bodyFatPct }),
+        });
+        if (!wRes.ok) {
+          const d = await wRes.json();
+          throw new Error(d.error ?? "Failed to save weight.");
+        }
+      }
+
       onSaved({
         compliance,
         rideEnergy:  isTrainingDay ? rideEnergy  : null,
         gutComfort,
         hunger,
+        weightKg,
+        bodyFatPct,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -240,6 +271,50 @@ export default function CheckInSheet({
               )}
               <RatingRow signal="gutComfort" value={gutComfort} onChange={setGutComfort} />
               <RatingRow signal="hunger"     value={hunger}     onChange={setHunger} />
+            </div>
+
+            {/* Weight entry */}
+            <div className="border-t border-zinc-800 pt-5 space-y-4">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">
+                Morning weigh-in <span className="normal-case font-normal text-zinc-600">(optional)</span>
+              </p>
+
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-white text-sm font-medium mb-1.5">Weight</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      min="20"
+                      max="400"
+                      placeholder="e.g. 73.4"
+                      value={weightStr}
+                      onChange={(e) => setWeightStr(e.target.value)}
+                      className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">kg</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-white text-sm font-medium mb-1.5">Body fat <span className="text-zinc-600 font-normal">(optional)</span></label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      min="1"
+                      max="70"
+                      placeholder="e.g. 14.2"
+                      value={bfStr}
+                      onChange={(e) => setBfStr(e.target.value)}
+                      className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">%</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Optional notes */}
