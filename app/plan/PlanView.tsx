@@ -77,12 +77,6 @@ function batteryLabel(v: number): string {
   return "Depleted";
 }
 
-const TYPE_BADGE: Record<string, string> = {
-  training: "bg-lime-400/10 text-lime-400 border border-lime-400/30",
-  race:     "bg-orange-400/10 text-orange-400 border border-orange-400/30",
-  rest:     "bg-zinc-800 text-zinc-500 border border-zinc-700",
-  other:    "bg-zinc-800 text-zinc-500 border border-zinc-700",
-};
 
 const INTENSITY_LABEL: Record<string, string> = {
   easy:     "Easy",
@@ -230,7 +224,7 @@ function DayCard({
   unitSystem,
   onEventAdded,
 }: DayCardProps) {
-  const [expanded,    setExpanded]    = useState(isToday);
+  const [expanded,    setExpanded]    = useState(false);
   const [sheetOpen,   setSheetOpen]   = useState(false);
 
   const hasPlan      = plan !== null;
@@ -238,10 +232,9 @@ function DayCard({
   const isInPlanZone = dayIndex < 3; // first 3 days have AI meal plans
   const battery      = plan?.glycogenBattery ?? null;
 
-  // Determine day type for border/badge
+  // Determine day type for border colour
   const isTrainingDay = events.some((e) => e.eventType === "ride" || e.eventType === "race");
   const isRaceDay     = events.some((e) => e.eventType === "race");
-  const dayType       = isRaceDay ? "race" : isTrainingDay ? "training" : "rest";
 
   const roughCals = isTrainingDay
     ? calorieMeta.trainingDayCalories
@@ -283,14 +276,9 @@ function DayCard({
                 {isToday && <span className="ml-1.5 text-xs font-normal text-lime-600">Today</span>}
               </span>
 
-              {/* Day-type badge */}
-              <span className={`text-xs px-2 py-0.5 rounded-full capitalize shrink-0 ${TYPE_BADGE[dayType]}`}>
-                {dayType}
-              </span>
-
-              {/* Green dot if plan exists */}
+              {/* Plan ready label */}
               {hasPlan && (
-                <span className="w-1.5 h-1.5 rounded-full bg-lime-400 shrink-0" title="Meal plan ready" />
+                <span className="text-xs text-lime-600 shrink-0">Plan ready</span>
               )}
             </div>
 
@@ -307,13 +295,21 @@ function DayCard({
 
           {/* Activities summary in collapsed view */}
           {hasEvents && (
-            <div className="mt-1.5 flex flex-wrap gap-2">
-              {events.map((ev) => (
-                <span key={ev.id} className={`text-xs px-2 py-0.5 rounded-full ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
-                  {ev.title}
-                  {ev.durationMinutes ? ` · ${ev.durationMinutes}m` : ""}
-                </span>
-              ))}
+            <div className="mt-1.5 flex flex-col gap-1">
+              {events.map((ev) => {
+                const time = new Date(ev.scheduledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                const parts = [
+                  ev.eventType.charAt(0).toUpperCase() + ev.eventType.slice(1),
+                  ev.title,
+                  ev.durationMinutes ? `${ev.durationMinutes}m` : null,
+                  time,
+                ].filter(Boolean).join(" · ");
+                return (
+                  <span key={ev.id} className={`text-xs px-2 py-0.5 rounded-full self-start ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
+                    {parts}
+                  </span>
+                );
+              })}
             </div>
           )}
 
