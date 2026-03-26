@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
 import BottomNav from "@/components/BottomNav";
 import CheckInSheet, { type ExistingCheckIn } from "./CheckInSheet";
+import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 
 // ─── exported types (used by page.tsx) ───────────────────────────────────────
 
@@ -113,8 +114,9 @@ function GlyBattery({
   todayStr: string;
   onCalibrate?: (val: number) => void;
 }) {
-  const [showInfo, setShowInfo] = useState(false);
-  const [calibrating, setCalibrating] = useState(false);
+  const [showInfo,      setShowInfo]      = useState(false);
+  const [showCalibrate, setShowCalibrate] = useState(false);
+  const [calibrating,   setCalibrating]   = useState(false);
 
   const scheme =
     value >= 70
@@ -137,7 +139,10 @@ function GlyBattery({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planDate: todayStr, glycogenBattery: target }),
       });
-      if (res.ok) onCalibrate?.(target);
+      if (res.ok) {
+        onCalibrate?.(target);
+        setShowCalibrate(false);
+      }
     } finally {
       setCalibrating(false);
     }
@@ -147,16 +152,21 @@ function GlyBattery({
     <div className={`rounded-2xl border px-5 py-4 space-y-3 ${scheme.card}`}>
       {/* Title + % */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <span className="text-zinc-400 text-xs uppercase tracking-wider font-semibold">
             Approx. Glycogen
           </span>
+          {/* Info icon — inline SVG for reliable rendering */}
           <button
-            onClick={() => setShowInfo((x) => !x)}
-            className="text-zinc-600 hover:text-zinc-400 transition-colors text-sm leading-none"
+            onClick={() => { setShowInfo((x) => !x); setShowCalibrate(false); }}
+            className="w-5 h-5 flex items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors"
             aria-label="What is glycogen?"
           >
-            ⓘ
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M7 6.5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="7" cy="4.25" r="0.8" fill="currentColor" />
+            </svg>
           </button>
         </div>
         <span className={`text-3xl font-bold tabular-nums leading-none ${scheme.text}`}>
@@ -179,28 +189,57 @@ function GlyBattery({
       {/* Battery icon */}
       <BatterySVG value={value} color={scheme.hex} />
 
-      {/* Contextual message */}
-      <p className={`text-sm font-semibold ${scheme.text}`}>{message}</p>
-
-      {/* Manual calibration */}
-      <div className="flex gap-2 pt-1">
+      {/* Contextual message + calibrate link */}
+      <div className="flex items-center justify-between">
+        <p className={`text-sm font-semibold ${scheme.text}`}>{message}</p>
         <button
           type="button"
-          onClick={() => calibrate(10)}
-          disabled={calibrating}
-          className="flex-1 py-2 rounded-xl text-xs font-semibold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 transition-colors disabled:opacity-40"
+          onClick={() => { setShowCalibrate((x) => !x); setShowInfo(false); }}
+          className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors font-medium"
         >
-          I&apos;m empty
-        </button>
-        <button
-          type="button"
-          onClick={() => calibrate(90)}
-          disabled={calibrating}
-          className="flex-1 py-2 rounded-xl text-xs font-semibold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 transition-colors disabled:opacity-40"
-        >
-          I&apos;m topped up
+          Calibrate →
         </button>
       </div>
+
+      {/* Calibrate popup */}
+      {showCalibrate && (
+        <div className="bg-black/60 rounded-xl px-4 py-4 space-y-3 border border-white/5">
+          <div className="flex items-start justify-between">
+            <p className="text-zinc-200 text-xs font-semibold">Calibrate glycogen</p>
+            <button
+              onClick={() => setShowCalibrate(false)}
+              className="text-zinc-600 hover:text-zinc-300 text-sm transition-colors ml-3"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-zinc-500 text-xs leading-relaxed">
+            Calibrate your glycogen estimate to match how you feel right now. Use this after a long
+            hard ride (empty) or after a rest day with good carb intake (topped up).
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => calibrate(10)}
+              disabled={calibrating}
+              className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-40 leading-tight"
+            >
+              I&apos;m empty
+              <span className="block text-zinc-600 font-normal mt-0.5">~10%</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => calibrate(90)}
+              disabled={calibrating}
+              className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-40 leading-tight"
+            >
+              I&apos;m topped up
+              <span className="block text-zinc-600 font-normal mt-0.5">~90%</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -481,6 +520,7 @@ export default function DailyDashboard({
   firstName,
   latestWeightKg,
   latestBodyFatPct,
+  unitSystem = "metric",
 }: {
   todayStr:          string;
   todayPlan:         TodayPlan | null;
@@ -490,6 +530,7 @@ export default function DailyDashboard({
   firstName:         string | null;
   latestWeightKg:    number | null;
   latestBodyFatPct:  number | null;
+  unitSystem?:       UnitSystem;
 }) {
   const [checkInOpen,    setCheckInOpen]    = useState(false);
   const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
@@ -524,9 +565,9 @@ export default function DailyDashboard({
                 {displayWeight && (
                   <div className="flex items-baseline gap-1">
                     <span className="text-white text-2xl font-bold tabular-nums">
-                      {displayWeight.toFixed(1)}
+                      {kgToDisplay(displayWeight, unitSystem).toFixed(1)}
                     </span>
-                    <span className="text-zinc-500 text-sm">kg</span>
+                    <span className="text-zinc-500 text-sm">{weightLabel(unitSystem)}</span>
                     {displayBf && (
                       <span className="text-zinc-600 text-xs ml-1">· {displayBf.toFixed(1)}% bf</span>
                     )}
@@ -536,15 +577,17 @@ export default function DailyDashboard({
                   <>
                     <div className="w-px h-5 bg-zinc-800" />
                     {(() => {
-                      const diff = parseFloat((displayWeight - profile.targetWeightKg).toFixed(1));
-                      if (diff > 0) return (
+                      const diffKg = parseFloat((displayWeight - profile.targetWeightKg).toFixed(2));
+                      const diffDisplay = kgToDisplay(Math.abs(diffKg), unitSystem).toFixed(1);
+                      const wl = weightLabel(unitSystem);
+                      if (diffKg > 0) return (
                         <p className="text-zinc-500 text-sm">
-                          <span className="text-lime-400 font-semibold">{diff} kg</span> to go
+                          <span className="text-lime-400 font-semibold">{diffDisplay} {wl}</span> to go
                         </p>
                       );
-                      if (diff < 0) return (
+                      if (diffKg < 0) return (
                         <p className="text-zinc-500 text-sm">
-                          <span className="text-lime-400 font-semibold">{Math.abs(diff)} kg</span> above target
+                          <span className="text-lime-400 font-semibold">{diffDisplay} {wl}</span> above target
                         </p>
                       );
                       return <p className="text-lime-400 text-sm font-semibold">Target reached</p>;
@@ -680,6 +723,7 @@ export default function DailyDashboard({
           todayStr={todayStr}
           isTrainingDay={isTrainingDay}
           existing={savedCheckIn}
+          unitSystem={unitSystem}
           onClose={() => setCheckInOpen(false)}
           onSaved={(result) => {
             setSavedCheckIn(result);

@@ -59,6 +59,9 @@ export const userProfiles = pgTable(
     // { positive: string[], negative: string[], gutTriggers: string[], supplementReactions: Record<string,string> }
     foodProfile: jsonb("food_profile"),
 
+    // Display preferences
+    unitSystem: varchar("unit_system", { length: 10 }).default("metric"),
+
     // Onboarding complete flag
     onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
 

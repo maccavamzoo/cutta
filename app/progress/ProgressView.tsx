@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 import {
   LineChart,
   Line,
@@ -65,13 +66,24 @@ function EmptyState({ message }: { message: string }) {
 function WeightChart({
   points,
   targetWeightKg,
+  unitSystem,
 }: {
   points:         ProgressData["weightPoints"];
   targetWeightKg: number | null;
+  unitSystem:     UnitSystem;
 }) {
-  const actuals    = points.filter((p) => p.actual !== undefined).map((p) => p.actual as number);
-  const projValues = points.filter((p) => p.projected !== undefined).map((p) => p.projected as number);
-  const allValues  = [...actuals, ...projValues, targetWeightKg ?? 0].filter(Boolean);
+  // Convert all weight values to display units for charting
+  const convertedPoints = points.map((p) => ({
+    ...p,
+    actual:    p.actual    !== undefined ? kgToDisplay(p.actual,    unitSystem) : undefined,
+    projected: p.projected !== undefined ? kgToDisplay(p.projected, unitSystem) : undefined,
+  }));
+  const targetDisplay = targetWeightKg !== null ? kgToDisplay(targetWeightKg, unitSystem) : null;
+  const wl = weightLabel(unitSystem);
+
+  const actuals    = convertedPoints.filter((p) => p.actual    !== undefined).map((p) => p.actual    as number);
+  const projValues = convertedPoints.filter((p) => p.projected !== undefined).map((p) => p.projected as number);
+  const allValues  = [...actuals, ...projValues, targetDisplay ?? 0].filter(Boolean);
 
   const yMin = Math.floor(Math.min(...allValues) - 1);
   const yMax = Math.ceil(Math.max(...allValues) + 1);
@@ -81,7 +93,7 @@ function WeightChart({
 
   return (
     <ResponsiveContainer width="100%" height={210}>
-      <LineChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
+      <LineChart data={convertedPoints} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
         <XAxis
           dataKey="label"
@@ -100,20 +112,20 @@ function WeightChart({
         <Tooltip
           contentStyle={tooltipStyle}
           formatter={(value, name) => [
-            `${value} kg`,
+            `${value} ${wl}`,
             name === "actual" ? "Weight" : "Trend",
           ]}
           labelStyle={{ color: "#a1a1aa" }}
         />
 
-        {targetWeightKg && (
+        {targetDisplay !== null && (
           <ReferenceLine
-            y={targetWeightKg}
+            y={targetDisplay}
             stroke="#f59e0b"
             strokeDasharray="4 4"
             strokeWidth={1.5}
             label={{
-              value: `Target ${targetWeightKg} kg`,
+              value: `Target ${targetDisplay} ${wl}`,
               position: "insideTopRight",
               fill: "#f59e0b",
               fontSize: 10,
@@ -260,23 +272,33 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 // ─── main component ───────────────────────────────────────────────────────────
 
-export default function ProgressView({ data }: { data: ProgressData }) {
+export default function ProgressView({
+  data,
+  unitSystem = "metric",
+}: {
+  data: ProgressData;
+  unitSystem?: UnitSystem;
+}) {
   // Recharts reads `window` — only render after mount to avoid SSR mismatch
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const { weightPoints, targetWeightKg, projectedDate, slopeKgPerWeek, bfPoints, stats, energyPoints } = data;
+  const wl = weightLabel(unitSystem);
 
   const hasWeight    = weightPoints.some((p) => p.actual !== undefined);
   const hasBf        = bfPoints.length >= 2;
   const hasEnergy    = energyPoints.length >= 1;
   const hasCompliance = stats.daysOnPlan > 0;
 
+  const slopeDisplay = slopeKgPerWeek !== null
+    ? kgToDisplay(Math.abs(slopeKgPerWeek), unitSystem)
+    : null;
   const slopeLabel = slopeKgPerWeek !== null
     ? slopeKgPerWeek < 0
-      ? `${Math.abs(slopeKgPerWeek)} kg/week loss`
+      ? `${slopeDisplay} ${wl}/week loss`
       : slopeKgPerWeek > 0
-        ? `+${slopeKgPerWeek} kg/week gain`
+        ? `+${slopeDisplay} ${wl}/week gain`
         : "Weight stable"
     : null;
 
@@ -293,11 +315,11 @@ export default function ProgressView({ data }: { data: ProgressData }) {
       <Section title="Weight">
 
         {/* Projection callout */}
-        {projectedDate && (
+        {projectedDate && targetWeightKg !== null && (
           <div className="bg-lime-400/10 border border-lime-400/20 rounded-2xl px-4 py-3.5">
             <p className="text-white text-sm font-semibold leading-snug">
               At this rate you&apos;ll hit{" "}
-              <span className="text-lime-400">{targetWeightKg} kg</span>{" "}
+              <span className="text-lime-400">{kgToDisplay(targetWeightKg, unitSystem)} {wl}</span>{" "}
               by{" "}
               <span className="text-lime-400">{projectedDate}</span>
             </p>
@@ -323,7 +345,7 @@ export default function ProgressView({ data }: { data: ProgressData }) {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-2 pt-4 pb-2">
           {hasWeight && weightPoints.length >= 2 ? (
             mounted ? (
-              <WeightChart points={weightPoints} targetWeightKg={targetWeightKg} />
+              <WeightChart points={weightPoints} targetWeightKg={targetWeightKg} unitSystem={unitSystem} />
             ) : chartSkeleton
           ) : (
             <EmptyState
@@ -343,22 +365,24 @@ export default function ProgressView({ data }: { data: ProgressData }) {
               const actuals = weightPoints.filter((p) => p.actual !== undefined);
               const first = actuals[0]?.actual;
               const last  = actuals.at(-1)?.actual;
-              const lost  = first && last ? Math.round((first - last) * 10) / 10 : null;
+              const lostKg = first && last ? Math.round((first - last) * 10) / 10 : null;
+              const lastDisplay = last ? kgToDisplay(last, unitSystem) : null;
+              const lostDisplay = lostKg !== null ? kgToDisplay(Math.abs(lostKg), unitSystem) : null;
               return (
                 <>
-                  {last && (
+                  {lastDisplay !== null && (
                     <StatCard
-                      value={`${last} kg`}
+                      value={`${lastDisplay} ${wl}`}
                       label="Current weight"
                       colour="text-white"
                     />
                   )}
-                  {lost !== null && (
+                  {lostKg !== null && lostDisplay !== null && (
                     <StatCard
-                      value={lost > 0 ? `−${lost} kg` : lost < 0 ? `+${Math.abs(lost)} kg` : "0 kg"}
+                      value={lostKg > 0 ? `−${lostDisplay} ${wl}` : lostKg < 0 ? `+${lostDisplay} ${wl}` : `0 ${wl}`}
                       label="Total change"
                       sub={`since ${weightPoints[0]?.label}`}
-                      colour={lost > 0 ? "text-lime-400" : lost < 0 ? "text-red-400" : "text-zinc-400"}
+                      colour={lostKg > 0 ? "text-lime-400" : lostKg < 0 ? "text-red-400" : "text-zinc-400"}
                     />
                   )}
                 </>
