@@ -384,6 +384,17 @@ export default function CalendarView({
                   />
                 ))}
               </div>
+              {/* Projected weight */}
+              {(() => {
+                const proj = currentWeightKg && dailyWeightLossKg
+                  ? projectedWeightOn(day, today, currentWeightKg, dailyWeightLossKg)
+                  : null;
+                return proj !== null ? (
+                  <span className="text-[9px] text-zinc-600 tabular-nums leading-none">
+                    {proj}
+                  </span>
+                ) : <span className="min-h-[9px]" />;
+              })()}
             </button>
           );
         })}

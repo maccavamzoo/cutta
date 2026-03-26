@@ -104,8 +104,17 @@ function BatterySVG({ value, color }: { value: number; color: string }) {
   );
 }
 
-function GlyBattery({ value }: { value: number }) {
+function GlyBattery({
+  value,
+  todayStr,
+  onCalibrate,
+}: {
+  value: number;
+  todayStr: string;
+  onCalibrate?: (val: number) => void;
+}) {
   const [showInfo, setShowInfo] = useState(false);
+  const [calibrating, setCalibrating] = useState(false);
 
   const scheme =
     value >= 70
@@ -118,6 +127,21 @@ function GlyBattery({ value }: { value: number }) {
     value >= 70 ? "Ready for a hard session" :
     value >= 40 ? "Enough for moderate effort" :
                   "Low — refuel before training";
+
+  async function calibrate(target: number) {
+    if (calibrating) return;
+    setCalibrating(true);
+    try {
+      const res = await fetch("/api/fuelling-plan/calibrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planDate: todayStr, glycogenBattery: target }),
+      });
+      if (res.ok) onCalibrate?.(target);
+    } finally {
+      setCalibrating(false);
+    }
+  }
 
   return (
     <div className={`rounded-2xl border px-5 py-4 space-y-3 ${scheme.card}`}>
@@ -157,6 +181,26 @@ function GlyBattery({ value }: { value: number }) {
 
       {/* Contextual message */}
       <p className={`text-sm font-semibold ${scheme.text}`}>{message}</p>
+
+      {/* Manual calibration */}
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => calibrate(10)}
+          disabled={calibrating}
+          className="flex-1 py-2 rounded-xl text-xs font-semibold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 transition-colors disabled:opacity-40"
+        >
+          I&apos;m empty
+        </button>
+        <button
+          type="button"
+          onClick={() => calibrate(90)}
+          disabled={calibrating}
+          className="flex-1 py-2 rounded-xl text-xs font-semibold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 transition-colors disabled:opacity-40"
+        >
+          I&apos;m topped up
+        </button>
+      </div>
     </div>
   );
 }
@@ -451,6 +495,7 @@ export default function DailyDashboard({
   const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
   const [displayWeight,  setDisplayWeight]  = useState<number | null>(latestWeightKg);
   const [displayBf,      setDisplayBf]      = useState<number | null>(latestBodyFatPct);
+  const [glycogenValue,  setGlycogenValue]  = useState<number>(todayPlan?.glycogenBattery ?? 50);
 
   const trainingEvent = todayEvents.find(
     (e) => e.eventType === "ride" || e.eventType === "race"
@@ -506,14 +551,6 @@ export default function DailyDashboard({
                     })()}
                   </>
                 )}
-                {!displayWeight && profile?.targetWeightKg && (
-                  <button
-                    onClick={() => setCheckInOpen(true)}
-                    className="text-zinc-600 text-xs hover:text-zinc-400 transition-colors"
-                  >
-                    Log today&apos;s weight →
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -524,7 +561,11 @@ export default function DailyDashboard({
           {todayPlan ? (
             <>
               {/* Glycogen battery */}
-              <GlyBattery value={todayPlan.glycogenBattery ?? 50} />
+              <GlyBattery
+                value={glycogenValue}
+                todayStr={todayStr}
+                onCalibrate={setGlycogenValue}
+              />
 
               {/* AI reasoning */}
               {todayPlan.aiReasoning && (

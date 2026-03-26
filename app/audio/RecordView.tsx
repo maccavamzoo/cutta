@@ -228,9 +228,10 @@ export default function RecordView({ initialNotes }: { initialNotes: AudioNote[]
   const [notes,      setNotes]      = useState<AudioNote[]>(initialNotes);
   const [hasSpeech,  setHasSpeech]  = useState(false);
 
-  const recognitionRef = useRef<AnySpeechRecognition | null>(null);
-  const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null);
-  const finalTextRef   = useRef("");
+  const recognitionRef  = useRef<AnySpeechRecognition | null>(null);
+  const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const finalTextRef    = useRef("");
+  const isRecordingRef  = useRef(false); // ref-based flag — never stale in callbacks
 
   // Check speech API availability
   useEffect(() => {
@@ -269,24 +270,22 @@ export default function RecordView({ initialNotes }: { initialNotes: AudioNote[]
     setError(null);
     setResult(null);
     finalTextRef.current = "";
+    isRecordingRef.current = true;
     startTimer();
 
     const rec = new SpeechRec();
-    rec.continuous      = true;
-    rec.interimResults  = true;
-    rec.lang            = "en-GB";
+    rec.continuous     = true;
+    rec.interimResults = false; // final results only — eliminates all echo/doubling
+    rec.lang           = "en-GB";
 
     rec.onresult = (event: {
       results: { isFinal: boolean; [index: number]: { transcript: string } }[];
       resultIndex: number;
     }) => {
+      // With interimResults=false every result is already final
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTextRef.current += event.results[i][0].transcript + " ";
-        }
+        finalTextRef.current += event.results[i][0].transcript + " ";
       }
-      // Only display committed (final) text — no interim results shown,
-      // which prevents the echo/doubling effect.
       setTranscript(finalTextRef.current.trim());
     };
 
@@ -294,16 +293,16 @@ export default function RecordView({ initialNotes }: { initialNotes: AudioNote[]
       console.error("[speech]", e.error);
       if (e.error === "not-allowed") {
         setError("Microphone access denied. Allow microphone in your browser settings.");
+        isRecordingRef.current = false;
         setStage("idle");
         stopTimer();
       }
     };
 
     rec.onend = () => {
-      // SpeechRecognition may end on its own (silence timeout)
-      // Only restart if still in recording stage
-      if (recognitionRef.current && stage === "recording") {
-        try { rec.start(); } catch { /* already stopped */ }
+      // Restart on silence timeout only — use a ref so the check is never stale
+      if (isRecordingRef.current) {
+        try { rec.start(); } catch { /* already stopped by handleStop */ }
       }
     };
 
@@ -315,7 +314,8 @@ export default function RecordView({ initialNotes }: { initialNotes: AudioNote[]
     stopTimer();
 
     if (recognitionRef.current) {
-      recognitionRef.current.onend = null; // prevent restart
+      isRecordingRef.current = false;       // must be set before .stop() fires onend
+      recognitionRef.current.onend = null;  // belt-and-suspenders
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }

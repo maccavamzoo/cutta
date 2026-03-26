@@ -229,6 +229,53 @@ export default function CheckInSheet({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Weight entry — first thing in the check-in */}
+            <div className="space-y-4">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">
+                Morning weigh-in <span className="normal-case font-normal text-zinc-600">(optional)</span>
+              </p>
+
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-white text-sm font-medium mb-1.5">Weight</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      min="20"
+                      max="400"
+                      placeholder="e.g. 73.4"
+                      value={weightStr}
+                      onChange={(e) => setWeightStr(e.target.value)}
+                      className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">kg</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-white text-sm font-medium mb-1.5">Body fat <span className="text-zinc-600 font-normal">(optional)</span></label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      min="1"
+                      max="70"
+                      placeholder="e.g. 14.2"
+                      value={bfStr}
+                      onChange={(e) => setBfStr(e.target.value)}
+                      className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Separator */}
+            <div className="border-t border-zinc-800" />
+
             {/* Compliance */}
             <div>
               <p className="text-white text-sm font-medium mb-3">
@@ -271,50 +318,6 @@ export default function CheckInSheet({
               )}
               <RatingRow signal="gutComfort" value={gutComfort} onChange={setGutComfort} />
               <RatingRow signal="hunger"     value={hunger}     onChange={setHunger} />
-            </div>
-
-            {/* Weight entry */}
-            <div className="border-t border-zinc-800 pt-5 space-y-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">
-                Morning weigh-in <span className="normal-case font-normal text-zinc-600">(optional)</span>
-              </p>
-
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-white text-sm font-medium mb-1.5">Weight</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      min="20"
-                      max="400"
-                      placeholder="e.g. 73.4"
-                      value={weightStr}
-                      onChange={(e) => setWeightStr(e.target.value)}
-                      className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">kg</span>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-white text-sm font-medium mb-1.5">Body fat <span className="text-zinc-600 font-normal">(optional)</span></label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      min="1"
-                      max="70"
-                      placeholder="e.g. 14.2"
-                      value={bfStr}
-                      onChange={(e) => setBfStr(e.target.value)}
-                      className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">%</span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Optional notes */}
