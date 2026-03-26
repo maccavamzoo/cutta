@@ -29,7 +29,7 @@ export default function ShoppingLoading() {
           ))}
         </div>
       </main>
-      <BottomNav active="shop" />
+      <BottomNav active="more" />
     </>
   );
 }
