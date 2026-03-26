@@ -145,10 +145,26 @@ function EventCard({ event }: { event: CalendarEvent }) {
 
 // ─── main component ──────────────────────────────────────────────────────────
 
+function projectedWeightOn(
+  day: Date,
+  today: Date,
+  currentWeightKg: number,
+  dailyLossKg: number,
+): number | null {
+  const daysOut = Math.round((day.getTime() - today.getTime()) / 86_400_000);
+  if (daysOut <= 0) return null; // don't show for today/past
+  const proj = currentWeightKg - daysOut * dailyLossKg;
+  return Math.round(proj * 10) / 10;
+}
+
 export default function CalendarView({
   initialEvents,
+  currentWeightKg,
+  dailyWeightLossKg,
 }: {
   initialEvents: CalendarEvent[];
+  currentWeightKg: number | null;
+  dailyWeightLossKg: number | null;
 }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -400,12 +416,22 @@ export default function CalendarView({
                     })}
                     {isToday ? " · Today" : ""}
                   </button>
-                  <button
-                    onClick={() => openAdd(day)}
-                    className="text-zinc-700 text-xs hover:text-zinc-400 transition-colors"
-                  >
-                    + Add
-                  </button>
+                  <div className="flex items-center gap-2.5">
+                    {(() => {
+                      const proj = currentWeightKg && dailyWeightLossKg
+                        ? projectedWeightOn(day, today, currentWeightKg, dailyWeightLossKg)
+                        : null;
+                      return proj !== null ? (
+                        <span className="text-zinc-600 text-xs tabular-nums">{proj} kg</span>
+                      ) : null;
+                    })()}
+                    <button
+                      onClick={() => openAdd(day)}
+                      className="text-zinc-700 text-xs hover:text-zinc-400 transition-colors"
+                    >
+                      + Add
+                    </button>
+                  </div>
                 </div>
 
                 {dayEvents.length === 0 ? (

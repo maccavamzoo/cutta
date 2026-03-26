@@ -65,13 +65,14 @@ export default async function PlanPage() {
     db
       .select({
         estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
+        updatedAt: userProfiles.updatedAt,
       })
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
       .limit(1),
 
     db
-      .select({ content: protocols.content })
+      .select({ content: protocols.content, updatedAt: protocols.updatedAt })
       .from(protocols)
       .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
       .limit(1),
@@ -81,6 +82,19 @@ export default async function PlanPage() {
     ? Number(profileRows[0].estimatedMaintenanceCalories)
     : null;
   const protocolContent = protocolRows[0]?.content ?? null;
+
+  // Staleness: any calendar event / protocol / profile changed after the earliest generated plan
+  const earliestPlanGenAt = planRows.length > 0
+    ? planRows.reduce((min, p) => p.generatedAt < min ? p.generatedAt : min, planRows[0].generatedAt)
+    : null;
+  const latestCalendarUpdate = eventRows.length > 0
+    ? eventRows.reduce((max, e) => e.updatedAt > max ? e.updatedAt : max, eventRows[0].updatedAt)
+    : null;
+  const planStale = earliestPlanGenAt !== null && (
+    (latestCalendarUpdate  && latestCalendarUpdate  > earliestPlanGenAt) ||
+    (protocolRows[0]?.updatedAt && protocolRows[0].updatedAt > earliestPlanGenAt) ||
+    (profileRows[0]?.updatedAt  && profileRows[0].updatedAt  > earliestPlanGenAt)
+  );
 
   const initialPlans: StoredPlan[] = planRows.map((r) => ({
     id:              r.id,
@@ -129,6 +143,7 @@ export default async function PlanPage() {
           calendarEvents={planCalendarEvents}
           calorieMeta={calorieMeta}
           todayStr={todayStr}
+          planStale={!!planStale}
         />
       </main>
       <BottomNav active="plan" />

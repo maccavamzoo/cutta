@@ -340,17 +340,20 @@ export default function PlanView({
   calendarEvents,
   calorieMeta,
   todayStr,
+  planStale,
 }: {
   initialPlans: StoredPlan[];
   calendarEvents: PlanCalendarEvent[];
   calorieMeta: CalorieMeta;
   todayStr: string;
+  planStale: boolean;
 }) {
-  const [plans]           = useState<StoredPlan[]>(initialPlans);
-  const [generating,  setGenerating]  = useState(false);
+  const [plans]            = useState<StoredPlan[]>(initialPlans);
+  const [generating,   setGenerating]   = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [status,      setStatus]      = useState<string | null>(null);
-  const [error,       setError]       = useState<string | null>(null);
+  const [status,       setStatus]       = useState<string | null>(null);
+  const [error,        setError]        = useState<string | null>(null);
+  const [staleDismissed, setStaleDismissed] = useState(false);
 
   const busy = generating || regenerating;
 
@@ -445,70 +448,91 @@ export default function PlanView({
 
   return (
     <div className="space-y-4">
+
+      {/* Stale-plan banner */}
+      {planStale && !staleDismissed && !busy && (
+        <div className="flex items-start gap-3 bg-amber-400/10 border border-amber-400/30 rounded-2xl px-4 py-3.5">
+          <span className="text-amber-400 text-base shrink-0 mt-0.5">⚠</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-amber-300 text-sm font-semibold">Plan may be out of date</p>
+            <p className="text-amber-400/70 text-xs mt-0.5 leading-snug">
+              Training, profile, or protocol changed since this was generated.
+            </p>
+            <div className="flex gap-2 mt-2.5">
+              {hasCurrentWindow && (
+                <button
+                  onClick={() => { setStaleDismissed(true); handleRegenerate(); }}
+                  className="px-3 py-1.5 bg-amber-400 text-black text-xs font-semibold rounded-full hover:bg-amber-300 transition-colors"
+                >
+                  Regenerate now
+                </button>
+              )}
+              <button
+                onClick={() => setStaleDismissed(true)}
+                className="px-3 py-1.5 bg-zinc-800 text-zinc-400 text-xs font-medium rounded-full hover:bg-zinc-700 transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Controls */}
       <div className="space-y-2">
         {/* Meta line */}
-        <div className="flex items-center justify-between min-h-[1.25rem]">
-          <div className="space-y-0.5">
-            {lastGenerated && (
-              <p className="text-zinc-600 text-xs">Last generated {lastGenerated}</p>
-            )}
-            {plans.length > 0 && (
-              <p className="text-zinc-600 text-xs">{plans.length}/{WINDOW_DAYS} days planned</p>
-            )}
+        {!busy && (
+          <div className="flex items-center justify-between min-h-[1.25rem]">
+            <div className="space-y-0.5">
+              {lastGenerated && (
+                <p className="text-zinc-600 text-xs">Last generated {lastGenerated}</p>
+              )}
+              {plans.length > 0 && (
+                <p className="text-zinc-600 text-xs">{plans.length}/{WINDOW_DAYS} days planned</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Status / error */}
-        {status && <p className="text-lime-400 text-xs">{status}</p>}
-        {error  && <p className="text-red-400 text-sm">{error}</p>}
+        {/* Error */}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
 
-        {/* Button row */}
-        <div className="flex gap-2 flex-wrap">
-          {/* Regenerate current 3 days — only shown when they exist */}
-          {hasCurrentWindow && (
+        {/* Loading state — shown when generating */}
+        {busy ? (
+          <div className="bg-zinc-900 border border-lime-400/20 rounded-2xl px-5 py-8 flex flex-col items-center gap-4 text-center">
+            <div className="w-10 h-10 border-2 border-lime-400 border-t-transparent rounded-full animate-spin" />
+            <div>
+              <p className="text-white font-semibold">Building your plan…</p>
+              <p className="text-zinc-500 text-sm mt-1">This takes 20–30 seconds — hang tight</p>
+            </div>
+            {status && <p className="text-zinc-400 text-xs">{status}</p>}
+          </div>
+        ) : (
+          /* Button row */
+          <div className="flex gap-2 flex-wrap">
+            {hasCurrentWindow && (
+              <button
+                onClick={handleRegenerate}
+                disabled={busy}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap bg-zinc-800 text-zinc-300 border border-zinc-700 hover:border-zinc-500 hover:text-white active:bg-zinc-700"
+              >
+                ↺ Regenerate {fmtShortDate(todayStr)}–{fmtShortDate(todayWindowEnd)}
+              </button>
+            )}
+
             <button
-              onClick={handleRegenerate}
-              disabled={busy}
+              onClick={handleExtend}
+              disabled={!canExtend}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
-                busy
+                !canExtend
                   ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-                  : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:border-zinc-500 hover:text-white active:bg-zinc-700"
+                  : "bg-lime-400 text-black hover:bg-lime-300 active:bg-lime-500"
               }`}
             >
-              {regenerating ? (
-                <>
-                  <span className="w-3 h-3 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
-                  Regenerating…
-                </>
-              ) : (
-                <>↺ Regenerate {fmtShortDate(todayStr)}–{fmtShortDate(todayWindowEnd)}</>
-              )}
+              {extendLabel}
             </button>
-          )}
-
-          {/* Extend / generate next batch */}
-          <button
-            onClick={handleExtend}
-            disabled={!canExtend}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
-              !canExtend
-                ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-                : generating
-                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                : "bg-lime-400 text-black hover:bg-lime-300 active:bg-lime-500"
-            }`}
-          >
-            {generating ? (
-              <>
-                <span className="w-3 h-3 border-2 border-zinc-700 border-t-transparent rounded-full animate-spin" />
-                Generating…
-              </>
-            ) : (
-              extendLabel
-            )}
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Empty state */}
@@ -522,7 +546,7 @@ export default function PlanView({
       )}
 
       {/* 14-day list */}
-      <div className="space-y-2.5">
+      <div className={`space-y-2.5 transition-opacity ${busy ? "opacity-30 pointer-events-none" : ""}`}>
         {allDates.map((dateStr) => {
           const plan  = plansByDate.get(dateStr);
           const event = eventsByDate.get(dateStr) ?? null;
