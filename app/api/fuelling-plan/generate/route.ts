@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, lt, gt } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import {
@@ -354,6 +354,23 @@ export async function POST(req: NextRequest) {
   log("upsert", `Saved ${saved.length}, failed ${failed.length}`, {
     failed: failed.length > 0 ? failed : undefined,
   });
+
+  // ── 8. Clean up: keep only today and the next 2 days ─────────────────────
+  const cleanupTodayStr = todayStr;
+  const cleanupDay2Str  = new Date(todayUTC.getTime() + 2 * 86_400_000).toISOString().split("T")[0];
+  try {
+    await Promise.all([
+      db.delete(fuellingPlans).where(
+        and(eq(fuellingPlans.clerkUserId, userId), lt(fuellingPlans.planDate, cleanupTodayStr))
+      ),
+      db.delete(fuellingPlans).where(
+        and(eq(fuellingPlans.clerkUserId, userId), gt(fuellingPlans.planDate, cleanupDay2Str))
+      ),
+    ]);
+    log("cleanup", `Trimmed plan rows to ${cleanupTodayStr}–${cleanupDay2Str}`);
+  } catch (err) {
+    logError("cleanup", "Failed to trim old plan rows (non-fatal)", err);
+  }
 
   return NextResponse.json({
     generated: saved.length,

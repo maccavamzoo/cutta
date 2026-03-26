@@ -3,9 +3,6 @@
 import { useState } from "react";
 import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
 
-const WINDOW_DAYS = 14;
-const BATCH_SIZE  = 3;
-
 // ─── exported types (consumed by page.tsx) ───────────────────────────────────
 
 export interface StoredPlan {
@@ -51,15 +48,8 @@ function addDays(dateStr: string, n: number): string {
 function fmtDay(dateStr: string): string {
   return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-GB", {
     weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function fmtShortDate(dateStr: string): string {
-  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
+    day:     "numeric",
+    month:   "short",
   });
 }
 
@@ -102,7 +92,7 @@ const INTENSITY_LABEL: Record<string, string> = {
   race:     "Race pace",
 };
 
-// ─── sub-components: full plan card ──────────────────────────────────────────
+// ─── sub-components ───────────────────────────────────────────────────────────
 
 function GlyBattery({ value }: { value: number }) {
   return (
@@ -125,15 +115,14 @@ function MacroRow({ cal, carbs, protein, fat }: {
 }) {
   return (
     <div className="flex gap-3 text-xs tabular-nums flex-wrap">
-      {cal    != null && <span className="text-white font-semibold">{cal} kcal</span>}
-      {carbs  != null && <span className="text-zinc-500">C <span className="text-zinc-300">{carbs}g</span></span>}
+      {cal     != null && <span className="text-white font-semibold">{cal} kcal</span>}
+      {carbs   != null && <span className="text-zinc-500">C <span className="text-zinc-300">{carbs}g</span></span>}
       {protein != null && <span className="text-zinc-500">P <span className="text-zinc-300">{protein}g</span></span>}
-      {fat    != null && <span className="text-zinc-500">F <span className="text-zinc-300">{fat}g</span></span>}
+      {fat     != null && <span className="text-zinc-500">F <span className="text-zinc-300">{fat}g</span></span>}
     </div>
   );
 }
 
-// Same index-based palette as DailyDashboard — must stay in sync
 const MEAL_PALETTE = [
   { bar: "border-l-amber-400",  label: "text-amber-400"  },
   { bar: "border-l-sky-400",    label: "text-sky-400"    },
@@ -211,9 +200,9 @@ function OnBikeCard({ fuelling }: { fuelling: NonNullable<DayPlanOutput["on_bike
 }
 
 function FullDayCard({ plan, isToday }: { plan: StoredPlan; isToday: boolean }) {
-  const [expanded, setExpanded] = useState(isToday);
   const battery = plan.glycogenBattery ?? 50;
   const dayType = plan.onBikeFuelling ? "training" : "rest";
+  const [expanded, setExpanded] = useState(isToday);
 
   return (
     <div className={`rounded-xl border transition-colors ${
@@ -267,33 +256,27 @@ function FullDayCard({ plan, isToday }: { plan: StoredPlan; isToday: boolean }) 
   );
 }
 
-// ─── sub-component: shell card (ungenerated day) ──────────────────────────────
-
 function ShellCard({
   dateStr,
   isToday,
   event,
   calorieMeta,
 }: {
-  dateStr: string;
-  isToday: boolean;
-  event: PlanCalendarEvent | null;
+  dateStr:     string;
+  isToday:     boolean;
+  event:       PlanCalendarEvent | null;
   calorieMeta: CalorieMeta;
 }) {
   const isTraining = event && (event.eventType === "ride" || event.eventType === "race");
   const dayType: "training" | "race" | "rest" = event?.eventType === "race"
     ? "race"
-    : isTraining
-    ? "training"
-    : "rest";
-
+    : isTraining ? "training" : "rest";
   const roughCals = event?.roughCalories
     ?? (isTraining ? calorieMeta.trainingDayCalories : calorieMeta.restDayCalories);
 
   return (
     <div className={`rounded-xl border ${TYPE_BORDER[dayType]} bg-zinc-900/30`}>
       <div className="px-4 py-3 space-y-2">
-        {/* Date + badge */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className={`text-sm font-bold ${isToday ? "text-lime-400" : "text-zinc-400"}`}>
@@ -304,30 +287,18 @@ function ShellCard({
               {dayType}
             </span>
           </div>
-          {roughCals && (
-            <span className="text-zinc-600 text-xs tabular-nums">~{roughCals} kcal</span>
-          )}
+          {roughCals && <span className="text-zinc-600 text-xs tabular-nums">~{roughCals} kcal</span>}
         </div>
-
-        {/* Training session info */}
         {event && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-zinc-400 text-xs font-medium">{event.title}</span>
-            {event.durationMinutes && (
-              <span className="text-zinc-600 text-xs">{event.durationMinutes}m</span>
-            )}
+            {event.durationMinutes && <span className="text-zinc-600 text-xs">{event.durationMinutes}m</span>}
             {event.intensity && (
-              <span className="text-zinc-600 text-xs">
-                {INTENSITY_LABEL[event.intensity] ?? event.intensity}
-              </span>
+              <span className="text-zinc-600 text-xs">{INTENSITY_LABEL[event.intensity] ?? event.intensity}</span>
             )}
           </div>
         )}
-
-        {/* No-plan indicator */}
-        <p className="text-zinc-700 text-xs">
-          Plan not yet generated — use the button above
-        </p>
+        <p className="text-zinc-700 text-xs">Not yet generated</p>
       </div>
     </div>
   );
@@ -340,233 +311,37 @@ export default function PlanView({
   calendarEvents,
   calorieMeta,
   todayStr,
-  planStale,
 }: {
-  initialPlans: StoredPlan[];
+  initialPlans:   StoredPlan[];
   calendarEvents: PlanCalendarEvent[];
-  calorieMeta: CalorieMeta;
-  todayStr: string;
-  planStale: boolean;
+  calorieMeta:    CalorieMeta;
+  todayStr:       string;
 }) {
-  const [plans]            = useState<StoredPlan[]>(initialPlans);
-  const [generating,   setGenerating]   = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
-  const [status,       setStatus]       = useState<string | null>(null);
-  const [error,        setError]        = useState<string | null>(null);
-  const [staleDismissed, setStaleDismissed] = useState(false);
-
-  const busy = generating || regenerating;
-
-  // Build index structures
-  const plansByDate = new Map<string, StoredPlan>(plans.map((p) => [p.planDate, p]));
-  const eventsByDate = new Map<string, PlanCalendarEvent>(
-    calendarEvents.map((e) => [e.scheduledDate, e])
-  );
-
-  // Build the 14-day window
-  const allDates: string[] = [];
-  for (let i = 0; i < WINDOW_DAYS; i++) {
-    allDates.push(addDays(todayStr, i));
-  }
-
-  // Find the next start date for generation (first ungenerated date in window)
-  const nextStartDate = allDates.find((d) => !plansByDate.has(d)) ?? null;
-
-  // Show regenerate button when today's 3-day window is already at least partially planned
-  const todayWindowEnd = addDays(todayStr, BATCH_SIZE - 1);
-  const hasCurrentWindow = allDates
-    .slice(0, BATCH_SIZE)
-    .some((d) => plansByDate.has(d));
-
-  // Label for the extend button
-  const extendLabel = (() => {
-    if (!nextStartDate) return "All planned";
-    const end = addDays(nextStartDate, BATCH_SIZE - 1);
-    return plans.length === 0
-      ? `Generate ${fmtShortDate(nextStartDate)}–${fmtShortDate(end)}`
-      : `Generate next 3 days (${fmtShortDate(nextStartDate)}–${fmtShortDate(end)})`;
-  })();
-
-  const canExtend = !!nextStartDate && !busy;
-
-  async function doGenerate(startDate: string, label: string) {
-    setError(null);
-    setStatus(`Generating ${label}…`);
-
-    let res: Response;
-    try {
-      res = await fetch("/api/fuelling-plan/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate }),
-      });
-    } catch (networkErr) {
-      setError(`Network error — could not reach the server. ${networkErr instanceof Error ? networkErr.message : ""}`);
-      setStatus(null);
-      return;
-    }
-
-    const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("application/json")) {
-      setError(`Server error (${res.status}). Check server logs — ANTHROPIC_API_KEY may not be set in .env.local.`);
-      setStatus(null);
-      return;
-    }
-
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? `Generation failed (${res.status}).`);
-      setStatus(null);
-      return;
-    }
-
-    const msg = `Saved ${data.generated} day${data.generated !== 1 ? "s" : ""}${data.failed > 0 ? ` (${data.failed} failed)` : ""}.`;
-    setStatus(msg);
-    setTimeout(() => window.location.reload(), 800);
-  }
-
-  async function handleExtend() {
-    if (!nextStartDate || busy) return;
-    setGenerating(true);
-    const end = addDays(nextStartDate, BATCH_SIZE - 1);
-    await doGenerate(nextStartDate, `${fmtShortDate(nextStartDate)}–${fmtShortDate(end)}`);
-    setGenerating(false);
-  }
-
-  async function handleRegenerate() {
-    if (busy) return;
-    setRegenerating(true);
-    await doGenerate(todayStr, `${fmtShortDate(todayStr)}–${fmtShortDate(todayWindowEnd)}`);
-    setRegenerating(false);
-  }
-
-  const lastGenerated = plans.length > 0
-    ? new Date(plans[0].generatedAt).toLocaleDateString("en-GB", {
-        day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-      })
-    : null;
+  const plansByDate  = new Map<string, StoredPlan>(initialPlans.map((p) => [p.planDate, p]));
+  const eventsByDate = new Map<string, PlanCalendarEvent>(calendarEvents.map((e) => [e.scheduledDate, e]));
+  const dates        = [todayStr, addDays(todayStr, 1), addDays(todayStr, 2)];
 
   return (
-    <div className="space-y-4">
-
-      {/* Stale-plan banner */}
-      {planStale && !staleDismissed && !busy && (
-        <div className="flex items-start gap-3 bg-amber-400/10 border border-amber-400/30 rounded-2xl px-4 py-3.5">
-          <span className="text-amber-400 text-base shrink-0 mt-0.5">⚠</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-amber-300 text-sm font-semibold">Plan may be out of date</p>
-            <p className="text-amber-400/70 text-xs mt-0.5 leading-snug">
-              Training, profile, or protocol changed since this was generated.
-            </p>
-            <div className="flex gap-2 mt-2.5">
-              {hasCurrentWindow && (
-                <button
-                  onClick={() => { setStaleDismissed(true); handleRegenerate(); }}
-                  className="px-3 py-1.5 bg-amber-400 text-black text-xs font-semibold rounded-full hover:bg-amber-300 transition-colors"
-                >
-                  Regenerate now
-                </button>
-              )}
-              <button
-                onClick={() => setStaleDismissed(true)}
-                className="px-3 py-1.5 bg-zinc-800 text-zinc-400 text-xs font-medium rounded-full hover:bg-zinc-700 transition-colors"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className="space-y-3">
+      {dates.map((dateStr) => {
+        const plan  = plansByDate.get(dateStr);
+        const event = eventsByDate.get(dateStr) ?? null;
+        if (plan) return <FullDayCard key={dateStr} plan={plan} isToday={dateStr === todayStr} />;
+        return (
+          <ShellCard
+            key={dateStr}
+            dateStr={dateStr}
+            isToday={dateStr === todayStr}
+            event={event}
+            calorieMeta={calorieMeta}
+          />
+        );
+      })}
+      {initialPlans.length === 0 && (
+        <p className="text-zinc-600 text-xs text-center pt-2">
+          No plan yet — use the Regenerate button to generate your plan
+        </p>
       )}
-
-      {/* Controls */}
-      <div className="space-y-2">
-        {/* Meta line */}
-        {!busy && (
-          <div className="flex items-center justify-between min-h-[1.25rem]">
-            <div className="space-y-0.5">
-              {lastGenerated && (
-                <p className="text-zinc-600 text-xs">Last generated {lastGenerated}</p>
-              )}
-              {plans.length > 0 && (
-                <p className="text-zinc-600 text-xs">{plans.length}/{WINDOW_DAYS} days planned</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-
-        {/* Loading state — shown when generating */}
-        {busy ? (
-          <div className="bg-zinc-900 border border-lime-400/20 rounded-2xl px-5 py-8 flex flex-col items-center gap-4 text-center">
-            <div className="w-10 h-10 border-2 border-lime-400 border-t-transparent rounded-full animate-spin" />
-            <div>
-              <p className="text-white font-semibold">Building your plan…</p>
-              <p className="text-zinc-500 text-sm mt-1">This takes 20–30 seconds — hang tight</p>
-            </div>
-            {status && <p className="text-zinc-400 text-xs">{status}</p>}
-          </div>
-        ) : (
-          /* Button row */
-          <div className="flex gap-2 flex-wrap">
-            {hasCurrentWindow && (
-              <button
-                onClick={handleRegenerate}
-                disabled={busy}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap bg-zinc-800 text-zinc-300 border border-zinc-700 hover:border-zinc-500 hover:text-white active:bg-zinc-700"
-              >
-                ↺ Regenerate {fmtShortDate(todayStr)}–{fmtShortDate(todayWindowEnd)}
-              </button>
-            )}
-
-            <button
-              onClick={handleExtend}
-              disabled={!canExtend}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
-                !canExtend
-                  ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-                  : "bg-lime-400 text-black hover:bg-lime-300 active:bg-lime-500"
-              }`}
-            >
-              {extendLabel}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Empty state */}
-      {plans.length === 0 && (
-        <div className="py-10 text-center space-y-2">
-          <p className="text-zinc-500 text-sm font-medium">No plan yet</p>
-          <p className="text-zinc-700 text-xs max-w-56 mx-auto leading-relaxed">
-            Generate {BATCH_SIZE} days at a time. Extend when you&apos;re ready.
-          </p>
-        </div>
-      )}
-
-      {/* 14-day list */}
-      <div className={`space-y-2.5 transition-opacity ${busy ? "opacity-30 pointer-events-none" : ""}`}>
-        {allDates.map((dateStr) => {
-          const plan  = plansByDate.get(dateStr);
-          const event = eventsByDate.get(dateStr) ?? null;
-          const isToday = dateStr === todayStr;
-
-          if (plan) {
-            return <FullDayCard key={dateStr} plan={plan} isToday={isToday} />;
-          }
-
-          return (
-            <ShellCard
-              key={dateStr}
-              dateStr={dateStr}
-              isToday={isToday}
-              event={event}
-              calorieMeta={calorieMeta}
-            />
-          );
-        })}
-      </div>
     </div>
   );
 }

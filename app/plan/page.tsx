@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, lt, gt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   fuellingPlans,
@@ -18,13 +18,10 @@ function roughCalories(
 ): number | null {
   if (!maintenance) return null;
   const c = protocolContent as Record<string, Record<string, unknown>> | null;
-  const rule = isTraining
-    ? c?.training_day?.calories
-    : c?.rest_day?.calories;
-
+  const rule = isTraining ? c?.training_day?.calories : c?.rest_day?.calories;
   if (typeof rule === "number") return rule;
-  if (!isTraining) return maintenance - 350; // "deficit"
-  return maintenance;                         // "maintenance" / default
+  if (!isTraining) return maintenance - 350;
+  return maintenance;
 }
 
 export default async function PlanPage() {
@@ -33,10 +30,24 @@ export default async function PlanPage() {
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
-  const todayStr    = today.toISOString().split("T")[0];
-  const windowEnd   = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
-  const windowEndStr = windowEnd.toISOString().split("T")[0];
+  const todayStr = today.toISOString().split("T")[0];
 
+  // 3-day window: today, +1, +2
+  const day2    = new Date(today.getTime() + 2 * 86_400_000);
+  const day2Str = day2.toISOString().split("T")[0];
+  const day3    = new Date(today.getTime() + 3 * 86_400_000);
+
+  // ── Clean up stale rows: past days and anything beyond day+2 ─────────────
+  await Promise.all([
+    db.delete(fuellingPlans).where(
+      and(eq(fuellingPlans.clerkUserId, userId), lt(fuellingPlans.planDate, todayStr))
+    ),
+    db.delete(fuellingPlans).where(
+      and(eq(fuellingPlans.clerkUserId, userId), gt(fuellingPlans.planDate, day2Str))
+    ),
+  ]);
+
+  // ── Fetch plan data ───────────────────────────────────────────────────────
   const [planRows, eventRows, profileRows, protocolRows] = await Promise.all([
     db
       .select()
@@ -45,7 +56,7 @@ export default async function PlanPage() {
         and(
           eq(fuellingPlans.clerkUserId, userId),
           gte(fuellingPlans.planDate, todayStr),
-          lte(fuellingPlans.planDate, windowEndStr)
+          lte(fuellingPlans.planDate, day2Str)
         )
       )
       .orderBy(fuellingPlans.planDate),
@@ -57,44 +68,28 @@ export default async function PlanPage() {
         and(
           eq(calendarEvents.clerkUserId, userId),
           gte(calendarEvents.scheduledAt, today),
-          lte(calendarEvents.scheduledAt, windowEnd)
+          lte(calendarEvents.scheduledAt, day3)
         )
       )
       .orderBy(calendarEvents.scheduledAt),
 
     db
-      .select({
-        estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
-        updatedAt: userProfiles.updatedAt,
-      })
+      .select({ estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories })
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
       .limit(1),
 
     db
-      .select({ content: protocols.content, updatedAt: protocols.updatedAt })
+      .select({ content: protocols.content })
       .from(protocols)
       .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
       .limit(1),
   ]);
 
-  const maintenance = profileRows[0]?.estimatedMaintenanceCalories
+  const maintenance     = profileRows[0]?.estimatedMaintenanceCalories
     ? Number(profileRows[0].estimatedMaintenanceCalories)
     : null;
   const protocolContent = protocolRows[0]?.content ?? null;
-
-  // Staleness: any calendar event / protocol / profile changed after the earliest generated plan
-  const earliestPlanGenAt = planRows.length > 0
-    ? planRows.reduce((min, p) => p.generatedAt < min ? p.generatedAt : min, planRows[0].generatedAt)
-    : null;
-  const latestCalendarUpdate = eventRows.length > 0
-    ? eventRows.reduce((max, e) => e.updatedAt > max ? e.updatedAt : max, eventRows[0].updatedAt)
-    : null;
-  const planStale = earliestPlanGenAt !== null && (
-    (latestCalendarUpdate  && latestCalendarUpdate  > earliestPlanGenAt) ||
-    (protocolRows[0]?.updatedAt && protocolRows[0].updatedAt > earliestPlanGenAt) ||
-    (profileRows[0]?.updatedAt  && profileRows[0].updatedAt  > earliestPlanGenAt)
-  );
 
   const initialPlans: StoredPlan[] = planRows.map((r) => ({
     id:              r.id,
@@ -128,22 +123,19 @@ export default async function PlanPage() {
 
   const calorieMeta: CalorieMeta = {
     maintenance,
-    restDayCalories: roughCalories(false, maintenance, protocolContent),
-    trainingDayCalories: roughCalories(true, maintenance, protocolContent),
+    restDayCalories:     roughCalories(false, maintenance, protocolContent),
+    trainingDayCalories: roughCalories(true,  maintenance, protocolContent),
   };
 
   return (
     <>
-      <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 pb-24 max-w-lg mx-auto">
-        <h1 className="text-xl font-bold tracking-tight text-white mb-5">
-          Fuelling plan
-        </h1>
+      <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 pb-32 max-w-lg mx-auto">
+        <h1 className="text-xl font-bold tracking-tight text-white mb-5">Fuelling plan</h1>
         <PlanView
           initialPlans={initialPlans}
           calendarEvents={planCalendarEvents}
           calorieMeta={calorieMeta}
           todayStr={todayStr}
-          planStale={!!planStale}
         />
       </main>
       <BottomNav active="plan" />
