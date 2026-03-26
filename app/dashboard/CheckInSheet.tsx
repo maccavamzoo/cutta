@@ -15,20 +15,22 @@ export interface ExistingCheckIn {
 }
 
 interface Props {
-  todayStr:      string;
-  isTrainingDay: boolean;
-  existing:      ExistingCheckIn | null;
-  unitSystem?:   UnitSystem;
-  onClose:       () => void;
-  onSaved:       (result: ExistingCheckIn) => void;
+  todayStr:        string;
+  isTrainingDay:   boolean;
+  existing:        ExistingCheckIn | null;       // compliance / feedback pre-fill
+  latestWeight?:   { weightKg: number | null; bodyFatPct: number | null } | null;
+  unitSystem?:     UnitSystem;
+  onClose:         () => void;
+  onWeightSaved?:  (weightKg: number, bodyFatPct: number | null) => void;
+  onSaved:         (result: ExistingCheckIn) => void;
 }
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const COMPLIANCE_OPTIONS = [
-  { value: "yes",    label: "Yes",    sub: "Followed the plan",       colour: "bg-lime-400  text-black",            ring: "ring-lime-400" },
-  { value: "mostly", label: "Mostly", sub: "Close but deviated",      colour: "bg-amber-400 text-black",            ring: "ring-amber-400" },
-  { value: "no",     label: "No",     sub: "Didn't follow it today",  colour: "bg-zinc-700  text-zinc-200",          ring: "ring-zinc-500" },
+  { value: "yes",    label: "Yes",    sub: "Followed the plan",       colour: "bg-lime-400  text-black",    ring: "ring-lime-400" },
+  { value: "mostly", label: "Mostly", sub: "Close but deviated",      colour: "bg-amber-400 text-black",    ring: "ring-amber-400" },
+  { value: "no",     label: "No",     sub: "Didn't follow it today",  colour: "bg-zinc-700  text-zinc-200", ring: "ring-zinc-500" },
 ] as const;
 
 type ComplianceValue = "yes" | "mostly" | "no";
@@ -103,75 +105,102 @@ export default function CheckInSheet({
   todayStr,
   isTrainingDay,
   existing,
+  latestWeight,
   unitSystem = "metric",
   onClose,
+  onWeightSaved,
   onSaved,
 }: Props) {
   const wLabel = weightLabel(unitSystem);
   const wRange = weightInputRange(unitSystem);
 
-  const [compliance,  setCompliance]  = useState<ComplianceValue | null>(existing?.compliance ?? null);
-  const [rideEnergy,  setRideEnergy]  = useState<number | null>(existing?.rideEnergy  ?? null);
-  const [gutComfort,  setGutComfort]  = useState<number | null>(existing?.gutComfort  ?? null);
-  const [hunger,      setHunger]      = useState<number | null>(existing?.hunger      ?? null);
-  // Pre-fill in display units (convert from stored kg if needed)
-  const [weightStr,   setWeightStr]   = useState(
-    existing?.weightKg   != null ? String(kgToDisplay(existing.weightKg, unitSystem))   : ""
+  // ── morning weigh-in state ────────────────────────────────────────────────
+  const [weightStr,    setWeightStr]    = useState(
+    latestWeight?.weightKg != null
+      ? String(kgToDisplay(latestWeight.weightKg, unitSystem))
+      : ""
   );
-  const [bfStr,       setBfStr]       = useState(existing?.bodyFatPct != null ? String(existing.bodyFatPct) : "");
+  const [bfStr,        setBfStr]        = useState(
+    latestWeight?.bodyFatPct != null ? String(latestWeight.bodyFatPct) : ""
+  );
+  const [weightSaving, setWeightSaving] = useState(false);
+  const [weightSaved,  setWeightSaved]  = useState(false);
+  const [weightError,  setWeightError]  = useState<string | null>(null);
+
+  // ── end-of-day state ──────────────────────────────────────────────────────
+  const [compliance,  setCompliance]  = useState<ComplianceValue | null>(existing?.compliance ?? null);
+  const [rideEnergy,  setRideEnergy]  = useState<number | null>(existing?.rideEnergy ?? null);
+  const [gutComfort,  setGutComfort]  = useState<number | null>(existing?.gutComfort ?? null);
+  const [hunger,      setHunger]      = useState<number | null>(existing?.hunger     ?? null);
   const [notes,       setNotes]       = useState("");
-  const [saving,      setSaving]      = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [endSaving,   setEndSaving]   = useState(false);
+  const [endError,    setEndError]    = useState<string | null>(null);
 
-  const canSubmit = compliance !== null;
+  // ── morning weigh-in save ─────────────────────────────────────────────────
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!compliance) return;
-
+  async function handleSaveWeight() {
     const displayVal = weightStr.trim() ? parseFloat(weightStr.trim()) : null;
-    const weightKg   = displayVal !== null ? displayToKg(displayVal, unitSystem) : null;
-    const bodyFatPct = bfStr.trim()      ? parseFloat(bfStr.trim())      : null;
+    if (displayVal === null) return;
 
-    if (displayVal !== null && (isNaN(displayVal) || displayVal < wRange.min || displayVal > wRange.max)) {
-      setError(`Enter a valid weight (${wRange.min}–${wRange.max} ${wLabel}).`);
+    if (isNaN(displayVal) || displayVal < wRange.min || displayVal > wRange.max) {
+      setWeightError(`Enter a valid weight (${wRange.min}–${wRange.max} ${wLabel}).`);
       return;
     }
+    const bodyFatPct = bfStr.trim() ? parseFloat(bfStr.trim()) : null;
     if (bodyFatPct !== null && (isNaN(bodyFatPct) || bodyFatPct < 1 || bodyFatPct > 70)) {
-      setError("Enter a valid body fat % (1–70).");
+      setWeightError("Enter a valid body fat % (1–70).");
       return;
     }
 
-    setSaving(true);
-    setError(null);
+    const weightKg = displayToKg(displayVal, unitSystem);
+    setWeightSaving(true);
+    setWeightError(null);
 
     try {
-      // 1 — Save compliance (upsert)
+      const res = await fetch("/api/weight-log", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ weightKg, bodyFatPct }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Failed to save weight.");
+      }
+      setWeightSaved(true);
+      onWeightSaved?.(weightKg, bodyFatPct);
+    } catch (err) {
+      setWeightError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setWeightSaving(false);
+    }
+  }
+
+  // ── end-of-day save ───────────────────────────────────────────────────────
+
+  async function handleSaveEndOfDay() {
+    if (!compliance) return;
+    setEndSaving(true);
+    setEndError(null);
+
+    try {
+      // 1 — Compliance
       const compRes = await fetch("/api/compliance", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          logDate:    todayStr,
-          compliance,
-          notes: notes.trim() || undefined,
-        }),
+        body:    JSON.stringify({ logDate: todayStr, compliance, notes: notes.trim() || undefined }),
       });
       if (!compRes.ok) {
         const d = await compRes.json();
         throw new Error(d.error ?? "Failed to save compliance.");
       }
 
-      // 2 — Save feedback signals (only those rated)
+      // 2 — Feedback signals (only those rated)
       const feedbacks = [
         isTrainingDay && rideEnergy !== null
           ? { feedbackType: "ride_energy" as const, rating: rideEnergy }
           : null,
-        gutComfort !== null
-          ? { feedbackType: "gut_comfort" as const, rating: gutComfort }
-          : null,
-        hunger !== null
-          ? { feedbackType: "hunger" as const, rating: hunger }
-          : null,
+        gutComfort !== null ? { feedbackType: "gut_comfort" as const, rating: gutComfort } : null,
+        hunger     !== null ? { feedbackType: "hunger"      as const, rating: hunger     } : null,
       ].filter(Boolean);
 
       if (feedbacks.length > 0) {
@@ -186,33 +215,23 @@ export default function CheckInSheet({
         }
       }
 
-      // 3 — Save weight log entry (if provided)
-      if (weightKg !== null) {
-        const wRes = await fetch("/api/weight-log", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ weightKg, bodyFatPct }),
-        });
-        if (!wRes.ok) {
-          const d = await wRes.json();
-          throw new Error(d.error ?? "Failed to save weight.");
-        }
-      }
-
       onSaved({
         compliance,
-        rideEnergy:  isTrainingDay ? rideEnergy  : null,
+        rideEnergy: isTrainingDay ? rideEnergy : null,
         gutComfort,
         hunger,
-        weightKg,
-        bodyFatPct,
+        weightKg:   latestWeight?.weightKg   ?? null,
+        bodyFatPct: latestWeight?.bodyFatPct ?? null,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setEndError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      setSaving(false);
+      setEndSaving(false);
     }
   }
+
+  const canSaveWeight   = weightStr.trim().length > 0;
+  const canSaveEndOfDay = compliance !== null;
 
   return (
     <>
@@ -234,15 +253,16 @@ export default function CheckInSheet({
               onClick={onClose}
               className="text-zinc-500 hover:text-white text-sm transition-colors"
             >
-              Cancel
+              Close
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Weight entry — first thing in the check-in */}
-            <div className="space-y-4">
+          <div className="space-y-6">
+
+            {/* ── Morning weigh-in ─────────────────────────────────────────── */}
+            <section className="space-y-4">
               <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">
-                Morning weigh-in <span className="normal-case font-normal text-zinc-600">(optional)</span>
+                Morning weigh-in
               </p>
 
               <div className="flex gap-3">
@@ -257,7 +277,7 @@ export default function CheckInSheet({
                       max={wRange.max}
                       placeholder={unitSystem === "imperial" ? "e.g. 161.8" : "e.g. 73.4"}
                       value={weightStr}
-                      onChange={(e) => setWeightStr(e.target.value)}
+                      onChange={(e) => { setWeightStr(e.target.value); setWeightSaved(false); }}
                       className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">{wLabel}</span>
@@ -274,81 +294,99 @@ export default function CheckInSheet({
                       max="70"
                       placeholder="e.g. 14.2"
                       value={bfStr}
-                      onChange={(e) => setBfStr(e.target.value)}
+                      onChange={(e) => { setBfStr(e.target.value); setWeightSaved(false); }}
                       className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">%</span>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Separator */}
-            <div className="border-t border-zinc-800" />
+              {weightError && <p className="text-red-400 text-sm">{weightError}</p>}
 
-            {/* Compliance */}
-            <div>
-              <p className="text-white text-sm font-medium mb-3">
-                Did you follow the plan today?
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {COMPLIANCE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setCompliance(opt.value)}
-                    className={`flex flex-col items-center gap-1 py-4 rounded-2xl font-semibold text-sm transition-all ${
-                      compliance === opt.value
-                        ? `${opt.colour} ring-2 ${opt.ring} scale-[1.02]`
-                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                    }`}
-                  >
-                    <span className="text-base font-bold">{opt.label}</span>
-                    <span className={`text-xs font-normal leading-tight text-center ${
-                      compliance === opt.value ? "opacity-80" : "text-zinc-600"
-                    }`}>
-                      {opt.sub}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Separator */}
-            <div className="border-t border-zinc-800" />
-
-            {/* Feedback signals */}
-            <div className="space-y-5">
-              <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold -mb-1">
-                How did it feel?
-              </p>
-
-              {isTrainingDay && (
-                <RatingRow signal="rideEnergy" value={rideEnergy} onChange={setRideEnergy} />
+              {weightSaved ? (
+                <p className="text-lime-400 text-sm font-medium">Weigh-in saved ✓</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSaveWeight}
+                  disabled={!canSaveWeight || weightSaving}
+                  className="w-full py-3 bg-zinc-800 text-white font-semibold rounded-xl text-sm disabled:opacity-40 hover:bg-zinc-700 transition-colors border border-zinc-700"
+                >
+                  {weightSaving ? "Saving…" : "Save weigh-in"}
+                </button>
               )}
-              <RatingRow signal="gutComfort" value={gutComfort} onChange={setGutComfort} />
-              <RatingRow signal="hunger"     value={hunger}     onChange={setHunger} />
-            </div>
+            </section>
 
-            {/* Optional notes */}
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Anything to add? (optional)"
-              rows={2}
-              className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 resize-none"
-            />
+            {/* ── Divider ──────────────────────────────────────────────────── */}
+            <div className="border-t border-zinc-800" />
 
-            {error && <p className="text-red-400 text-sm">{error}</p>}
+            {/* ── End-of-day check-in ──────────────────────────────────────── */}
+            <section className="space-y-6">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">
+                End of day
+              </p>
 
-            <button
-              type="submit"
-              disabled={!canSubmit || saving}
-              className="w-full py-3.5 bg-lime-400 text-black font-semibold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
-            >
-              {saving ? "Saving…" : "Save check-in"}
-            </button>
-          </form>
+              {/* Compliance */}
+              <div>
+                <p className="text-white text-sm font-medium mb-3">Did you follow the plan today?</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {COMPLIANCE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setCompliance(opt.value)}
+                      className={`flex flex-col items-center gap-1 py-4 rounded-2xl font-semibold text-sm transition-all ${
+                        compliance === opt.value
+                          ? `${opt.colour} ring-2 ${opt.ring} scale-[1.02]`
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                      }`}
+                    >
+                      <span className="text-base font-bold">{opt.label}</span>
+                      <span className={`text-xs font-normal leading-tight text-center ${
+                        compliance === opt.value ? "opacity-80" : "text-zinc-600"
+                      }`}>
+                        {opt.sub}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Feedback signals */}
+              <div className="space-y-5">
+                <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold -mb-1">
+                  How did it feel?
+                </p>
+                {isTrainingDay && (
+                  <RatingRow signal="rideEnergy" value={rideEnergy} onChange={setRideEnergy} />
+                )}
+                <RatingRow signal="gutComfort" value={gutComfort} onChange={setGutComfort} />
+                <RatingRow signal="hunger"     value={hunger}     onChange={setHunger} />
+              </div>
+
+              {/* Optional notes */}
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Anything to add? (optional)"
+                rows={2}
+                className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 resize-none"
+              />
+
+              {endError && <p className="text-red-400 text-sm">{endError}</p>}
+
+              <button
+                type="button"
+                onClick={handleSaveEndOfDay}
+                disabled={!canSaveEndOfDay || endSaving}
+                className="w-full py-3.5 bg-lime-400 text-black font-semibold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
+              >
+                {endSaving ? "Saving…" : "Save end-of-day"}
+              </button>
+            </section>
+
+          </div>
         </div>
       </div>
     </>

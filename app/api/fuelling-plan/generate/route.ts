@@ -9,6 +9,8 @@ import {
   calendarEvents,
   trainingLog,
   fuellingPlans,
+  complianceLog,
+  feedbackLog,
 } from "@/lib/db/schema";
 import {
   buildPlanPrompt,
@@ -91,6 +93,8 @@ export async function POST(req: NextRequest) {
     (typeof protocols.$inferSelect)[],
     (typeof calendarEvents.$inferSelect)[],
     (typeof trainingLog.$inferSelect)[],
+    (typeof complianceLog.$inferSelect)[],
+    (typeof feedbackLog.$inferSelect)[],
   ];
 
   try {
@@ -135,6 +139,34 @@ export async function POST(req: NextRequest) {
           )
         )
         .orderBy(trainingLog.activityDate),
+
+      // Compliance: last 7 days
+      db
+        .select({ logDate: complianceLog.logDate, compliance: complianceLog.compliance })
+        .from(complianceLog)
+        .where(
+          and(
+            eq(complianceLog.clerkUserId, userId),
+            gte(complianceLog.logDate, sevenDaysAgoStr)
+          )
+        )
+        .orderBy(complianceLog.logDate),
+
+      // Feedback: last 7 days
+      db
+        .select({
+          planDate:     feedbackLog.planDate,
+          feedbackType: feedbackLog.feedbackType,
+          rating:       feedbackLog.rating,
+        })
+        .from(feedbackLog)
+        .where(
+          and(
+            eq(feedbackLog.clerkUserId, userId),
+            gte(feedbackLog.planDate, sevenDaysAgoStr)
+          )
+        )
+        .orderBy(feedbackLog.planDate),
     ]) as typeof dbResults;
   } catch (err) {
     logError("db-fetch", "Database query failed", err);
@@ -144,13 +176,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const [profileRows, protocolRows, eventRows, trainingRows] = dbResults;
+  const [profileRows, protocolRows, eventRows, trainingRows, complianceRows, feedbackRows] = dbResults;
 
   log("fetch", "DB results", {
     profile: profileRows.length,
     protocols: protocolRows.length,
     calendarEvents: eventRows.length,
     trainingEntries: trainingRows.length,
+    complianceEntries: complianceRows.length,
+    feedbackEntries: feedbackRows.length,
   });
 
   // ── 4. Guard checks ───────────────────────────────────────────────────────
@@ -187,7 +221,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 5. Build prompt and call Claude ──────────────────────────────────────
-  const prompt = buildPlanPrompt(profile, protocol, eventRows, trainingRows, startDate, DAYS);
+  const prompt = buildPlanPrompt(profile, protocol, eventRows, trainingRows, startDate, DAYS, complianceRows, feedbackRows);
 
   log("claude", `Prompt built — ${prompt.length} chars`);
   log("claude", `Sending request to claude-sonnet-4-20250514 (${DAYS} days)…`);
