@@ -31,18 +31,11 @@ export async function POST(request: Request) {
     estimatedMaintenanceCalories: body.estimatedMaintenanceCalories
       ? Number(body.estimatedMaintenanceCalories)
       : null,
-    usualCarbIntakeGrams: body.usualCarbIntakeGrams
-      ? Number(body.usualCarbIntakeGrams)
-      : null,
     // Training
     typicalWeeklyHours: body.typicalWeeklyHours
       ? String(body.typicalWeeklyHours)
       : null,
-    sessionTypes: (body.sessionTypes as string[]) ?? [],
-    usualIntensity: body.usualIntensity || null,
     fastedTraining,
-    trainingTimePreference: body.trainingTimePreference || null,
-    trainingEnvironment: body.trainingEnvironment || null,
     // Gut health
     gutSensitivity: body.gutSensitivity || null,
     foodExclusions: (body.foodExclusions as string[]) ?? [],
@@ -68,13 +61,8 @@ export async function POST(request: Request) {
         age: values.age,
         sex: values.sex,
         estimatedMaintenanceCalories: values.estimatedMaintenanceCalories,
-        usualCarbIntakeGrams: values.usualCarbIntakeGrams,
         typicalWeeklyHours: values.typicalWeeklyHours,
-        sessionTypes: values.sessionTypes,
-        usualIntensity: values.usualIntensity,
         fastedTraining: values.fastedTraining,
-        trainingTimePreference: values.trainingTimePreference,
-        trainingEnvironment: values.trainingEnvironment,
         gutSensitivity: values.gutSensitivity,
         foodExclusions: values.foodExclusions,
         appetiteProfile: values.appetiteProfile,
