@@ -19,24 +19,12 @@ export async function PATCH(req: NextRequest) {
   if (body.typicalWeeklyHours !== undefined)
     update.typicalWeeklyHours = body.typicalWeeklyHours ? String(body.typicalWeeklyHours) : null;
 
-  if (body.sessionTypes !== undefined)
-    update.sessionTypes = Array.isArray(body.sessionTypes) ? body.sessionTypes : [];
-
-  if (body.usualIntensity !== undefined)
-    update.usualIntensity = body.usualIntensity || null;
-
   if (body.fastedTraining !== undefined) {
     update.fastedTraining =
       body.fastedTraining === "yes" ? true
       : body.fastedTraining === "no" ? false
       : null;
   }
-
-  if (body.trainingTimePreference !== undefined)
-    update.trainingTimePreference = body.trainingTimePreference || null;
-
-  if (body.trainingEnvironment !== undefined)
-    update.trainingEnvironment = body.trainingEnvironment || null;
 
   if (body.gutSensitivity !== undefined)
     update.gutSensitivity = body.gutSensitivity || null;

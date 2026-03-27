@@ -20,11 +20,7 @@ export default async function ProfileEditPage() {
     .select({
       targetWeightKg:               userProfiles.targetWeightKg,
       typicalWeeklyHours:           userProfiles.typicalWeeklyHours,
-      sessionTypes:                 userProfiles.sessionTypes,
-      usualIntensity:               userProfiles.usualIntensity,
       fastedTraining:               userProfiles.fastedTraining,
-      trainingTimePreference:       userProfiles.trainingTimePreference,
-      trainingEnvironment:          userProfiles.trainingEnvironment,
       gutSensitivity:               userProfiles.gutSensitivity,
       foodExclusions:               userProfiles.foodExclusions,
       currentSupplements:           userProfiles.currentSupplements,
@@ -42,18 +38,14 @@ export default async function ProfileEditPage() {
   const unitSystem: UnitSystem = (profile.unitSystem as UnitSystem | undefined) ?? "metric";
 
   const initial: ProfileData = {
-    targetWeightKg:               profile.targetWeightKg      ? Number(profile.targetWeightKg)              : null,
-    typicalWeeklyHours:           profile.typicalWeeklyHours ?? null,
-    sessionTypes:                 profile.sessionTypes        ?? [],
-    usualIntensity:               profile.usualIntensity      ?? null,
-    fastedTraining:               profile.fastedTraining      ?? null,
-    trainingTimePreference:       profile.trainingTimePreference ?? null,
-    trainingEnvironment:          profile.trainingEnvironment ?? null,
-    gutSensitivity:               profile.gutSensitivity      ?? null,
-    foodExclusions:               profile.foodExclusions      ?? [],
-    currentSupplements:           profile.currentSupplements  ?? [],
-    appetiteProfile:              profile.appetiteProfile     ?? null,
-    preferredMealTiming:          profile.preferredMealTiming ?? null,
+    targetWeightKg:               profile.targetWeightKg ? Number(profile.targetWeightKg) : null,
+    typicalWeeklyHours:           profile.typicalWeeklyHours           ?? null,
+    fastedTraining:               profile.fastedTraining               ?? null,
+    gutSensitivity:               profile.gutSensitivity               ?? null,
+    foodExclusions:               profile.foodExclusions               ?? [],
+    currentSupplements:           profile.currentSupplements           ?? [],
+    appetiteProfile:              profile.appetiteProfile              ?? null,
+    preferredMealTiming:          profile.preferredMealTiming          ?? null,
     estimatedMaintenanceCalories: profile.estimatedMaintenanceCalories ?? null,
   };
 

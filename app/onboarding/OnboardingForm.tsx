@@ -14,15 +14,10 @@ type FormData = {
   sex: string;
   // Step 1 — Training baseline
   typicalWeeklyHours: string;
-  sessionTypes: string[];
-  usualIntensity: string;
   // Step 2 — Training habits
   fastedTraining: string; // "yes" | "sometimes" | "no"
-  trainingTimePreference: string;
-  trainingEnvironment: string;
   // Step 3 — Calorie baseline
   estimatedMaintenanceCalories: string;
-  usualCarbIntakeGrams: string;
   // Step 4 — Gut health
   gutSensitivity: string;
   foodExclusions: string[];
@@ -40,13 +35,8 @@ const INITIAL: FormData = {
   age: "",
   sex: "",
   typicalWeeklyHours: "",
-  sessionTypes: [],
-  usualIntensity: "",
   fastedTraining: "",
-  trainingTimePreference: "",
-  trainingEnvironment: "",
   estimatedMaintenanceCalories: "",
-  usualCarbIntakeGrams: "",
   gutSensitivity: "",
   foodExclusions: [],
   appetiteProfile: [],
@@ -283,13 +273,6 @@ function StepBodyStats({ data, onChange }: StepProps) {
 }
 
 function StepTraining({ data, onChange }: StepProps) {
-  const toggleSession = (type: string) => {
-    const next = data.sessionTypes.includes(type)
-      ? data.sessionTypes.filter((t) => t !== type)
-      : [...data.sessionTypes, type];
-    onChange({ sessionTypes: next });
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -310,47 +293,6 @@ function StepTraining({ data, onChange }: StepProps) {
         unit="hrs"
         decimal
       />
-
-      <div className="space-y-2">
-        <label className="block text-xs text-zinc-400 uppercase tracking-wide font-medium">
-          Session types
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "road", label: "Road" },
-            { value: "indoor", label: "Indoor / Rouvy" },
-            { value: "track", label: "Track" },
-          ].map(({ value, label }) => (
-            <Pill
-              key={value}
-              label={label}
-              active={data.sessionTypes.includes(value)}
-              onClick={() => toggleSession(value)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-xs text-zinc-400 uppercase tracking-wide font-medium">
-          Usual intensity
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "easy", label: "Easy / Z2" },
-            { value: "moderate", label: "Moderate" },
-            { value: "hard", label: "Hard / Intervals" },
-            { value: "mixed", label: "Mixed" },
-          ].map(({ value, label }) => (
-            <Pill
-              key={value}
-              label={label}
-              active={data.usualIntensity === value}
-              onClick={() => onChange({ usualIntensity: value })}
-            />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -388,46 +330,6 @@ function StepTrainingHabits({ data, onChange }: StepProps) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-xs text-zinc-400 uppercase tracking-wide font-medium">
-          When do you usually train?
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "morning", label: "Morning" },
-            { value: "lunchtime", label: "Lunchtime" },
-            { value: "evening", label: "Evening" },
-            { value: "flexible", label: "Flexible / varies" },
-          ].map(({ value, label }) => (
-            <Pill
-              key={value}
-              label={label}
-              active={data.trainingTimePreference === value}
-              onClick={() => onChange({ trainingTimePreference: value })}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-xs text-zinc-400 uppercase tracking-wide font-medium">
-          Where do you mainly train?
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "outdoor", label: "Outdoor" },
-            { value: "indoor", label: "Indoor" },
-            { value: "mixed", label: "Both" },
-          ].map(({ value, label }) => (
-            <Pill
-              key={value}
-              label={label}
-              active={data.trainingEnvironment === value}
-              onClick={() => onChange({ trainingEnvironment: value })}
-            />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -481,27 +383,6 @@ function StepCalorieBaseline({
         </p>
       </div>
 
-      <div className="space-y-1.5">
-        <label className="block text-xs text-zinc-400 uppercase tracking-wide font-medium">
-          Usual daily carb intake
-        </label>
-        <div className="relative">
-          <input
-            type="number"
-            inputMode="numeric"
-            value={data.usualCarbIntakeGrams}
-            onChange={(e) => onChange({ usualCarbIntakeGrams: e.target.value })}
-            placeholder="200"
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none focus:border-lime-400 pr-8"
-          />
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 text-sm pointer-events-none">
-            g
-          </span>
-        </div>
-        <p className="text-xs text-zinc-500">
-          A rough estimate is fine — helps avoid a dramatic day-one shift.
-        </p>
-      </div>
     </div>
   );
 }
@@ -686,17 +567,9 @@ export default function OnboardingForm() {
           data.sex
         );
       case 1:
-        return !!(
-          data.typicalWeeklyHours &&
-          data.sessionTypes.length > 0 &&
-          data.usualIntensity
-        );
+        return !!data.typicalWeeklyHours;
       case 2:
-        return !!(
-          data.fastedTraining &&
-          data.trainingTimePreference &&
-          data.trainingEnvironment
-        );
+        return !!data.fastedTraining;
       case 3:
         return !!(data.estimatedMaintenanceCalories || calculatedCals > 0);
       case 4:

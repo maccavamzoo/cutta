@@ -7,18 +7,14 @@ import { kgToDisplay, displayToKg, weightLabel, weightInputRange, type UnitSyste
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface ProfileData {
-  targetWeightKg:              number | null;
-  typicalWeeklyHours:          string | null;
-  sessionTypes:                string[] | null;
-  usualIntensity:              string | null;
-  fastedTraining:              boolean | null;
-  trainingTimePreference:      string | null;
-  trainingEnvironment:         string | null;
-  gutSensitivity:              string | null;
-  foodExclusions:              string[] | null;
-  currentSupplements:          string[] | null;
-  appetiteProfile:             string | null;
-  preferredMealTiming:         string | null;
+  targetWeightKg:               number | null;
+  typicalWeeklyHours:           string | null;
+  fastedTraining:               boolean | null;
+  gutSensitivity:               string | null;
+  foodExclusions:               string[] | null;
+  currentSupplements:           string[] | null;
+  appetiteProfile:              string | null;
+  preferredMealTiming:          string | null;
   estimatedMaintenanceCalories: number | null;
 }
 
@@ -138,13 +134,9 @@ export default function ProfileEditView({
       : ""
   );
   const [weeklyHours,     setWeeklyHours]     = useState(initial.typicalWeeklyHours ?? "");
-  const [sessionTypes,    setSessionTypes]    = useState<string[]>(initial.sessionTypes ?? []);
-  const [intensity,       setIntensity]       = useState(initial.usualIntensity ?? "");
   const [fastedTraining,  setFastedTraining]  = useState(
     initial.fastedTraining === true ? "yes" : initial.fastedTraining === false ? "no" : "sometimes"
   );
-  const [timePref,        setTimePref]        = useState(initial.trainingTimePreference ?? "");
-  const [environment,     setEnvironment]     = useState(initial.trainingEnvironment ?? "");
   const [gutSensitivity,  setGutSensitivity]  = useState(initial.gutSensitivity ?? "");
   const [foodExclusions,  setFoodExclusions]  = useState<string[]>(initial.foodExclusions ?? []);
   const [supplements,     setSupplements]     = useState<string[]>(initial.currentSupplements ?? []);
@@ -158,11 +150,7 @@ export default function ProfileEditView({
   const [error,  setError]  = useState<string | null>(null);
   const [saved,  setSaved]  = useState(false);
 
-  const SESSION_TYPES   = ["road", "indoor", "track", "mtb", "gravel"];
-  const INTENSITY_OPTS  = ["easy", "moderate", "hard", "mixed"];
-  const FASTED_OPTS     = [{ v: "yes", l: "Yes" }, { v: "sometimes", l: "Sometimes" }, { v: "no", l: "No" }];
-  const TIME_OPTS       = [{ v: "morning", l: "Morning" }, { v: "evening", l: "Evening" }, { v: "mixed", l: "Mixed" }];
-  const ENV_OPTS        = [{ v: "indoor", l: "Indoor" }, { v: "outdoor", l: "Outdoor" }, { v: "mixed", l: "Mixed" }];
+  const FASTED_OPTS = [{ v: "yes", l: "Yes" }, { v: "sometimes", l: "Sometimes" }, { v: "no", l: "No" }];
   const GUT_OPTS        = [
     { v: "low",    l: "Low — rarely an issue" },
     { v: "medium", l: "Medium — occasional issues" },
@@ -193,18 +181,14 @@ export default function ProfileEditView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetWeightKg,
-          typicalWeeklyHours:           weeklyHours  || null,
-          sessionTypes,
-          usualIntensity:               intensity    || null,
+          typicalWeeklyHours:           weeklyHours       || null,
           fastedTraining,
-          trainingTimePreference:       timePref     || null,
-          trainingEnvironment:          environment  || null,
-          gutSensitivity:               gutSensitivity || null,
+          gutSensitivity:               gutSensitivity    || null,
           foodExclusions,
           currentSupplements:           supplements,
-          appetiteProfile:              appetiteProfile || null,
-          preferredMealTiming:          mealTiming   || null,
-          estimatedMaintenanceCalories: maintenanceCals || null,
+          appetiteProfile:              appetiteProfile   || null,
+          preferredMealTiming:          mealTiming        || null,
+          estimatedMaintenanceCalories: maintenanceCals   || null,
         }),
       });
       if (!res.ok) {
@@ -270,52 +254,10 @@ export default function ProfileEditView({
             className="w-full bg-zinc-900 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800"
           />
         </Field>
-        <Field label="Session types">
-          <div className="flex flex-wrap gap-2">
-            {SESSION_TYPES.map((t) => (
-              <Pill
-                key={t}
-                label={t.charAt(0).toUpperCase() + t.slice(1)}
-                active={sessionTypes.includes(t)}
-                onClick={() =>
-                  setSessionTypes((prev) =>
-                    prev.includes(t) ? prev.filter((s) => s !== t) : [...prev, t]
-                  )
-                }
-              />
-            ))}
-          </div>
-        </Field>
-        <Field label="Usual intensity">
-          <div className="flex flex-wrap gap-2">
-            {INTENSITY_OPTS.map((opt) => (
-              <Pill
-                key={opt}
-                label={opt.charAt(0).toUpperCase() + opt.slice(1)}
-                active={intensity === opt}
-                onClick={() => setIntensity(opt)}
-              />
-            ))}
-          </div>
-        </Field>
         <Field label="Train fasted?">
           <div className="flex gap-2">
             {FASTED_OPTS.map(({ v, l }) => (
               <Pill key={v} label={l} active={fastedTraining === v} onClick={() => setFastedTraining(v)} />
-            ))}
-          </div>
-        </Field>
-        <Field label="Training time">
-          <div className="flex gap-2">
-            {TIME_OPTS.map(({ v, l }) => (
-              <Pill key={v} label={l} active={timePref === v} onClick={() => setTimePref(v)} />
-            ))}
-          </div>
-        </Field>
-        <Field label="Environment">
-          <div className="flex gap-2">
-            {ENV_OPTS.map(({ v, l }) => (
-              <Pill key={v} label={l} active={environment === v} onClick={() => setEnvironment(v)} />
             ))}
           </div>
         </Field>

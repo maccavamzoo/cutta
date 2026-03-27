@@ -33,18 +33,13 @@ export const userProfiles = pgTable(
 
     // Calorie baseline
     estimatedMaintenanceCalories: integer("estimated_maintenance_calories"),
-    usualCarbIntakeGrams: integer("usual_carb_intake_grams"),
 
     // Training habits
     typicalWeeklyHours: numeric("typical_weekly_hours", {
       precision: 4,
       scale: 1,
     }),
-    sessionTypes: text("session_types").array(), // road | indoor | track
-    usualIntensity: varchar("usual_intensity", { length: 50 }),
     fastedTraining: boolean("fasted_training"),
-    trainingTimePreference: varchar("training_time_preference", { length: 20 }), // morning | evening
-    trainingEnvironment: varchar("training_environment", { length: 20 }), // indoor | outdoor | mixed
 
     // Diet & gut
     gutSensitivity: text("gut_sensitivity"),
