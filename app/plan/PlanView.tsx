@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
 import AddEventSheet, { type CalendarEvent } from "./AddEventSheet";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
@@ -57,26 +58,14 @@ function fmtDay(dateStr: string): string {
   });
 }
 
-function batteryColour(v: number): string {
-  if (v >= 70) return "bg-lime-400";
-  if (v >= 40) return "bg-amber-400";
-  return "bg-red-500";
+// Calorie-based card border — rest → low → medium → high → race
+function calorieBorder(cal: number | null): string {
+  if (cal == null || cal < 1800) return "border-zinc-800";
+  if (cal < 2300) return "border-zinc-600/50";
+  if (cal < 2800) return "border-lime-400/25";
+  if (cal < 3300) return "border-amber-400/30";
+  return "border-orange-400/40";
 }
-
-function batteryTextColour(v: number): string {
-  if (v >= 70) return "text-lime-400";
-  if (v >= 40) return "text-amber-400";
-  return "text-red-400";
-}
-
-function batteryLabel(v: number): string {
-  if (v >= 80) return "Loaded";
-  if (v >= 60) return "Good";
-  if (v >= 40) return "Moderate";
-  if (v >= 20) return "Low";
-  return "Depleted";
-}
-
 
 const INTENSITY_LABEL: Record<string, string> = {
   easy:     "Easy",
@@ -93,22 +82,6 @@ const EVENT_TYPE_BADGE: Record<string, string> = {
 };
 
 // ─── sub-components ───────────────────────────────────────────────────────────
-
-function GlyBattery({ value }: { value: number }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${batteryColour(value)}`}
-          style={{ width: `${value}%` }}
-        />
-      </div>
-      <span className={`text-xs font-semibold tabular-nums w-20 text-right ${batteryTextColour(value)}`}>
-        {batteryLabel(value)} {value}%
-      </span>
-    </div>
-  );
-}
 
 function MacroRow({ cal, carbs, protein, fat }: {
   cal: number | null; carbs: number | null; protein: number | null; fat: number | null;
@@ -202,15 +175,18 @@ function OnBikeCard({ fuelling }: { fuelling: NonNullable<DayPlanOutput["on_bike
 // ─── DayCard ──────────────────────────────────────────────────────────────────
 
 interface DayCardProps {
-  dateStr:          string;
-  isToday:          boolean;
-  dayIndex:         number; // 0-9
-  plan:             StoredPlan | null;
-  events:           PlanCalendarEvent[];
-  calorieMeta:      CalorieMeta;
-  projectedWeight:  number | null;
-  unitSystem:       UnitSystem;
-  onEventAdded:     (event: CalendarEvent) => void;
+  dateStr:            string;
+  isToday:            boolean;
+  dayIndex:           number; // 0-9
+  plan:               StoredPlan | null;
+  events:             PlanCalendarEvent[];
+  calorieMeta:        CalorieMeta;
+  projectedWeight:    number | null;
+  unitSystem:         UnitSystem;
+  dataLastChangedAt:  string | null;
+  isGenerating:       boolean;
+  onGenerate:         () => void;
+  onEventAdded:       (event: CalendarEvent) => void;
 }
 
 function DayCard({
@@ -222,52 +198,53 @@ function DayCard({
   calorieMeta,
   projectedWeight,
   unitSystem,
+  dataLastChangedAt,
+  isGenerating,
+  onGenerate,
   onEventAdded,
 }: DayCardProps) {
-  const [expanded,    setExpanded]    = useState(false);
-  const [sheetOpen,   setSheetOpen]   = useState(false);
+  const [expanded,  setExpanded]  = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const hasPlan      = plan !== null;
   const hasEvents    = events.length > 0;
-  const isInPlanZone = dayIndex < 3; // first 3 days have AI meal plans
-  const battery      = plan?.glycogenBattery ?? null;
+  const isInPlanZone = dayIndex < 3;
 
-  // Determine day type for border colour
+  // Per-day staleness: compare this plan's generatedAt against the latest data change
+  const isPlanStale = hasPlan && dataLastChangedAt != null
+    ? new Date(plan.generatedAt) < new Date(dataLastChangedAt)
+    : false;
+
+  // Calorie figure to use for border colour (plan calories if available, else estimate)
   const isTrainingDay = events.some((e) => e.eventType === "ride" || e.eventType === "race");
-  const isRaceDay     = events.some((e) => e.eventType === "race");
-
-  const roughCals = isTrainingDay
-    ? calorieMeta.trainingDayCalories
-    : calorieMeta.restDayCalories;
+  const displayCal    = plan?.totalCalories
+    ?? (isTrainingDay ? calorieMeta.trainingDayCalories : calorieMeta.restDayCalories);
 
   const wLabel = weightLabel(unitSystem);
-  const projW  = projectedWeight != null
-    ? kgToDisplay(projectedWeight, unitSystem)
-    : null;
-
-  const borderClass = isToday
-    ? "border-lime-400/30"
-    : isRaceDay
-    ? "border-orange-400/20"
-    : isTrainingDay
-    ? "border-lime-400/20"
-    : "border-zinc-800";
-
-  const bgClass = isToday ? "bg-zinc-900" : "bg-zinc-900/50";
+  const projW  = projectedWeight != null ? kgToDisplay(projectedWeight, unitSystem) : null;
 
   function handleEventAdded(event: CalendarEvent) {
     setSheetOpen(false);
     onEventAdded(event);
   }
 
+  // Plan zone button state
+  const planBtn = !isInPlanZone
+    ? null
+    : isGenerating
+    ? "generating"
+    : !hasPlan
+    ? "calculate"
+    : isPlanStale
+    ? "recalculate"
+    : "uptodate";
+
   return (
     <>
-      <div className={`rounded-xl border transition-colors ${borderClass} ${bgClass}`}>
-        {/* Collapsed header — always visible */}
-        <button
-          className="w-full px-4 py-3 text-left"
-          onClick={() => setExpanded((x) => !x)}
-        >
+      <div className={`rounded-xl border transition-colors ${calorieBorder(displayCal)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}>
+
+        {/* Collapsed header */}
+        <button className="w-full px-4 py-3 text-left" onClick={() => setExpanded((x) => !x)}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
               {/* Date */}
@@ -277,7 +254,7 @@ function DayCard({
               </span>
 
               {/* Plan ready label */}
-              {hasPlan && (
+              {hasPlan && !isPlanStale && (
                 <span className="text-xs text-lime-600 shrink-0">Plan ready</span>
               )}
             </div>
@@ -286,41 +263,36 @@ function DayCard({
               {/* Projected weight */}
               {projW != null && (
                 <span className="text-zinc-600 text-xs tabular-nums">
-                  {projW} {wLabel}
+                  est. {projW}{wLabel}
                 </span>
               )}
               <span className="text-zinc-700 text-sm">{expanded ? "▲" : "▼"}</span>
             </div>
           </div>
 
-          {/* Activities summary in collapsed view */}
-          {hasEvents && (
-            <div className="mt-1.5 flex flex-col gap-1">
-              {events.map((ev) => {
-                const time = new Date(ev.scheduledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-                const parts = [
-                  ev.eventType.charAt(0).toUpperCase() + ev.eventType.slice(1),
-                  ev.title,
-                  ev.durationMinutes ? `${ev.durationMinutes}m` : null,
-                  time,
-                ].filter(Boolean).join(" · ");
-                return (
-                  <span key={ev.id} className={`text-xs px-2 py-0.5 rounded-full self-start ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
-                    {parts}
-                  </span>
-                );
-              })}
-            </div>
-          )}
+          {/* Activity chips or Rest day */}
+          <div className="mt-1.5 flex flex-col gap-1">
+            {hasEvents
+              ? events.map((ev) => {
+                  const time  = new Date(ev.scheduledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                  const label = ev.eventType.charAt(0).toUpperCase() + ev.eventType.slice(1);
+                  const parts = [label, ev.title, ev.durationMinutes ? `${ev.durationMinutes}m` : null, time]
+                    .filter(Boolean).join(" · ");
+                  return (
+                    <span key={ev.id} className={`text-xs px-2 py-0.5 rounded-full self-start ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
+                      {parts}
+                    </span>
+                  );
+                })
+              : (
+                <span className="text-xs px-2 py-0.5 rounded-full self-start bg-zinc-800 text-zinc-500 border border-zinc-700">
+                  Rest day
+                </span>
+              )
+            }
+          </div>
 
-          {/* Glycogen battery (plan zone only) */}
-          {hasPlan && battery != null && (
-            <div className="mt-2">
-              <GlyBattery value={battery} />
-            </div>
-          )}
-
-          {/* Macros summary */}
+          {/* Macros summary (plan zone) */}
           {hasPlan && (
             <div className="mt-1.5">
               <MacroRow
@@ -332,11 +304,35 @@ function DayCard({
             </div>
           )}
 
-          {/* Rough calories for non-plan days */}
-          {!hasPlan && roughCals != null && (
-            <p className="text-zinc-600 text-xs mt-1 tabular-nums">~{roughCals} kcal target</p>
+          {/* Rough calorie target (no plan, plan zone) */}
+          {!hasPlan && isInPlanZone && displayCal != null && (
+            <p className="text-zinc-600 text-xs mt-1 tabular-nums">~{displayCal} kcal target</p>
           )}
         </button>
+
+        {/* Plan zone: Calculate / Recalculate / Up to date */}
+        {planBtn != null && (
+          <div className="px-4 pb-3">
+            {planBtn === "uptodate" && (
+              <p className="text-zinc-700 text-xs">Up to date</p>
+            )}
+            {(planBtn === "calculate" || planBtn === "recalculate") && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onGenerate(); }}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                  planBtn === "calculate"
+                    ? "bg-lime-400 text-black hover:bg-lime-300"
+                    : "bg-amber-400/15 text-amber-400 border border-amber-400/30 hover:bg-amber-400/25"
+                }`}
+              >
+                {planBtn === "calculate" ? "Calculate" : "Recalculate"}
+              </button>
+            )}
+            {planBtn === "generating" && (
+              <p className="text-zinc-500 text-xs animate-pulse">Generating…</p>
+            )}
+          </div>
+        )}
 
         {/* Expanded content */}
         {expanded && (
@@ -367,7 +363,7 @@ function DayCard({
               </div>
             )}
 
-            {/* Meal plan (first 3 days) */}
+            {/* Meal plan */}
             {isInPlanZone && hasPlan && (
               <>
                 {plan.aiReasoning && (
@@ -394,10 +390,7 @@ function DayCard({
               </>
             )}
 
-            {/* No plan yet for days 4-10 */}
-            {isInPlanZone && !hasPlan && (
-              <p className="text-zinc-700 text-xs">Not yet generated</p>
-            )}
+            {/* Beyond plan zone */}
             {!isInPlanZone && (
               <p className="text-zinc-700 text-xs">No meal plan for this day yet</p>
             )}
@@ -434,6 +427,7 @@ export default function PlanView({
   currentWeightKg,
   dailyWeightLossKg,
   unitSystem,
+  dataLastChangedAt,
 }: {
   initialPlans:      StoredPlan[];
   calendarEvents:    PlanCalendarEvent[];
@@ -442,8 +436,11 @@ export default function PlanView({
   currentWeightKg:   number | null;
   dailyWeightLossKg: number | null;
   unitSystem:        UnitSystem;
+  dataLastChangedAt: string | null;
 }) {
-  const [events, setEvents] = useState<PlanCalendarEvent[]>(calendarEvents);
+  const router = useRouter();
+  const [events,          setEvents]          = useState<PlanCalendarEvent[]>(calendarEvents);
+  const [generating,      setGenerating]      = useState<string | null>(null);
   const [futureSheetOpen, setFutureSheetOpen] = useState(false);
 
   const plansByDate  = new Map<string, StoredPlan>(initialPlans.map((p) => [p.planDate, p]));
@@ -456,26 +453,45 @@ export default function PlanView({
 
   const dates = Array.from({ length: 10 }, (_, i) => addDays(todayStr, i));
 
+  async function handleGenerate(fromDateStr: string) {
+    setGenerating(fromDateStr);
+    try {
+      await fetch("/api/fuelling-plan/generate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ startDate: fromDateStr }),
+      });
+      router.refresh();
+    } finally {
+      setGenerating(null);
+    }
+  }
+
   function handleEventAdded(event: CalendarEvent) {
     const dateStr = new Date(event.scheduledAt).toISOString().split("T")[0];
-    const newEvent: PlanCalendarEvent = {
-      id:              event.id,
-      title:           event.title,
-      eventType:       event.eventType,
-      scheduledDate:   dateStr,
-      scheduledAt:     event.scheduledAt,
-      durationMinutes: event.durationMinutes,
-      intensity:       event.intensity,
-      notes:           event.notes,
-      roughCalories:   null,
-    };
-    setEvents((prev) => [...prev, newEvent]);
+    setEvents((prev) => [
+      ...prev,
+      {
+        id:              event.id,
+        title:           event.title,
+        eventType:       event.eventType,
+        scheduledDate:   dateStr,
+        scheduledAt:     event.scheduledAt,
+        durationMinutes: event.durationMinutes,
+        intensity:       event.intensity,
+        notes:           event.notes,
+        roughCalories:   null,
+      },
+    ]);
   }
 
   function projectedWeight(dayIndex: number): number | null {
     if (currentWeightKg == null || dailyWeightLossKg == null) return null;
     return currentWeightKg - dailyWeightLossKg * dayIndex;
   }
+
+  // When any generation is running, show "Generating…" on all plan-zone days
+  const anyGenerating = generating !== null;
 
   return (
     <div className="space-y-3">
@@ -490,6 +506,9 @@ export default function PlanView({
           calorieMeta={calorieMeta}
           projectedWeight={projectedWeight(i)}
           unitSystem={unitSystem}
+          dataLastChangedAt={dataLastChangedAt}
+          isGenerating={anyGenerating && i < 3}
+          onGenerate={() => handleGenerate(dateStr)}
           onEventAdded={handleEventAdded}
         />
       ))}
@@ -512,7 +531,6 @@ export default function PlanView({
           onClose={() => setFutureSheetOpen(false)}
           onAdded={(event) => {
             setFutureSheetOpen(false);
-            // Future events don't show in this view, but they're saved
             void event;
           }}
         />

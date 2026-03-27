@@ -67,19 +67,20 @@ export default async function PlanPage() {
         estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
         currentWeightKg:              userProfiles.currentWeightKg,
         unitSystem:                   userProfiles.unitSystem,
+        updatedAt:                    userProfiles.updatedAt,
       })
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
       .limit(1),
 
     db
-      .select({ content: protocols.content })
+      .select({ content: protocols.content, updatedAt: protocols.updatedAt })
       .from(protocols)
       .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
       .limit(1),
 
     db
-      .select({ weightKg: weightLog.weightKg })
+      .select({ weightKg: weightLog.weightKg, weighedAt: weightLog.weighedAt })
       .from(weightLog)
       .where(eq(weightLog.clerkUserId, userId))
       .orderBy(desc(weightLog.weighedAt))
@@ -106,6 +107,17 @@ export default async function PlanPage() {
     ? Number(latestWeightRows[0].weightKg)
     : profileRows[0]?.currentWeightKg
     ? Number(profileRows[0].currentWeightKg)
+    : null;
+
+  // Compute the latest data-change timestamp so PlanView can detect per-day staleness
+  const changeDates: Date[] = [
+    profileRows[0]?.updatedAt,
+    protocolRows[0]?.updatedAt,
+    latestWeightRows[0]?.weighedAt,
+    ...eventRows.map((e) => e.updatedAt),
+  ].filter((d): d is Date => d instanceof Date);
+  const dataLastChangedAt = changeDates.length > 0
+    ? new Date(Math.max(...changeDates.map((d) => d.getTime()))).toISOString()
     : null;
 
   function roughCalories(isTraining: boolean): number | null {
@@ -164,6 +176,7 @@ export default async function PlanPage() {
           currentWeightKg={currentWeightKg}
           dailyWeightLossKg={dailyWeightLossKg}
           unitSystem={unitSystem}
+          dataLastChangedAt={dataLastChangedAt}
         />
       </main>
       <BottomNav active="plan" />

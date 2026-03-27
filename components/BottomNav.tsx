@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import PlanStatusBar from "./PlanStatusBar";
 
 const NAV_ITEMS = [
   { key: "today",    href: "/dashboard", label: "Today",    icon: "◉" },
@@ -61,9 +60,6 @@ export default function BottomNav({ active }: { active: NavKey }) {
           </div>
         </div>
       )}
-
-      {/* Global plan status bar — sits above nav */}
-      <PlanStatusBar />
 
       {/* Nav bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-zinc-800 z-40">
