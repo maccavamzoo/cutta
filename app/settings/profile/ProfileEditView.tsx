@@ -124,9 +124,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default function ProfileEditView({
   initial,
   unitSystem = "metric",
+  mode = "edit",
 }: {
   initial: ProfileData;
   unitSystem?: UnitSystem;
+  mode?: "onboarding" | "edit";
 }) {
   const router  = useRouter();
   const wLabel  = weightLabel(unitSystem);
@@ -220,32 +222,47 @@ export default function ProfileEditView({
     setError(null);
     setSaved(false);
 
+    const payload = {
+      currentWeightKg,
+      targetWeightKg,
+      heightCm:                     heightStr ? Number(heightStr) : null,
+      age:                          ageStr    ? Number(ageStr)    : null,
+      sex:                          sex       || null,
+      typicalWeeklyHours:           weeklyHours       || null,
+      fastedTraining,
+      gutSensitivity:               gutSensitivity    || null,
+      foodExclusions,
+      currentSupplements:           supplements,
+      appetiteProfile:              appetiteProfile   || null,
+      preferredMealTiming:          mealTiming        || null,
+      estimatedMaintenanceCalories,
+    };
+
     try {
-      const res = await fetch("/api/user-profile/profile", {
-        method:  "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          currentWeightKg,
-          targetWeightKg,
-          heightCm:                     heightStr ? Number(heightStr) : null,
-          age:                          ageStr    ? Number(ageStr)    : null,
-          sex:                          sex       || null,
-          typicalWeeklyHours:           weeklyHours       || null,
-          fastedTraining,
-          gutSensitivity:               gutSensitivity    || null,
-          foodExclusions,
-          currentSupplements:           supplements,
-          appetiteProfile:              appetiteProfile   || null,
-          preferredMealTiming:          mealTiming        || null,
-          estimatedMaintenanceCalories,
-        }),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? "Failed to save.");
+      if (mode === "onboarding") {
+        const res = await fetch("/api/onboarding", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.error ?? "Failed to save.");
+        }
+        router.push("/dashboard");
+      } else {
+        const res = await fetch("/api/user-profile/profile", {
+          method:  "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.error ?? "Failed to save.");
+        }
+        setSaved(true);
+        router.refresh();
       }
-      setSaved(true);
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -255,6 +272,13 @@ export default function ProfileEditView({
 
   return (
     <div className="space-y-8 pb-32">
+
+      {mode === "onboarding" && (
+        <div className="mb-2">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Welcome to Cutta</h1>
+          <p className="text-zinc-500 text-sm mt-1">Set up your profile to get your first fuelling plan.</p>
+        </div>
+      )}
 
       {/* 1 — Body stats */}
       <Section title="Body stats">
@@ -456,7 +480,9 @@ export default function ProfileEditView({
         type="button" onClick={handleSave} disabled={saving}
         className="w-full py-4 bg-lime-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
       >
-        {saving ? "Saving…" : "Save changes"}
+        {saving
+          ? (mode === "onboarding" ? "Setting up…" : "Saving…")
+          : (mode === "onboarding" ? "Get started →" : "Save changes")}
       </button>
     </div>
   );
