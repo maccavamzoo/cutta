@@ -13,8 +13,20 @@ export async function PATCH(req: NextRequest) {
   // Only update fields that are explicitly provided in the body
   const update: Record<string, unknown> = { updatedAt: new Date() };
 
+  if (body.currentWeightKg !== undefined)
+    update.currentWeightKg = body.currentWeightKg ? String(body.currentWeightKg) : null;
+
   if (body.targetWeightKg !== undefined)
     update.targetWeightKg = body.targetWeightKg ? String(body.targetWeightKg) : null;
+
+  if (body.heightCm !== undefined)
+    update.heightCm = body.heightCm ? Number(body.heightCm) : null;
+
+  if (body.age !== undefined)
+    update.age = body.age ? Number(body.age) : null;
+
+  if (body.sex !== undefined)
+    update.sex = body.sex || null;
 
   if (body.typicalWeeklyHours !== undefined)
     update.typicalWeeklyHours = body.typicalWeeklyHours ? String(body.typicalWeeklyHours) : null;

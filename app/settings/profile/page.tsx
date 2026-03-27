@@ -18,7 +18,11 @@ export default async function ProfileEditPage() {
 
   const [profile] = await db
     .select({
+      currentWeightKg:              userProfiles.currentWeightKg,
       targetWeightKg:               userProfiles.targetWeightKg,
+      heightCm:                     userProfiles.heightCm,
+      age:                          userProfiles.age,
+      sex:                          userProfiles.sex,
       typicalWeeklyHours:           userProfiles.typicalWeeklyHours,
       fastedTraining:               userProfiles.fastedTraining,
       gutSensitivity:               userProfiles.gutSensitivity,
@@ -38,7 +42,11 @@ export default async function ProfileEditPage() {
   const unitSystem: UnitSystem = (profile.unitSystem as UnitSystem | undefined) ?? "metric";
 
   const initial: ProfileData = {
-    targetWeightKg:               profile.targetWeightKg ? Number(profile.targetWeightKg) : null,
+    currentWeightKg:              profile.currentWeightKg ? Number(profile.currentWeightKg) : null,
+    targetWeightKg:               profile.targetWeightKg  ? Number(profile.targetWeightKg)  : null,
+    heightCm:                     profile.heightCm        ?? null,
+    age:                          profile.age             ?? null,
+    sex:                          profile.sex             ?? null,
     typicalWeeklyHours:           profile.typicalWeeklyHours           ?? null,
     fastedTraining:               profile.fastedTraining               ?? null,
     gutSensitivity:               profile.gutSensitivity               ?? null,
