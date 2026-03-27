@@ -170,7 +170,28 @@ export default function ProfileEditView({
   const [supplements,    setSupplements]    = useState<string[]>(initial.currentSupplements ?? []);
 
   // ── appetite ──────────────────────────────────────────────────────────────
-  const [appetiteProfile, setAppetiteProfile] = useState(initial.appetiteProfile ?? "");
+  const APPETITE_OPTS = [
+    "Big breakfast person",
+    "Not hungry in the morning",
+    "Prefer snacking throughout the day",
+    "Prefer 3 solid meals",
+    "Late eater — big dinner",
+    "Done eating by 7pm",
+    "Large portions",
+    "Small portions",
+  ];
+
+  const [appetiteSelections, setAppetiteSelections] = useState<string[]>(() => {
+    const stored = initial.appetiteProfile ?? "";
+    const parts = stored.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts.filter((p) => APPETITE_OPTS.includes(p));
+  });
+
+  function toggleAppetite(opt: string) {
+    setAppetiteSelections((prev) =>
+      prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt]
+    );
+  }
   const [mealTiming,      setMealTiming]      = useState(initial.preferredMealTiming ?? "");
 
   const [saving, setSaving] = useState(false);
@@ -233,7 +254,7 @@ export default function ProfileEditView({
       gutSensitivity:               gutSensitivity    || null,
       foodExclusions,
       currentSupplements:           supplements,
-      appetiteProfile:              appetiteProfile   || null,
+      appetiteProfile:              appetiteSelections.length ? appetiteSelections.join(", ") : null,
       preferredMealTiming:          mealTiming        || null,
       estimatedMaintenanceCalories,
     };
@@ -448,12 +469,11 @@ export default function ProfileEditView({
       {/* 5 — Appetite & timing */}
       <Section title="Appetite & timing">
         <Field label="Appetite profile">
-          <textarea
-            value={appetiteProfile} onChange={(e) => setAppetiteProfile(e.target.value)}
-            placeholder="e.g. Large appetite, prefer big dinners, not hungry in the mornings"
-            rows={3}
-            className="w-full bg-zinc-900 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800 resize-none"
-          />
+          <div className="flex flex-wrap gap-2">
+            {APPETITE_OPTS.map((opt) => (
+              <Pill key={opt} label={opt} active={appetiteSelections.includes(opt)} onClick={() => toggleAppetite(opt)} />
+            ))}
+          </div>
         </Field>
         <Field label="Preferred meal timing">
           <div className="space-y-2">
