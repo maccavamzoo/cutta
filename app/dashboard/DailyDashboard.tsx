@@ -727,22 +727,6 @@ export default function DailyDashboard({
           ) : (
             <NoPlan events={events} onEdit={setEditingEvent} />
           )}
-
-          {/* Quick links row */}
-          <div className="flex gap-2 pt-1">
-            <Link
-              href="/shopping"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-xs font-medium hover:border-zinc-700 transition-colors"
-            >
-              <span>☑</span> Shopping list
-            </Link>
-            <Link
-              href="/training/upload"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-xs font-medium hover:border-zinc-700 transition-colors"
-            >
-              <span>↑</span> Log training
-            </Link>
-          </div>
         </div>
       </main>
 
