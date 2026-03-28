@@ -503,34 +503,22 @@ function CheckInCard({
   existing: ExistingCheckIn | null;
   onOpen:   () => void;
 }) {
-  if (existing) {
-    const badge = COMPLIANCE_BADGE[existing.compliance];
-    return (
-      <button
-        onClick={onOpen}
-        className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-left"
-      >
-        <div className="space-y-0.5">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Daily check-in</p>
-          <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full border ${badge.colour}`}>
-            {badge.label}
-          </span>
-        </div>
-        <span className="text-zinc-600 text-xs shrink-0 ml-3">Edit →</span>
-      </button>
-    );
-  }
-
   return (
     <button
       onClick={onOpen}
       className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-left"
     >
       <div>
-        <p className="text-white text-sm font-medium">Daily check-in</p>
-        <p className="text-zinc-600 text-xs mt-0.5">Did you follow the plan today?</p>
+        <p className="text-white text-sm font-medium">End of day check-in</p>
+        {existing ? (
+          <p className="text-zinc-500 text-xs mt-0.5">
+            {COMPLIANCE_BADGE[existing.compliance].label}
+          </p>
+        ) : (
+          <p className="text-zinc-600 text-xs mt-0.5">Did you follow the plan today?</p>
+        )}
       </div>
-      <span className="text-lime-400 text-sm font-semibold shrink-0 ml-3">Check in →</span>
+      <span className="text-zinc-600 text-xs shrink-0 ml-3">{existing ? "✓" : "Log →"}</span>
     </button>
   );
 }
@@ -633,17 +621,17 @@ export default function DailyDashboard({
             className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-left"
           >
             <div>
-              <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Morning weigh-in</p>
+              <p className="text-white text-sm font-medium">Morning weigh-in</p>
               {displayWeight ? (
-                <p className="text-white text-sm font-medium mt-0.5">
+                <p className="text-zinc-500 text-xs mt-0.5">
                   {kgToDisplay(displayWeight, unitSystem).toFixed(1)}{weightLabel(unitSystem)}
-                  {displayBf && <span className="text-zinc-500 font-normal"> · {displayBf.toFixed(1)}% bf</span>}
+                  {displayBf && <span> · {displayBf.toFixed(1)}% bf</span>}
                 </p>
               ) : (
                 <p className="text-zinc-600 text-xs mt-0.5">Log your morning weight</p>
               )}
             </div>
-            <span className="text-zinc-600 text-xs shrink-0 ml-3">{displayWeight ? "Edit →" : "Log →"}</span>
+            <span className="text-zinc-600 text-xs shrink-0 ml-3">{displayWeight ? "✓" : "Log →"}</span>
           </button>
 
           {/* Check-in card */}
