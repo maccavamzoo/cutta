@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
 import BottomNav from "@/components/BottomNav";
 import CheckInSheet, { type ExistingCheckIn } from "./CheckInSheet";
+import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 
 // ─── exported types (used by page.tsx) ───────────────────────────────────────
@@ -262,9 +263,11 @@ const EVENT_TYPE_COLOUR: Record<string, string> = {
 function SessionHero({
   event,
   fuelling,
+  onEdit,
 }: {
   event:    TodayEvent;
   fuelling: NonNullable<TodayPlan["onBikeFuelling"]> | null;
+  onEdit:   () => void;
 }) {
   const colour = EVENT_TYPE_COLOUR[event.eventType] ?? "border-zinc-700 bg-zinc-900";
 
@@ -274,9 +277,22 @@ function SessionHero({
       <div>
         <div className="flex items-start justify-between gap-2">
           <p className="text-white font-semibold text-base">{event.title}</p>
-          <span className="text-zinc-500 text-xs shrink-0 pt-0.5">
-            {fmtTime(event.scheduledAt)}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-zinc-500 text-xs pt-0.5">
+              {fmtTime(event.scheduledAt)}
+            </span>
+            <button
+              type="button"
+              onClick={onEdit}
+              className="text-zinc-600 hover:text-zinc-300 transition-colors p-0.5"
+              aria-label="Edit session"
+            >
+              {/* pencil icon */}
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M9.5 2.5L11.5 4.5L5 11H3V9L9.5 2.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="flex gap-3 mt-1 text-xs text-zinc-500">
           {event.durationMinutes && (
@@ -537,8 +553,10 @@ export default function DailyDashboard({
   const [displayWeight,  setDisplayWeight]  = useState<number | null>(latestWeightKg);
   const [displayBf,      setDisplayBf]      = useState<number | null>(latestBodyFatPct);
   const [glycogenValue,  setGlycogenValue]  = useState<number>(todayPlan?.glycogenBattery ?? 50);
+  const [events,         setEvents]         = useState<TodayEvent[]>(todayEvents);
+  const [editingEvent,   setEditingEvent]   = useState<EditableEvent | null>(null);
 
-  const trainingEvent = todayEvents.find(
+  const trainingEvent = events.find(
     (e) => e.eventType === "ride" || e.eventType === "race"
   ) ?? null;
 
@@ -652,6 +670,7 @@ export default function DailyDashboard({
                   <SessionHero
                     event={trainingEvent}
                     fuelling={todayPlan.onBikeFuelling}
+                    onEdit={() => setEditingEvent(trainingEvent)}
                   />
                 </div>
               )}
@@ -697,7 +716,7 @@ export default function DailyDashboard({
               )}
             </>
           ) : (
-            <NoPlan events={todayEvents} />
+            <NoPlan events={events} />
           )}
 
           {/* Quick links row */}
@@ -733,6 +752,35 @@ export default function DailyDashboard({
           onSaved={(result) => {
             setSavedCheckIn(result);
             setCheckInOpen(false);
+          }}
+        />
+      )}
+
+      {editingEvent && (
+        <EditEventSheet
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onUpdated={(updated) => {
+            setEditingEvent(null);
+            setEvents((prev) =>
+              prev.map((e) =>
+                e.id === updated.id
+                  ? {
+                      ...e,
+                      title:           updated.title,
+                      eventType:       updated.eventType,
+                      scheduledAt:     updated.scheduledAt,
+                      durationMinutes: updated.durationMinutes,
+                      intensity:       updated.intensity,
+                      notes:           updated.notes,
+                    }
+                  : e
+              )
+            );
+          }}
+          onDeleted={(id) => {
+            setEditingEvent(null);
+            setEvents((prev) => prev.filter((e) => e.id !== id));
           }}
         />
       )}
