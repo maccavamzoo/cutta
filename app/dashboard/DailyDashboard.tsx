@@ -524,7 +524,7 @@ function CheckInCard({
   return (
     <button
       onClick={onOpen}
-      className="w-full flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-dashed border-zinc-700 hover:border-zinc-500 transition-colors text-left"
+      className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-left"
     >
       <div>
         <p className="text-white text-sm font-medium">Daily check-in</p>
