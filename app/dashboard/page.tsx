@@ -148,8 +148,6 @@ export default async function DashboardPage() {
         gutComfort:   feedbackRows.find((f) => f.feedbackType === "gut_comfort")?.rating   ?? null,
         hunger:       feedbackRows.find((f) => f.feedbackType === "hunger")?.rating        ?? null,
         stoolHealth:  feedbackRows.find((f) => f.feedbackType === "stool_health")?.rating  ?? null,
-        weightKg:     weightRow ? Number(weightRow.weightKg)   : null,
-        bodyFatPct:   weightRow?.bodyFatPct ? Number(weightRow.bodyFatPct) : null,
       }
     : null;
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
 import BottomNav from "@/components/BottomNav";
 import CheckInSheet, { type ExistingCheckIn } from "./CheckInSheet";
+import WeighInSheet from "./WeighInSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 
@@ -557,6 +558,7 @@ export default function DailyDashboard({
   trackStoolHealth?:  boolean;
   unitSystem?:        UnitSystem;
 }) {
+  const [weighInOpen,    setWeighInOpen]    = useState(false);
   const [checkInOpen,    setCheckInOpen]    = useState(false);
   const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
   const [displayWeight,  setDisplayWeight]  = useState<number | null>(latestWeightKg);
@@ -625,7 +627,26 @@ export default function DailyDashboard({
             )}
           </div>
 
-          {/* Check-in card — always visible */}
+          {/* Weigh-in card */}
+          <button
+            onClick={() => setWeighInOpen(true)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-left"
+          >
+            <div>
+              <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Morning weigh-in</p>
+              {displayWeight ? (
+                <p className="text-white text-sm font-medium mt-0.5">
+                  {kgToDisplay(displayWeight, unitSystem).toFixed(1)}{weightLabel(unitSystem)}
+                  {displayBf && <span className="text-zinc-500 font-normal"> · {displayBf.toFixed(1)}% bf</span>}
+                </p>
+              ) : (
+                <p className="text-zinc-600 text-xs mt-0.5">Log your morning weight</p>
+              )}
+            </div>
+            <span className="text-zinc-600 text-xs shrink-0 ml-3">{displayWeight ? "Edit →" : "Log →"}</span>
+          </button>
+
+          {/* Check-in card */}
           <CheckInCard existing={savedCheckIn} onOpen={() => setCheckInOpen(true)} />
 
           {todayPlan ? (
@@ -730,19 +751,27 @@ export default function DailyDashboard({
         </div>
       </main>
 
+      {weighInOpen && (
+        <WeighInSheet
+          latestWeightKg={displayWeight}
+          latestBodyFatPct={displayBf}
+          unitSystem={unitSystem}
+          onClose={() => setWeighInOpen(false)}
+          onSaved={(weightKg, bodyFatPct) => {
+            setDisplayWeight(weightKg);
+            if (bodyFatPct !== null) setDisplayBf(bodyFatPct);
+            setWeighInOpen(false);
+          }}
+        />
+      )}
+
       {checkInOpen && (
         <CheckInSheet
           todayStr={todayStr}
           isTrainingDay={isTrainingDay}
           trackStoolHealth={trackStoolHealth}
           existing={savedCheckIn}
-          latestWeight={{ weightKg: displayWeight, bodyFatPct: displayBf }}
-          unitSystem={unitSystem}
           onClose={() => setCheckInOpen(false)}
-          onWeightSaved={(weightKg, bodyFatPct) => {
-            setDisplayWeight(weightKg);
-            if (bodyFatPct !== null) setDisplayBf(bodyFatPct);
-          }}
           onSaved={(result) => {
             setSavedCheckIn(result);
             setCheckInOpen(false);
