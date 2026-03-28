@@ -284,13 +284,9 @@ function SessionHero({
             <button
               type="button"
               onClick={onEdit}
-              className="text-zinc-600 hover:text-zinc-300 transition-colors p-0.5"
-              aria-label="Edit session"
+              className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
             >
-              {/* pencil icon */}
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M9.5 2.5L11.5 4.5L5 11H3V9L9.5 2.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              Edit →
             </button>
           </div>
         </div>
@@ -440,24 +436,35 @@ function MealCard({
 
 // ─── no-plan state ────────────────────────────────────────────────────────────
 
-function NoPlan({ events }: { events: TodayEvent[] }) {
+function NoPlan({
+  events,
+  onEdit,
+}: {
+  events: TodayEvent[];
+  onEdit: (event: TodayEvent) => void;
+}) {
   return (
     <div className="space-y-5">
       {/* Training sessions without a plan */}
       {events
         .filter((e) => e.eventType !== "rest")
         .map((e) => (
-          <div
+          <button
             key={e.id}
-            className={`rounded-2xl border px-4 py-4 ${EVENT_TYPE_COLOUR[e.eventType] ?? "border-zinc-700 bg-zinc-900"}`}
+            type="button"
+            onClick={() => onEdit(e)}
+            className={`w-full text-left rounded-2xl border px-4 py-4 hover:brightness-110 transition-all ${EVENT_TYPE_COLOUR[e.eventType] ?? "border-zinc-700 bg-zinc-900"}`}
           >
-            <p className="text-white font-semibold">{e.title}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-white font-semibold">{e.title}</p>
+              <span className="text-zinc-500 text-xs shrink-0 mt-0.5">Edit →</span>
+            </div>
             <div className="flex gap-3 mt-1 text-xs text-zinc-500">
               <span>{fmtTime(e.scheduledAt)}</span>
               {e.durationMinutes && <span>{fmtDuration(e.durationMinutes)}</span>}
               {e.intensity && <span>{INTENSITY_LABEL[e.intensity] ?? e.intensity}</span>}
             </div>
-          </div>
+          </button>
         ))}
 
       <div className="py-10 text-center space-y-4">
@@ -718,7 +725,7 @@ export default function DailyDashboard({
               )}
             </>
           ) : (
-            <NoPlan events={events} />
+            <NoPlan events={events} onEdit={setEditingEvent} />
           )}
 
           {/* Quick links row */}
