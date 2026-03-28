@@ -60,6 +60,7 @@ export default async function DashboardPage() {
         currentWeightKg:              userProfiles.currentWeightKg,
         targetWeightKg:               userProfiles.targetWeightKg,
         estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
+        trackStoolHealth:             userProfiles.trackStoolHealth,
         unitSystem:                   userProfiles.unitSystem,
       })
       .from(userProfiles)
@@ -155,7 +156,8 @@ export default async function DashboardPage() {
   const firstName = clerkUser?.firstName ?? null;
   const latestWeightKg   = weightRow ? Number(weightRow.weightKg)   : null;
   const latestBodyFatPct = weightRow?.bodyFatPct ? Number(weightRow.bodyFatPct) : null;
-  const unitSystem = (profileRow?.unitSystem ?? "metric") as "metric" | "imperial";
+  const unitSystem      = (profileRow?.unitSystem ?? "metric") as "metric" | "imperial";
+  const trackStoolHealth = profileRow?.trackStoolHealth ?? false;
 
   return (
     <DailyDashboard
@@ -167,6 +169,7 @@ export default async function DashboardPage() {
       firstName={firstName}
       latestWeightKg={latestWeightKg}
       latestBodyFatPct={latestBodyFatPct}
+      trackStoolHealth={trackStoolHealth}
       unitSystem={unitSystem}
     />
   );

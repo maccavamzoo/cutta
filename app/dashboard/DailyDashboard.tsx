@@ -536,17 +536,19 @@ export default function DailyDashboard({
   firstName,
   latestWeightKg,
   latestBodyFatPct,
+  trackStoolHealth = false,
   unitSystem = "metric",
 }: {
-  todayStr:          string;
-  todayPlan:         TodayPlan | null;
-  todayEvents:       TodayEvent[];
-  profile:           ProfileSnapshot | null;
-  existingCheckIn:   ExistingCheckIn | null;
-  firstName:         string | null;
-  latestWeightKg:    number | null;
-  latestBodyFatPct:  number | null;
-  unitSystem?:       UnitSystem;
+  todayStr:           string;
+  todayPlan:          TodayPlan | null;
+  todayEvents:        TodayEvent[];
+  profile:            ProfileSnapshot | null;
+  existingCheckIn:    ExistingCheckIn | null;
+  firstName:          string | null;
+  latestWeightKg:     number | null;
+  latestBodyFatPct:   number | null;
+  trackStoolHealth?:  boolean;
+  unitSystem?:        UnitSystem;
 }) {
   const [checkInOpen,    setCheckInOpen]    = useState(false);
   const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
@@ -741,6 +743,7 @@ export default function DailyDashboard({
         <CheckInSheet
           todayStr={todayStr}
           isTrainingDay={isTrainingDay}
+          trackStoolHealth={trackStoolHealth}
           existing={savedCheckIn}
           latestWeight={{ weightKg: displayWeight, bodyFatPct: displayBf }}
           unitSystem={unitSystem}

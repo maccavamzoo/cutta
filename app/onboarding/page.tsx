@@ -30,6 +30,7 @@ export default async function OnboardingPage() {
     typicalWeeklyHours:           null,
     fastedTraining:               null,
     gutSensitivity:               null,
+    trackStoolHealth:             false,
     foodExclusions:               [],
     currentSupplements:           [],
     appetiteProfile:              null,
