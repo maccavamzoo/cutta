@@ -41,6 +41,9 @@ export async function PATCH(req: NextRequest) {
   if (body.gutSensitivity !== undefined)
     update.gutSensitivity = body.gutSensitivity || null;
 
+  if (body.trackStoolHealth !== undefined)
+    update.trackStoolHealth = Boolean(body.trackStoolHealth);
+
   if (body.foodExclusions !== undefined)
     update.foodExclusions = Array.isArray(body.foodExclusions) ? body.foodExclusions : [];
 

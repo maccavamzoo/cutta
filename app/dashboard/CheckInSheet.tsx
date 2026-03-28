@@ -16,14 +16,15 @@ export interface ExistingCheckIn {
 }
 
 interface Props {
-  todayStr:        string;
-  isTrainingDay:   boolean;
-  existing:        ExistingCheckIn | null;       // compliance / feedback pre-fill
-  latestWeight?:   { weightKg: number | null; bodyFatPct: number | null } | null;
-  unitSystem?:     UnitSystem;
-  onClose:         () => void;
-  onWeightSaved?:  (weightKg: number, bodyFatPct: number | null) => void;
-  onSaved:         (result: ExistingCheckIn) => void;
+  todayStr:          string;
+  isTrainingDay:     boolean;
+  trackStoolHealth:  boolean;
+  existing:          ExistingCheckIn | null;
+  latestWeight?:     { weightKg: number | null; bodyFatPct: number | null } | null;
+  unitSystem?:       UnitSystem;
+  onClose:           () => void;
+  onWeightSaved?:    (weightKg: number, bodyFatPct: number | null) => void;
+  onSaved:           (result: ExistingCheckIn) => void;
 }
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -48,14 +49,14 @@ const SIGNAL_LABEL: Record<string, string> = {
   rideEnergy:  "Ride energy",
   gutComfort:  "Gut comfort",
   hunger:      "Hunger",
-  stoolHealth: "Digestion",
+  stoolHealth: "Stool health",
 };
 
 const SIGNAL_SUB: Record<string, string> = {
   rideEnergy:  "How fuelled did you feel on the ride?",
   gutComfort:  "Any bloating, discomfort or gut issues?",
   hunger:      "Coping with the plan, or constantly starving?",
-  stoolHealth: "How was your digestion today?",
+  stoolHealth: "How were your stools today?",
 };
 
 const STOOL_LABELS: Record<number, string> = {
@@ -122,6 +123,7 @@ function RatingRow({
 export default function CheckInSheet({
   todayStr,
   isTrainingDay,
+  trackStoolHealth,
   existing,
   latestWeight,
   unitSystem = "metric",
@@ -383,13 +385,15 @@ export default function CheckInSheet({
                   <RatingRow signal="rideEnergy" value={rideEnergy} onChange={setRideEnergy} />
                 )}
                 <RatingRow signal="gutComfort" value={gutComfort} onChange={setGutComfort} />
-                <RatingRow
-                  signal="stoolHealth"
-                  value={stoolHealth}
-                  onChange={setStoolHealth}
-                  ratingLabels={STOOL_LABELS}
-                  colorFn={(v) => v === 3 ? "text-lime-400" : v === 2 || v === 4 ? "text-amber-400" : "text-red-400"}
-                />
+                {trackStoolHealth && (
+                  <RatingRow
+                    signal="stoolHealth"
+                    value={stoolHealth}
+                    onChange={setStoolHealth}
+                    ratingLabels={STOOL_LABELS}
+                    colorFn={(v) => v === 3 ? "text-lime-400" : v === 2 || v === 4 ? "text-amber-400" : "text-red-400"}
+                  />
+                )}
                 <RatingRow signal="hunger" value={hunger} onChange={setHunger} />
               </div>
 

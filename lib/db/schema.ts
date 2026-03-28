@@ -43,6 +43,7 @@ export const userProfiles = pgTable(
 
     // Diet & gut
     gutSensitivity: text("gut_sensitivity"),
+    trackStoolHealth: boolean("track_stool_health").default(false).notNull(),
     foodExclusions: text("food_exclusions").array(),
     currentSupplements: text("current_supplements").array(),
 

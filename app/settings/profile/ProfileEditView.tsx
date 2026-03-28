@@ -15,6 +15,7 @@ export interface ProfileData {
   typicalWeeklyHours:           string | null;
   fastedTraining:               boolean | null;
   gutSensitivity:               string | null;
+  trackStoolHealth:             boolean;
   foodExclusions:               string[] | null;
   currentSupplements:           string[] | null;
   appetiteProfile:              string | null;
@@ -165,8 +166,9 @@ export default function ProfileEditView({
   );
 
   // ── gut & food ────────────────────────────────────────────────────────────
-  const [gutSensitivity, setGutSensitivity] = useState(initial.gutSensitivity ?? "");
-  const [foodExclusions, setFoodExclusions] = useState<string[]>(initial.foodExclusions ?? []);
+  const [gutSensitivity,   setGutSensitivity]   = useState(initial.gutSensitivity ?? "");
+  const [trackStoolHealth, setTrackStoolHealth] = useState(initial.trackStoolHealth);
+  const [foodExclusions,   setFoodExclusions]   = useState<string[]>(initial.foodExclusions ?? []);
   const [supplements,    setSupplements]    = useState<string[]>(initial.currentSupplements ?? []);
 
   // ── appetite ──────────────────────────────────────────────────────────────
@@ -252,6 +254,7 @@ export default function ProfileEditView({
       typicalWeeklyHours:           weeklyHours       || null,
       fastedTraining,
       gutSensitivity:               gutSensitivity    || null,
+      trackStoolHealth,
       foodExclusions,
       currentSupplements:           supplements,
       appetiteProfile:              appetiteSelections.length ? appetiteSelections.join(", ") : null,
@@ -456,6 +459,28 @@ export default function ProfileEditView({
             ))}
           </div>
         </Field>
+        <div className="flex items-start justify-between gap-4 py-1">
+          <div className="flex-1">
+            <p className="text-white text-sm font-medium">Track stool health</p>
+            <p className="text-zinc-600 text-xs mt-0.5 leading-relaxed">
+              Log stool consistency in your daily check-in. Helps the AI spot gut issues and adjust your plan.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={trackStoolHealth}
+            onClick={() => setTrackStoolHealth((x) => !x)}
+            className={`relative shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors ${
+              trackStoolHealth ? "bg-lime-400" : "bg-zinc-700"
+            }`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+              trackStoolHealth ? "translate-x-5" : "translate-x-0"
+            }`} />
+          </button>
+        </div>
+
         <Field label="Food exclusions">
           <TagInput tags={foodExclusions} onChange={setFoodExclusions} placeholder="e.g. Gluten, Dairy, Eggs…" />
         </Field>
