@@ -518,7 +518,10 @@ function CheckInCard({
           <p className="text-zinc-600 text-xs mt-0.5">Did you follow the plan today?</p>
         )}
       </div>
-      <span className={`text-sm font-semibold shrink-0 ml-3 ${existing ? "text-lime-400" : "text-zinc-600"}`}>{existing ? "✓" : "Log →"}</span>
+      {existing
+        ? <span className="text-lime-400 text-xl font-bold shrink-0 ml-3">✓</span>
+        : <span className="text-zinc-600 text-xs shrink-0 ml-3">Log →</span>
+      }
     </button>
   );
 }
