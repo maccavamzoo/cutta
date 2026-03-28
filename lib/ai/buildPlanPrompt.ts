@@ -176,7 +176,11 @@ ${JSON.stringify(protocol.content, null, 2)}
       byType[f.feedbackType].push({ date: f.planDate ?? "unknown", rating: f.rating });
     }
     for (const [type, entries] of Object.entries(byType)) {
-      const typeLabel = type === "ride_energy" ? "Ride energy" : type === "gut_comfort" ? "Gut comfort" : "Hunger";
+      const typeLabel =
+        type === "ride_energy"  ? "Ride energy" :
+        type === "gut_comfort"  ? "Gut comfort" :
+        type === "stool_health" ? "Digestion (1=very loose, 3=normal, 5=very hard)" :
+        "Hunger";
       const entryLines = entries.slice(-7).map((e) => `  ${e.date}: ${e.rating}/5`).join("\n");
       lines.push(`${typeLabel}:\n${entryLines}`);
     }
@@ -197,6 +201,20 @@ ${JSON.stringify(protocol.content, null, 2)}
     if (lowEnergyDays >= 3) {
       guardrailNotes.push(
         `GUARDRAIL TRIGGERED — low ride energy (1-2) on ${lowEnergyDays} of the last 7 sessions: reduce calorie deficit and increase pre/during ride carbohydrate intake.`
+      );
+    }
+
+    const stoolEntries   = (byType["stool_health"] ?? []).slice(-7);
+    const looseDays      = stoolEntries.filter((e) => e.rating <= 2).length;
+    const constipatedDays = stoolEntries.filter((e) => e.rating >= 4).length;
+    if (looseDays >= 3) {
+      guardrailNotes.push(
+        `GUARDRAIL TRIGGERED — loose stools (1-2) on ${looseDays} of the last 7 days: reduce high-fibre and high-fat pre-ride foods, simplify meals, consider reducing lactose and fructose intake.`
+      );
+    }
+    if (constipatedDays >= 3) {
+      guardrailNotes.push(
+        `GUARDRAIL TRIGGERED — constipation indicators (4-5) on ${constipatedDays} of the last 7 days: increase fibre, hydration, and consider whether calorie deficit is too aggressive.`
       );
     }
 

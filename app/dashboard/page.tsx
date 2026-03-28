@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
   const todayStr   = todayStart.toISOString().split("T")[0];
 
-  const VALID_FEEDBACK_TYPES = ["ride_energy", "gut_comfort", "hunger"] as const;
+  const VALID_FEEDBACK_TYPES = ["ride_energy", "gut_comfort", "hunger", "stool_health"] as const;
 
   const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weightRows] = await Promise.all([
     currentUser(),
@@ -142,12 +142,13 @@ export default async function DashboardPage() {
   const weightRow = weightRows[0] ?? null;
   const existingCheckIn: ExistingCheckIn | null = complianceEntry
     ? {
-        compliance:  complianceEntry.compliance as ExistingCheckIn["compliance"],
-        rideEnergy:  feedbackRows.find((f) => f.feedbackType === "ride_energy")?.rating ?? null,
-        gutComfort:  feedbackRows.find((f) => f.feedbackType === "gut_comfort")?.rating ?? null,
-        hunger:      feedbackRows.find((f) => f.feedbackType === "hunger")?.rating ?? null,
-        weightKg:    weightRow ? Number(weightRow.weightKg)   : null,
-        bodyFatPct:  weightRow?.bodyFatPct ? Number(weightRow.bodyFatPct) : null,
+        compliance:   complianceEntry.compliance as ExistingCheckIn["compliance"],
+        rideEnergy:   feedbackRows.find((f) => f.feedbackType === "ride_energy")?.rating   ?? null,
+        gutComfort:   feedbackRows.find((f) => f.feedbackType === "gut_comfort")?.rating   ?? null,
+        hunger:       feedbackRows.find((f) => f.feedbackType === "hunger")?.rating        ?? null,
+        stoolHealth:  feedbackRows.find((f) => f.feedbackType === "stool_health")?.rating  ?? null,
+        weightKg:     weightRow ? Number(weightRow.weightKg)   : null,
+        bodyFatPct:   weightRow?.bodyFatPct ? Number(weightRow.bodyFatPct) : null,
       }
     : null;
 
