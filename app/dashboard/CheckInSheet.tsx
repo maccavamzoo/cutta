@@ -6,12 +6,13 @@ import { kgToDisplay, displayToKg, weightLabel, weightInputRange, type UnitSyste
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface ExistingCheckIn {
-  compliance:  "yes" | "mostly" | "no";
-  rideEnergy:  number | null;
-  gutComfort:  number | null;
-  hunger:      number | null;
-  weightKg:    number | null;
-  bodyFatPct:  number | null;
+  compliance:   "yes" | "mostly" | "no";
+  rideEnergy:   number | null;
+  gutComfort:   number | null;
+  hunger:       number | null;
+  stoolHealth:  number | null;
+  weightKg:     number | null;
+  bodyFatPct:   number | null;
 }
 
 interface Props {
@@ -44,15 +45,25 @@ const RATING_LABELS: Record<number, string> = {
 };
 
 const SIGNAL_LABEL: Record<string, string> = {
-  rideEnergy: "Ride energy",
-  gutComfort: "Gut comfort",
-  hunger:     "Hunger",
+  rideEnergy:  "Ride energy",
+  gutComfort:  "Gut comfort",
+  hunger:      "Hunger",
+  stoolHealth: "Digestion",
 };
 
 const SIGNAL_SUB: Record<string, string> = {
-  rideEnergy: "How fuelled did you feel on the ride?",
-  gutComfort: "Any bloating, discomfort or gut issues?",
-  hunger:     "Coping with the plan, or constantly starving?",
+  rideEnergy:  "How fuelled did you feel on the ride?",
+  gutComfort:  "Any bloating, discomfort or gut issues?",
+  hunger:      "Coping with the plan, or constantly starving?",
+  stoolHealth: "How was your digestion today?",
+};
+
+const STOOL_LABELS: Record<number, string> = {
+  1: "Very loose",
+  2: "Loose",
+  3: "Normal",
+  4: "Hard",
+  5: "Very hard",
 };
 
 // ─── rating row ───────────────────────────────────────────────────────────────
@@ -61,11 +72,20 @@ function RatingRow({
   signal,
   value,
   onChange,
+  ratingLabels,
+  colorFn,
 }: {
-  signal:   string;
-  value:    number | null;
-  onChange: (v: number) => void;
+  signal:        string;
+  value:         number | null;
+  onChange:      (v: number) => void;
+  ratingLabels?: Record<number, string>;
+  colorFn?:      (v: number) => string;
 }) {
+  const labels   = ratingLabels ?? RATING_LABELS;
+  const getColor = colorFn ?? ((v: number) =>
+    v >= 4 ? "text-lime-400" : v >= 3 ? "text-amber-400" : "text-red-400"
+  );
+
   return (
     <div>
       <div className="mb-2">
@@ -89,10 +109,8 @@ function RatingRow({
         ))}
       </div>
       {value !== null && (
-        <p className={`text-xs mt-1.5 text-right font-medium ${
-          value >= 4 ? "text-lime-400" : value >= 3 ? "text-amber-400" : "text-red-400"
-        }`}>
-          {RATING_LABELS[value]}
+        <p className={`text-xs mt-1.5 text-right font-medium ${getColor(value)}`}>
+          {labels[value]}
         </p>
       )}
     </div>
@@ -128,10 +146,11 @@ export default function CheckInSheet({
   const [weightError,  setWeightError]  = useState<string | null>(null);
 
   // ── end-of-day state ──────────────────────────────────────────────────────
-  const [compliance,  setCompliance]  = useState<ComplianceValue | null>(existing?.compliance ?? null);
-  const [rideEnergy,  setRideEnergy]  = useState<number | null>(existing?.rideEnergy ?? null);
-  const [gutComfort,  setGutComfort]  = useState<number | null>(existing?.gutComfort ?? null);
-  const [hunger,      setHunger]      = useState<number | null>(existing?.hunger     ?? null);
+  const [compliance,  setCompliance]  = useState<ComplianceValue | null>(existing?.compliance   ?? null);
+  const [rideEnergy,  setRideEnergy]  = useState<number | null>(existing?.rideEnergy  ?? null);
+  const [gutComfort,  setGutComfort]  = useState<number | null>(existing?.gutComfort  ?? null);
+  const [hunger,      setHunger]      = useState<number | null>(existing?.hunger      ?? null);
+  const [stoolHealth, setStoolHealth] = useState<number | null>(existing?.stoolHealth ?? null);
   const [notes,       setNotes]       = useState("");
   const [endSaving,   setEndSaving]   = useState(false);
   const [endError,    setEndError]    = useState<string | null>(null);
@@ -197,10 +216,11 @@ export default function CheckInSheet({
       // 2 — Feedback signals (only those rated)
       const feedbacks = [
         isTrainingDay && rideEnergy !== null
-          ? { feedbackType: "ride_energy" as const, rating: rideEnergy }
+          ? { feedbackType: "ride_energy"   as const, rating: rideEnergy  }
           : null,
-        gutComfort !== null ? { feedbackType: "gut_comfort" as const, rating: gutComfort } : null,
-        hunger     !== null ? { feedbackType: "hunger"      as const, rating: hunger     } : null,
+        gutComfort  !== null ? { feedbackType: "gut_comfort"  as const, rating: gutComfort  } : null,
+        hunger      !== null ? { feedbackType: "hunger"       as const, rating: hunger      } : null,
+        stoolHealth !== null ? { feedbackType: "stool_health" as const, rating: stoolHealth } : null,
       ].filter(Boolean);
 
       if (feedbacks.length > 0) {
@@ -217,11 +237,12 @@ export default function CheckInSheet({
 
       onSaved({
         compliance,
-        rideEnergy: isTrainingDay ? rideEnergy : null,
+        rideEnergy:  isTrainingDay ? rideEnergy : null,
         gutComfort,
         hunger,
-        weightKg:   latestWeight?.weightKg   ?? null,
-        bodyFatPct: latestWeight?.bodyFatPct ?? null,
+        stoolHealth,
+        weightKg:    latestWeight?.weightKg   ?? null,
+        bodyFatPct:  latestWeight?.bodyFatPct ?? null,
       });
     } catch (err) {
       setEndError(err instanceof Error ? err.message : "Something went wrong.");
@@ -362,7 +383,14 @@ export default function CheckInSheet({
                   <RatingRow signal="rideEnergy" value={rideEnergy} onChange={setRideEnergy} />
                 )}
                 <RatingRow signal="gutComfort" value={gutComfort} onChange={setGutComfort} />
-                <RatingRow signal="hunger"     value={hunger}     onChange={setHunger} />
+                <RatingRow
+                  signal="stoolHealth"
+                  value={stoolHealth}
+                  onChange={setStoolHealth}
+                  ratingLabels={STOOL_LABELS}
+                  colorFn={(v) => v === 3 ? "text-lime-400" : v === 2 || v === 4 ? "text-amber-400" : "text-red-400"}
+                />
+                <RatingRow signal="hunger" value={hunger} onChange={setHunger} />
               </div>
 
               {/* Optional notes */}

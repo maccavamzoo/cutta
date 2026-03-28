@@ -4,7 +4,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { feedbackLog } from "@/lib/db/schema";
 
-const VALID_TYPES = ["ride_energy", "gut_comfort", "hunger"] as const;
+const VALID_TYPES = ["ride_energy", "gut_comfort", "hunger", "stool_health"] as const;
 type FeedbackType = (typeof VALID_TYPES)[number];
 
 interface FeedbackEntry {
