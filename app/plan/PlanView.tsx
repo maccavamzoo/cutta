@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
 import AddEventSheet, { type CalendarEvent } from "./AddEventSheet";
+import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 
 // ─── exported types ───────────────────────────────────────────────────────────
@@ -187,6 +188,8 @@ interface DayCardProps {
   isGenerating:       boolean;
   onGenerate:         () => void;
   onEventAdded:       (event: CalendarEvent) => void;
+  onEventUpdated:     (event: EditableEvent) => void;
+  onEventDeleted:     (id: number) => void;
 }
 
 function DayCard({
@@ -202,9 +205,12 @@ function DayCard({
   isGenerating,
   onGenerate,
   onEventAdded,
+  onEventUpdated,
+  onEventDeleted,
 }: DayCardProps) {
-  const [expanded,  setExpanded]  = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [expanded,      setExpanded]      = useState(false);
+  const [sheetOpen,     setSheetOpen]     = useState(false);
+  const [editingEvent,  setEditingEvent]  = useState<EditableEvent | null>(null);
 
   const hasPlan      = plan !== null;
   const hasEvents    = events.length > 0;
@@ -343,12 +349,20 @@ function DayCard({
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Activities</p>
                 {events.map((ev) => (
-                  <div key={ev.id} className="bg-zinc-800/50 rounded-lg px-3 py-2.5">
+                  <button
+                    key={ev.id}
+                    type="button"
+                    onClick={() => setEditingEvent(ev)}
+                    className="w-full text-left bg-zinc-800/50 rounded-lg px-3 py-2.5 hover:bg-zinc-800 transition-colors"
+                  >
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-white text-sm font-medium">{ev.title}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
-                        {ev.eventType}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
+                          {ev.eventType}
+                        </span>
+                        <span className="text-zinc-600 text-xs">Edit →</span>
+                      </div>
                     </div>
                     <div className="flex gap-3 text-xs text-zinc-500 flex-wrap">
                       {ev.durationMinutes && <span>{ev.durationMinutes} min</span>}
@@ -358,7 +372,7 @@ function DayCard({
                     {ev.notes && (
                       <p className="text-zinc-600 text-xs mt-1 italic">{ev.notes}</p>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -411,6 +425,21 @@ function DayCard({
           defaultDate={new Date(dateStr + "T09:00:00")}
           onClose={() => setSheetOpen(false)}
           onAdded={handleEventAdded}
+        />
+      )}
+
+      {editingEvent && (
+        <EditEventSheet
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onUpdated={(updated) => {
+            setEditingEvent(null);
+            onEventUpdated(updated);
+          }}
+          onDeleted={(id) => {
+            setEditingEvent(null);
+            onEventDeleted(id);
+          }}
         />
       )}
     </>
@@ -485,6 +514,30 @@ export default function PlanView({
     ]);
   }
 
+  function handleEventUpdated(updated: EditableEvent) {
+    const dateStr = new Date(updated.scheduledAt).toISOString().split("T")[0];
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === updated.id
+          ? {
+              ...e,
+              title:           updated.title,
+              eventType:       updated.eventType,
+              scheduledDate:   dateStr,
+              scheduledAt:     updated.scheduledAt,
+              durationMinutes: updated.durationMinutes,
+              intensity:       updated.intensity,
+              notes:           updated.notes,
+            }
+          : e
+      )
+    );
+  }
+
+  function handleEventDeleted(id: number) {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+  }
+
   function projectedWeight(dayIndex: number): number | null {
     if (currentWeightKg == null || dailyWeightLossKg == null) return null;
     return currentWeightKg - dailyWeightLossKg * dayIndex;
@@ -510,6 +563,8 @@ export default function PlanView({
           isGenerating={anyGenerating && i < 3}
           onGenerate={() => handleGenerate(dateStr)}
           onEventAdded={handleEventAdded}
+          onEventUpdated={handleEventUpdated}
+          onEventDeleted={handleEventDeleted}
         />
       ))}
 
