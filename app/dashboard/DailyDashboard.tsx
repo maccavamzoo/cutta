@@ -618,14 +618,17 @@ export default function DailyDashboard({
                       const diffKg = parseFloat((displayWeight - profile.targetWeightKg).toFixed(2));
                       const diffDisplay = kgToDisplay(Math.abs(diffKg), unitSystem).toFixed(1);
                       const wl = weightLabel(unitSystem);
+                      const targetDisplay = kgToDisplay(profile.targetWeightKg, unitSystem).toFixed(1);
                       if (diffKg > 0) return (
                         <p className="text-zinc-500 text-sm">
                           <span className="text-lime-400 font-semibold">{diffDisplay} {wl}</span> to go
+                          <span className="text-zinc-600 text-xs"> · target {targetDisplay} {wl}</span>
                         </p>
                       );
                       if (diffKg < 0) return (
                         <p className="text-zinc-500 text-sm">
                           <span className="text-lime-400 font-semibold">{diffDisplay} {wl}</span> above target
+                          <span className="text-zinc-600 text-xs"> · target {targetDisplay} {wl}</span>
                         </p>
                       );
                       return <p className="text-lime-400 text-sm font-semibold">Target reached</p>;
