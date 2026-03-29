@@ -622,13 +622,13 @@ export default function DailyDashboard({
                       if (diffKg > 0) return (
                         <p className="text-zinc-500 text-sm">
                           <span className="text-lime-400 font-semibold">{diffDisplay} {wl}</span> to go
-                          <span className="text-zinc-600 text-sm"> · target {targetDisplay} {wl}</span>
+                          <span className="text-zinc-500 text-sm"> · target {targetDisplay} {wl}</span>
                         </p>
                       );
                       if (diffKg < 0) return (
                         <p className="text-zinc-500 text-sm">
                           <span className="text-lime-400 font-semibold">{diffDisplay} {wl}</span> above target
-                          <span className="text-zinc-600 text-sm"> · target {targetDisplay} {wl}</span>
+                          <span className="text-zinc-500 text-sm"> · target {targetDisplay} {wl}</span>
                         </p>
                       );
                       return <p className="text-lime-400 text-sm font-semibold">Target reached</p>;
