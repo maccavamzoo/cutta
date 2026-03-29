@@ -41,8 +41,22 @@ export interface ProfileSnapshot {
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-function greeting(): string {
-  const h = new Date().getHours();
+function getLocalTime(timezone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour:     "2-digit",
+    minute:   "2-digit",
+    hour12:   false,
+  }).format(new Date());
+}
+
+function greeting(timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour:     "numeric",
+    hour12:   false,
+  }).formatToParts(new Date());
+  const h = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
   if (h < 12) return "Good morning";
   if (h < 18) return "Good afternoon";
   return "Good evening";
@@ -506,7 +520,11 @@ function CheckInCard({
   return (
     <button
       onClick={onOpen}
-      className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-left"
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border hover:brightness-110 transition-colors text-left ${
+        existing
+          ? "bg-lime-400/5 border-lime-400/30"
+          : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+      }`}
     >
       <div>
         <p className="text-white text-sm font-medium">End of day check-in</p>
@@ -533,10 +551,10 @@ export default function DailyDashboard({
   profile,
   existingCheckIn,
   firstName,
-  latestWeightKg,
-  latestBodyFatPct,
+  todayWeighIn,
   trackStoolHealth = false,
   unitSystem = "metric",
+  timezone = "Europe/London",
 }: {
   todayStr:           string;
   todayPlan:          TodayPlan | null;
@@ -544,16 +562,16 @@ export default function DailyDashboard({
   profile:            ProfileSnapshot | null;
   existingCheckIn:    ExistingCheckIn | null;
   firstName:          string | null;
-  latestWeightKg:     number | null;
-  latestBodyFatPct:   number | null;
+  todayWeighIn:       { weightKg: number; bodyFatPct: number | null } | null;
   trackStoolHealth?:  boolean;
   unitSystem?:        UnitSystem;
+  timezone?:          string;
 }) {
   const [weighInOpen,    setWeighInOpen]    = useState(false);
   const [checkInOpen,    setCheckInOpen]    = useState(false);
   const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
-  const [displayWeight,  setDisplayWeight]  = useState<number | null>(latestWeightKg);
-  const [displayBf,      setDisplayBf]      = useState<number | null>(latestBodyFatPct);
+  const [displayWeight,  setDisplayWeight]  = useState<number | null>(todayWeighIn?.weightKg ?? null);
+  const [displayBf,      setDisplayBf]      = useState<number | null>(todayWeighIn?.bodyFatPct ?? null);
   const [glycogenValue,  setGlycogenValue]  = useState<number>(todayPlan?.glycogenBattery ?? 50);
   const [events,         setEvents]         = useState<TodayEvent[]>(todayEvents);
   const [editingEvent,   setEditingEvent]   = useState<EditableEvent | null>(null);
@@ -572,7 +590,7 @@ export default function DailyDashboard({
           <div className="space-y-3">
             <div>
               <p className="text-zinc-500 text-sm">
-                {greeting()}{firstName ? `, ${firstName}` : ""}
+                {getLocalTime(timezone)} · {greeting(timezone)}{firstName ? `, ${firstName}` : ""}
               </p>
               <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
                 {fmtLongDate(todayStr)}
@@ -621,7 +639,11 @@ export default function DailyDashboard({
           {/* Weigh-in card */}
           <button
             onClick={() => setWeighInOpen(true)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors text-left"
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border hover:brightness-110 transition-colors text-left ${
+              displayWeight
+                ? "bg-lime-400/5 border-lime-400/30"
+                : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+            }`}
           >
             <div>
               <p className="text-white text-sm font-medium">Morning weigh-in</p>
@@ -634,7 +656,10 @@ export default function DailyDashboard({
                 <p className="text-zinc-600 text-xs mt-0.5">Log your morning weight</p>
               )}
             </div>
-            <span className="text-zinc-600 text-xs shrink-0 ml-3">{displayWeight ? "✓" : "Log →"}</span>
+            {displayWeight
+              ? <span className="text-lime-400 text-xl font-bold shrink-0 ml-3">✓</span>
+              : <span className="text-zinc-600 text-xs shrink-0 ml-3">Log →</span>
+            }
           </button>
 
           {/* Check-in card */}
