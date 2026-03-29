@@ -160,6 +160,7 @@ export default async function DashboardPage() {
     : null;
 
   const firstName = clerkUser?.firstName ?? null;
+  const timezone = timezoneRow?.timezone ?? "Europe/London";
   const todayWeighIn = weighInRow
     ? {
         weightKg:   Number(weighInRow.weightKg),
@@ -180,6 +181,7 @@ export default async function DashboardPage() {
       todayWeighIn={todayWeighIn}
       trackStoolHealth={trackStoolHealth}
       unitSystem={unitSystem}
+      timezone={timezone}
     />
   );
 }

@@ -41,8 +41,22 @@ export interface ProfileSnapshot {
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-function greeting(): string {
-  const h = new Date().getHours();
+function getLocalTime(timezone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour:     "2-digit",
+    minute:   "2-digit",
+    hour12:   false,
+  }).format(new Date());
+}
+
+function greeting(timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour:     "numeric",
+    hour12:   false,
+  }).formatToParts(new Date());
+  const h = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
   if (h < 12) return "Good morning";
   if (h < 18) return "Good afternoon";
   return "Good evening";
@@ -540,6 +554,7 @@ export default function DailyDashboard({
   todayWeighIn,
   trackStoolHealth = false,
   unitSystem = "metric",
+  timezone = "Europe/London",
 }: {
   todayStr:           string;
   todayPlan:          TodayPlan | null;
@@ -550,6 +565,7 @@ export default function DailyDashboard({
   todayWeighIn:       { weightKg: number; bodyFatPct: number | null } | null;
   trackStoolHealth?:  boolean;
   unitSystem?:        UnitSystem;
+  timezone?:          string;
 }) {
   const [weighInOpen,    setWeighInOpen]    = useState(false);
   const [checkInOpen,    setCheckInOpen]    = useState(false);
@@ -574,7 +590,7 @@ export default function DailyDashboard({
           <div className="space-y-3">
             <div>
               <p className="text-zinc-500 text-sm">
-                {greeting()}{firstName ? `, ${firstName}` : ""}
+                {getLocalTime(timezone)} · {greeting(timezone)}{firstName ? `, ${firstName}` : ""}
               </p>
               <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
                 {fmtLongDate(todayStr)}
