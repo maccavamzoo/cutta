@@ -1,6 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { eq, and, gte, lt, inArray, desc } from "drizzle-orm";
+import { eq, and, gte, lt, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   fuellingPlans,
@@ -16,21 +16,24 @@ import DailyDashboard, {
   type ProfileSnapshot,
 } from "./DailyDashboard";
 import type { ExistingCheckIn } from "./CheckInSheet";
+import { getUserToday } from "@/lib/dates";
 
 export default async function DashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  // Midnight boundaries in UTC
-  const now    = new Date();
-  const todayStart = new Date(now);
-  todayStart.setUTCHours(0, 0, 0, 0);
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-  const todayStr   = todayStart.toISOString().split("T")[0];
-
   const VALID_FEEDBACK_TYPES = ["ride_energy", "gut_comfort", "hunger", "stool_health"] as const;
 
-  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weightRows] = await Promise.all([
+  // Fetch timezone first so we can compute the correct local date boundaries
+  const [timezoneRow] = await db
+    .select({ timezone: userProfiles.timezone })
+    .from(userProfiles)
+    .where(eq(userProfiles.clerkUserId, userId))
+    .limit(1);
+
+  const { todayStr, todayStart, todayEnd } = getUserToday(timezoneRow?.timezone ?? null);
+
+  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weighInRows] = await Promise.all([
     currentUser(),
     db
       .select()
@@ -89,14 +92,19 @@ export default async function DashboardPage() {
         )
       ),
 
+    // Today-only weigh-in (resets each day)
     db
       .select({
         weightKg:   weightLog.weightKg,
         bodyFatPct: weightLog.bodyFatPct,
       })
       .from(weightLog)
-      .where(eq(weightLog.clerkUserId, userId))
-      .orderBy(desc(weightLog.weighedAt))
+      .where(
+        and(
+          eq(weightLog.clerkUserId, userId),
+          eq(weightLog.logDate, todayStr)
+        )
+      )
       .limit(1),
   ]);
 
@@ -140,7 +148,7 @@ export default async function DashboardPage() {
     : null;
 
   const complianceEntry = complianceRows[0] ?? null;
-  const weightRow = weightRows[0] ?? null;
+  const weighInRow = weighInRows[0] ?? null;
   const existingCheckIn: ExistingCheckIn | null = complianceEntry
     ? {
         compliance:   complianceEntry.compliance as ExistingCheckIn["compliance"],
@@ -152,8 +160,12 @@ export default async function DashboardPage() {
     : null;
 
   const firstName = clerkUser?.firstName ?? null;
-  const latestWeightKg   = weightRow ? Number(weightRow.weightKg)   : null;
-  const latestBodyFatPct = weightRow?.bodyFatPct ? Number(weightRow.bodyFatPct) : null;
+  const todayWeighIn = weighInRow
+    ? {
+        weightKg:   Number(weighInRow.weightKg),
+        bodyFatPct: weighInRow.bodyFatPct ? Number(weighInRow.bodyFatPct) : null,
+      }
+    : null;
   const unitSystem      = (profileRow?.unitSystem ?? "metric") as "metric" | "imperial";
   const trackStoolHealth = profileRow?.trackStoolHealth ?? false;
 
@@ -165,8 +177,7 @@ export default async function DashboardPage() {
       profile={profile}
       existingCheckIn={existingCheckIn}
       firstName={firstName}
-      latestWeightKg={latestWeightKg}
-      latestBodyFatPct={latestBodyFatPct}
+      todayWeighIn={todayWeighIn}
       trackStoolHealth={trackStoolHealth}
       unitSystem={unitSystem}
     />

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { weightLog, userProfiles } from "@/lib/db/schema";
+import { getUserToday } from "@/lib/dates";
 
 // POST /api/weight-log — upsert today's weigh-in (one entry per user per day)
 export async function POST(req: Request) {
@@ -20,7 +21,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid body fat percentage." }, { status: 400 });
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Use the user's timezone to determine the correct local date
+  const [profileRow] = await db
+    .select({ timezone: userProfiles.timezone })
+    .from(userProfiles)
+    .where(eq(userProfiles.clerkUserId, userId))
+    .limit(1);
+
+  const { todayStr } = getUserToday(profileRow?.timezone ?? null);
   const now = new Date();
 
   // Upsert: one row per user per day
