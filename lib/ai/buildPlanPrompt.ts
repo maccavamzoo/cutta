@@ -124,7 +124,6 @@ export function buildPlanPrompt(
 - Age: ${profile.age ?? "unknown"}
 - Sex: ${profile.sex ?? "unknown"}
 - Estimated maintenance calories: ${profile.estimatedMaintenanceCalories ?? "unknown"} kcal/day
-- Typical weekly training hours: ${profile.typicalWeeklyHours ?? "unknown"}
 - Fasted training: ${profile.fastedTraining === true ? "yes" : profile.fastedTraining === false ? "no" : "sometimes"}
 - Gut sensitivity: ${profile.gutSensitivity || "none reported"}
 - Food exclusions: ${profile.foodExclusions?.join(", ") || "none"}

@@ -27,7 +27,6 @@ export default async function OnboardingPage() {
     heightCm:                     null,
     age:                          null,
     sex:                          null,
-    typicalWeeklyHours:           null,
     fastedTraining:               null,
     gutSensitivity:               null,
     trackStoolHealth:             false,
