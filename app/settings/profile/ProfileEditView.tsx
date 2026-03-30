@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { kgToDisplay, displayToKg, weightLabel, weightInputRange, type UnitSystem } from "@/lib/units";
 
@@ -125,10 +125,12 @@ export default function ProfileEditView({
   initial,
   unitSystem = "metric",
   mode = "edit",
+  backHref,
 }: {
-  initial: ProfileData;
+  initial:    ProfileData;
   unitSystem?: UnitSystem;
-  mode?: "onboarding" | "edit";
+  mode?:      "onboarding" | "edit";
+  backHref?:  string;
 }) {
   const router  = useRouter();
   const wLabel  = weightLabel(unitSystem);
@@ -198,6 +200,26 @@ export default function ProfileEditView({
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
   const [saved,  setSaved]  = useState(false);
+
+  // ── unsaved changes guard ────────────────────────────────────────────────
+  const isFirstRender = useRef(true);
+  const [isDirty,        setIsDirty]        = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setIsDirty(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, weightLossRate,
+      fastedTraining, gutSensitivity, trackStoolHealth, foodExclusions, supplements,
+      appetiteSelections, overrideActive, overrideCalsStr]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   const FASTED_OPTS = [
     { v: "yes",       l: "Yes"       },
@@ -282,6 +304,7 @@ export default function ProfileEditView({
           throw new Error(d.error ?? "Failed to save.");
         }
         setSaved(true);
+        setIsDirty(false);
         router.refresh();
       }
     } catch (err) {
@@ -292,7 +315,51 @@ export default function ProfileEditView({
   }
 
   return (
+    <>
+    {/* Leave-without-saving modal */}
+    {showLeaveModal && backHref && (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/70" onClick={() => setShowLeaveModal(false)} />
+        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
+          <p className="text-white font-semibold text-base">Unsaved changes</p>
+          <p className="text-zinc-400 text-sm leading-relaxed">You have unsaved changes. Leave without saving?</p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowLeaveModal(false)}
+              className="flex-1 py-3 rounded-xl border border-zinc-700 text-zinc-300 text-sm font-medium hover:bg-zinc-800 transition-colors"
+            >
+              Stay
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(backHref)}
+              className="flex-1 py-3 rounded-xl bg-lime-400 text-black text-sm font-bold hover:bg-lime-300 transition-colors"
+            >
+              Leave
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <div className="space-y-8 pb-32">
+
+      {mode === "edit" && backHref && (
+        <div className="flex items-center gap-3 -mt-2 mb-0">
+          <button
+            type="button"
+            onClick={() => isDirty ? setShowLeaveModal(true) : router.push(backHref)}
+            className="text-zinc-500 hover:text-white text-sm transition-colors"
+          >
+            ← Settings
+          </button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold tracking-tight text-white">Edit profile</h1>
+            <p className="text-zinc-500 text-sm">Update your training habits and food preferences.</p>
+          </div>
+        </div>
+      )}
 
       {mode === "onboarding" && (
         <div className="mb-2">
@@ -528,5 +595,6 @@ export default function ProfileEditView({
           : (mode === "onboarding" ? "Get started →" : "Save changes")}
       </button>
     </div>
+    </>
   );
 }
