@@ -137,9 +137,7 @@ export default async function ProgressPage() {
     const dailyCons = RATE_KG_PER_WEEK.conservative / 7;
     const dailyAggr = RATE_KG_PER_WEEK.aggressive   / 7;
 
-    // Cap band at min(arrivalDate, +730 days) to avoid runaway charts
-    const endMs   = Math.min(arrival.getTime(), planStartDate.getTime() + 730 * 86_400_000);
-    const maxDays = Math.ceil((endMs - planStartDate.getTime()) / 86_400_000);
+    const maxDays = Math.ceil((arrival.getTime() - planStartDate.getTime()) / 86_400_000);
 
     for (let d = 0; d <= maxDays; d += 7) {
       const pt      = new Date(planStartDate.getTime() + d * 86_400_000);
