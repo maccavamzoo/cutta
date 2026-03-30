@@ -23,11 +23,13 @@ export interface ProgressData {
   weightPoints: {
     date:        string;
     label:       string;
+    dayIndex:    number;
     actual?:     number;
     plan?:       number;
     bandBottom?: number;
     bandSize?:   number;
   }[];
+  chartStartDate:  string | null;
   targetWeightKg:  number | null;
   weightLossRate:  string | null;
   projectedDate:   string | null;
@@ -80,10 +82,12 @@ function WeightChart({
   points,
   targetWeightKg,
   unitSystem,
+  chartStartDate,
 }: {
-  points:         ProgressData["weightPoints"];
-  targetWeightKg: number | null;
-  unitSystem:     UnitSystem;
+  points:          ProgressData["weightPoints"];
+  targetWeightKg:  number | null;
+  unitSystem:      UnitSystem;
+  chartStartDate:  string | null;
 }) {
   const wl = weightLabel(unitSystem);
 
@@ -119,20 +123,31 @@ function WeightChart({
   const yMax = allValues.length > 0 ? Math.ceil(Math.max(...allValues)  + 1) : 100;
   console.log("[WeightChart] yMin:", yMin, "yMax:", yMax, "allValues count:", allValues.length);
 
-  // Show ~5 evenly-spaced labels. interval is index-based so this naturally
-  // includes the last point (arrival date) because it's always at index n-1.
-  const labelInterval = Math.max(1, Math.ceil(convertedPoints.length / 5)) - 1;
+  // Numeric x-axis: pick 5 tick values evenly spaced across the day range
+  const firstDay = convertedPoints[0]?.dayIndex ?? 0;
+  const lastDay  = convertedPoints.at(-1)?.dayIndex ?? 0;
+  const xTicks   = Array.from({ length: 5 }, (_, i) =>
+    Math.round(firstDay + (i / 4) * (lastDay - firstDay))
+  );
+  const formatXTick = (dayIndex: number): string => {
+    if (!chartStartDate) return "";
+    const d = new Date(new Date(chartStartDate + "T12:00:00Z").getTime() + dayIndex * 86_400_000);
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  };
 
   return (
     <ResponsiveContainer width="100%" height={220}>
       <ComposedChart data={convertedPoints} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
         <XAxis
-          dataKey="label"
+          dataKey="dayIndex"
+          type="number"
+          domain={["dataMin", "dataMax"]}
+          ticks={xTicks}
           tick={{ fill: "#71717a", fontSize: 10 }}
-          interval={labelInterval}
           axisLine={false}
           tickLine={false}
+          tickFormatter={formatXTick}
         />
         <YAxis
           domain={[yMin, yMax]}
@@ -338,7 +353,7 @@ export default function ProgressView({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const { weightPoints, targetWeightKg, weightLossRate, projectedDate, slopeKgPerWeek, bfPoints, stats, energyPoints } = data;
+  const { weightPoints, chartStartDate, targetWeightKg, weightLossRate, projectedDate, slopeKgPerWeek, bfPoints, stats, energyPoints } = data;
   const wl = weightLabel(unitSystem);
 
   const hasWeight     = weightPoints.some((p) => p.actual !== undefined);
@@ -404,7 +419,7 @@ export default function ProgressView({
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-2 pt-4 pb-2">
           {hasWeight ? (
             mounted ? (
-              <WeightChart points={weightPoints} targetWeightKg={targetWeightKg} unitSystem={unitSystem} />
+              <WeightChart points={weightPoints} targetWeightKg={targetWeightKg} unitSystem={unitSystem} chartStartDate={chartStartDate} />
             ) : chartSkeleton
           ) : (
             <EmptyState message="Log your first weigh-in via the daily check-in" />

@@ -124,25 +124,29 @@ export default async function ProgressPage() {
 
   // ── build unified chart point map ────────────────────────────────────────
 
-  const pointMap = new Map<string, ProgressData["weightPoints"][number]>();
+  type RawPoint = Omit<ProgressData["weightPoints"][number], "dayIndex">;
+  const pointMap = new Map<string, RawPoint>();
 
   // Actual weight points
   for (const p of actualWeightPoints) {
     pointMap.set(p.date, { date: p.date, label: fmtDateLabel(p.date), actual: p.actual });
   }
 
-  // Plan line + band (every 7 days from planStartDate to arrivalDate)
+  // Plan line + band — loop to conservative arrival so the band tapers
+  // naturally to zero rather than being pinched shut at the plan arrival date.
   if (canProject && planStartWeight !== null && arrival !== null) {
     const dailyPlan = dailyLossKg(effectiveRate);
     const dailyCons = RATE_KG_PER_WEEK.conservative / 7;
     const dailyAggr = RATE_KG_PER_WEEK.aggressive   / 7;
 
-    const maxDays = Math.ceil((arrival.getTime() - planStartDate.getTime()) / 86_400_000);
+    // Conservative rate is slowest — extend loop to when it hits target
+    const conservativeDays = Math.ceil((planStartWeight! - targetWeightKg!) / dailyCons);
 
-    for (let d = 0; d <= maxDays; d += 7) {
+    for (let d = 0; d <= conservativeDays; d += 7) {
       const pt      = new Date(planStartDate.getTime() + d * 86_400_000);
       const dateStr = pt.toISOString().split("T")[0];
 
+      // Math.max clamps each line at target once it arrives; no manual override needed
       const planW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyPlan * d) * 10) / 10);
       const consW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyCons * d) * 10) / 10);
       const aggrW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyAggr * d) * 10) / 10);
@@ -156,14 +160,29 @@ export default async function ProgressPage() {
       });
     }
 
-    // Ensure arrival date is included
-    const arrStr     = arrival.toISOString().split("T")[0];
-    const arrExisting = pointMap.get(arrStr) ?? { date: arrStr, label: fmtDateLabel(arrStr) };
-    pointMap.set(arrStr, { ...arrExisting, plan: targetWeightKg!, bandBottom: targetWeightKg!, bandSize: 0 });
+    // Ensure the conservative arrival date is included with the band fully closed
+    const consArrDate = new Date(planStartDate.getTime() + conservativeDays * 86_400_000);
+    const consArrStr  = consArrDate.toISOString().split("T")[0];
+    const consEx      = pointMap.get(consArrStr) ?? { date: consArrStr, label: fmtDateLabel(consArrStr) };
+    pointMap.set(consArrStr, { ...consEx, plan: targetWeightKg!, bandBottom: targetWeightKg!, bandSize: 0 });
   }
 
-  const weightChartPoints = Array.from(pointMap.values())
+  const sortedPoints = Array.from(pointMap.values())
     .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Add dayIndex — integer days from the earliest date in the chart.
+  // Recharts numeric axis uses this for proportional time spacing.
+  const chartStartDate = sortedPoints.length > 0 ? sortedPoints[0].date : null;
+  const chartStartMs   = chartStartDate
+    ? new Date(chartStartDate + "T12:00:00Z").getTime()
+    : 0;
+
+  const weightChartPoints = sortedPoints.map((p) => ({
+    ...p,
+    dayIndex: Math.round(
+      (new Date(p.date + "T12:00:00Z").getTime() - chartStartMs) / 86_400_000
+    ),
+  }));
 
   // ── diagnostic log (remove once confirmed working) ──────────────────────
   console.log("[progress] canProject:", canProject, {
@@ -220,6 +239,7 @@ export default async function ProgressPage() {
 
   const data: ProgressData = {
     weightPoints:   weightChartPoints,
+    chartStartDate,
     targetWeightKg,
     weightLossRate: effectiveRate,
     projectedDate,
