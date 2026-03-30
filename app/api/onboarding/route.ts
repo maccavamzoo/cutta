@@ -27,6 +27,8 @@ export async function POST(request: Request) {
     heightCm: body.heightCm ? Number(body.heightCm) : null,
     age: body.age ? Number(body.age) : null,
     sex: body.sex || null,
+    weightLossRate: (body.weightLossRate as string | undefined) || "moderate",
+    targetSetAt: new Date(),
     // Calorie baseline
     estimatedMaintenanceCalories: body.estimatedMaintenanceCalories
       ? Number(body.estimatedMaintenanceCalories)
@@ -56,6 +58,8 @@ export async function POST(request: Request) {
         heightCm: values.heightCm,
         age: values.age,
         sex: values.sex,
+        weightLossRate: values.weightLossRate,
+        targetSetAt: values.targetSetAt,
         estimatedMaintenanceCalories: values.estimatedMaintenanceCalories,
         fastedTraining: values.fastedTraining,
         gutSensitivity:   values.gutSensitivity,

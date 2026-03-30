@@ -120,6 +120,7 @@ export function buildPlanPrompt(
 ## USER PROFILE
 - Current weight: ${profile.currentWeightKg ?? "unknown"} kg
 - Target weight: ${profile.targetWeightKg ?? "unknown"} kg
+- Weight loss rate: ${profile.weightLossRate ?? "moderate"} (aggressive ≈ 750-1000 kcal/day deficit, moderate ≈ 500, conservative ≈ 250, maintain ≈ 0)
 - Height: ${profile.heightCm ?? "unknown"} cm
 - Age: ${profile.age ?? "unknown"}
 - Sex: ${profile.sex ?? "unknown"}

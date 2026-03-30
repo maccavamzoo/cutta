@@ -28,6 +28,12 @@ export async function PATCH(req: NextRequest) {
   if (body.sex !== undefined)
     update.sex = body.sex || null;
 
+  if (body.weightLossRate !== undefined)
+    update.weightLossRate = body.weightLossRate || null;
+
+  if (body.targetSetAt !== undefined)
+    update.targetSetAt = body.targetSetAt ? new Date(body.targetSetAt) : null;
+
   if (body.fastedTraining !== undefined) {
     update.fastedTraining =
       body.fastedTraining === "yes" ? true
