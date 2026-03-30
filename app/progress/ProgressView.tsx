@@ -110,7 +110,17 @@ function WeightChart({
   const yMin = Math.floor(Math.min(...allValues) - 1);
   const yMax = Math.ceil(Math.max(...allValues) + 1);
 
-  const labelEvery = Math.ceil(points.length / 5);
+  // Pick ~5 evenly-spaced tick indices, always including first and last point so
+  // the x-axis visually spans from plan start all the way to the arrival date.
+  const tickLabels = (() => {
+    const n = convertedPoints.length;
+    if (n === 0) return [];
+    const positions = Array.from({ length: Math.min(5, n) }, (_, i) =>
+      Math.round((i / (Math.min(5, n) - 1 || 1)) * (n - 1))
+    );
+    const seen = new Set<number>();
+    return positions.filter((i) => { if (seen.has(i)) return false; seen.add(i); return true; }).map((i) => convertedPoints[i].label);
+  })();
 
   return (
     <ResponsiveContainer width="100%" height={220}>
@@ -119,7 +129,8 @@ function WeightChart({
         <XAxis
           dataKey="label"
           tick={{ fill: "#71717a", fontSize: 10 }}
-          interval={labelEvery - 1}
+          ticks={tickLabels}
+          interval={0}
           axisLine={false}
           tickLine={false}
         />
