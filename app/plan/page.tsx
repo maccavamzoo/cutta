@@ -11,6 +11,8 @@ import {
 } from "@/lib/db/schema";
 import PlanView, { type StoredPlan, type PlanCalendarEvent, type CalorieMeta } from "./PlanView";
 import BottomNav from "@/components/BottomNav";
+import { dailyLossKg, arrivalDate } from "@/lib/weight-projection";
+import { kgToDisplay, weightLabel } from "@/lib/units";
 
 export default async function PlanPage() {
   const { userId } = await auth();
@@ -66,6 +68,8 @@ export default async function PlanPage() {
       .select({
         estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
         currentWeightKg:              userProfiles.currentWeightKg,
+        targetWeightKg:               userProfiles.targetWeightKg,
+        weightLossRate:               userProfiles.weightLossRate,
         unitSystem:                   userProfiles.unitSystem,
         updatedAt:                    userProfiles.updatedAt,
       })
@@ -87,26 +91,33 @@ export default async function PlanPage() {
       .limit(1),
   ]);
 
-  const maintenance     = profileRows[0]?.estimatedMaintenanceCalories
-    ? Number(profileRows[0].estimatedMaintenanceCalories)
+  const profileRow      = profileRows[0] ?? null;
+  const maintenance     = profileRow?.estimatedMaintenanceCalories
+    ? Number(profileRow.estimatedMaintenanceCalories)
     : null;
   const protocolContent = protocolRows[0]?.content as Record<string, Record<string, unknown>> | null;
-  const unitSystem      = (profileRows[0]?.unitSystem ?? "metric") as "metric" | "imperial";
+  const unitSystem      = (profileRow?.unitSystem ?? "metric") as "metric" | "imperial";
 
-  // Rest-day calorie estimate from protocol
-  const restDayCals = typeof protocolContent?.rest_day?.calories === "number"
-    ? protocolContent.rest_day.calories
-    : maintenance ? maintenance - 350 : null;
-
-  // Daily weight-loss projection (kg/day based on calorie deficit)
-  const dailyWeightLossKg = maintenance && restDayCals
-    ? Math.max(0, (maintenance - restDayCals) / 7700)
-    : null;
+  // Daily weight-loss projection (kg/day) from the user's selected rate
+  const weightLossRate    = profileRow?.weightLossRate ?? null;
+  const dailyWeightLossKg = dailyLossKg(weightLossRate);
 
   const currentWeightKg = latestWeightRows[0]?.weightKg
     ? Number(latestWeightRows[0].weightKg)
-    : profileRows[0]?.currentWeightKg
-    ? Number(profileRows[0].currentWeightKg)
+    : profileRow?.currentWeightKg
+    ? Number(profileRow.currentWeightKg)
+    : null;
+
+  const targetWeightKg = profileRow?.targetWeightKg
+    ? Number(profileRow.targetWeightKg)
+    : null;
+
+  // Arrival date: projected from today's weight at the selected rate
+  const arrival     = (currentWeightKg != null && targetWeightKg != null)
+    ? arrivalDate(currentWeightKg, targetWeightKg, weightLossRate, today)
+    : null;
+  const arrivalStr  = arrival
+    ? arrival.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
     : null;
 
   // Compute the latest data-change timestamp so PlanView can detect per-day staleness
@@ -167,7 +178,14 @@ export default async function PlanPage() {
   return (
     <>
       <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 pb-32 max-w-lg mx-auto">
-        <h1 className="text-xl font-bold tracking-tight text-white mb-5">Plan</h1>
+        <div className="mb-5">
+          <h1 className="text-xl font-bold tracking-tight text-white">Plan</h1>
+          {targetWeightKg != null && arrivalStr && (
+            <p className="text-zinc-500 text-sm mt-1">
+              Target {kgToDisplay(targetWeightKg, unitSystem).toFixed(1)} {weightLabel(unitSystem)} · est. arrival {arrivalStr}
+            </p>
+          )}
+        </div>
         <PlanView
           initialPlans={initialPlans}
           calendarEvents={planCalendarEvents}
