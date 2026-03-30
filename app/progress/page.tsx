@@ -5,36 +5,15 @@ import { db } from "@/lib/db";
 import { weightLog, complianceLog, feedbackLog, userProfiles } from "@/lib/db/schema";
 import BottomNav from "@/components/BottomNav";
 import ProgressView, { type ProgressData } from "./ProgressView";
+import { dailyLossKg, arrivalDate as computeArrival, RATE_KG_PER_WEEK } from "@/lib/weight-projection";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function msToDateStr(ms: number): string {
-  return new Date(ms).toISOString().split("T")[0];
-}
-
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
-}
-
 function fmtDateLabel(iso: string): string {
   return new Date(iso + "T12:00:00Z").toLocaleDateString("en-GB", {
-    day: "numeric",
+    day:   "numeric",
     month: "short",
   });
-}
-
-function linearRegression(points: { x: number; y: number }[]) {
-  const n = points.length;
-  if (n < 2) return null;
-  const sumX  = points.reduce((a, p) => a + p.x, 0);
-  const sumY  = points.reduce((a, p) => a + p.y, 0);
-  const sumXY = points.reduce((a, p) => a + p.x * p.y, 0);
-  const sumX2 = points.reduce((a, p) => a + p.x * p.x, 0);
-  const denom = n * sumX2 - sumX * sumX;
-  if (denom === 0) return null;
-  const slope     = (n * sumXY - sumX * sumY) / denom;
-  const intercept = (sumY - slope * sumX) / n;
-  return { slope, intercept };
 }
 
 // ─── page ─────────────────────────────────────────────────────────────────────
@@ -47,7 +26,13 @@ export default async function ProgressPage() {
 
   const [profileRows, weightRows, complianceRows, energyRows] = await Promise.all([
     db
-      .select({ targetWeightKg: userProfiles.targetWeightKg, unitSystem: userProfiles.unitSystem })
+      .select({
+        targetWeightKg:  userProfiles.targetWeightKg,
+        currentWeightKg: userProfiles.currentWeightKg,
+        weightLossRate:  userProfiles.weightLossRate,
+        targetSetAt:     userProfiles.targetSetAt,
+        unitSystem:      userProfiles.unitSystem,
+      })
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
       .limit(1),
@@ -79,73 +64,108 @@ export default async function ProgressPage() {
 
   // ── weight chart data ────────────────────────────────────────────────────
 
-  const targetWeightKg = profileRows[0]?.targetWeightKg
-    ? Number(profileRows[0].targetWeightKg)
-    : null;
+  const profileRow     = profileRows[0] ?? null;
+  const targetWeightKg = profileRow?.targetWeightKg ? Number(profileRow.targetWeightKg) : null;
+  const weightLossRate = profileRow?.weightLossRate ?? null;
+  const targetSetAt    = profileRow?.targetSetAt    ?? null;
 
   const actualWeightPoints = weightRows.map((r) => ({
-    date:    r.weighedAt.toISOString().split("T")[0],
-    actual:  Math.round(Number(r.weightKg) * 10) / 10,
-    bf:      r.bodyFatPct ? Math.round(Number(r.bodyFatPct) * 10) / 10 : null,
+    date:   r.weighedAt.toISOString().split("T")[0],
+    actual: Math.round(Number(r.weightKg) * 10) / 10,
+    bf:     r.bodyFatPct ? Math.round(Number(r.bodyFatPct) * 10) / 10 : null,
   }));
 
-  // Linear regression on weight
-  let projectedDate:    string | null = null;
-  let slopeKgPerWeek:   number | null = null;
-  let weightChartPoints: ProgressData["weightPoints"] = [];
+  // ── plan start point ─────────────────────────────────────────────────────
 
-  // Always build actual points first — chart must show even with 1 entry or same-day data
-  weightChartPoints = actualWeightPoints.map((p) => ({
-    date:   p.date,
-    label:  fmtDateLabel(p.date),
-    actual: p.actual,
-  }));
+  let planStartDate:   Date;
+  let planStartWeight: number | null = null;
 
-  if (actualWeightPoints.length >= 2) {
-    const firstDate = new Date(actualWeightPoints[0].date);
-    const regPoints = actualWeightPoints.map((p) => ({
-      x: daysBetween(firstDate, new Date(p.date)),
-      y: p.actual,
-    }));
-    const reg = linearRegression(regPoints);
-
-    if (reg) {
-      slopeKgPerWeek = Math.round(reg.slope * 7 * 100) / 100;
-      const lastPoint  = actualWeightPoints.at(-1)!;
-      const lastDayIdx = daysBetween(firstDate, new Date(lastPoint.date));
-      const todayIdx   = daysBetween(firstDate, new Date());
-
-      // Attach projected anchor to last actual point so the projection line starts there
-      weightChartPoints = weightChartPoints.map((p, i) => ({
-        ...p,
-        projected: i === weightChartPoints.length - 1 ? p.actual : undefined,
-      }));
-
-      // Project forward if slope is negative (losing weight) and target set
-      if (reg.slope < -0.001 && targetWeightKg !== null) {
-        const targetDayIdx = (targetWeightKg - reg.intercept) / reg.slope;
-        const daysToTarget = Math.round(targetDayIdx - todayIdx);
-
-        if (daysToTarget > 0 && daysToTarget < 730) {
-          projectedDate = new Date(Date.now() + daysToTarget * 86_400_000).toLocaleDateString("en-GB", {
-            day: "numeric", month: "long", year: "numeric",
-          });
-
-          // Add projection points every ~2 weeks from last actual to predicted date
-          const stepDays = Math.max(7, Math.floor((targetDayIdx - lastDayIdx) / 6));
-          for (let d = lastDayIdx + stepDays; d <= targetDayIdx + 1; d += stepDays) {
-            const projWeight = Math.round((reg.slope * d + reg.intercept) * 10) / 10;
-            if (projWeight < (targetWeightKg - 0.5)) break;
-            const projDate = msToDateStr(firstDate.getTime() + d * 86_400_000);
-            weightChartPoints.push({ date: projDate, label: fmtDateLabel(projDate), projected: projWeight });
-          }
-          // Ensure target point is included
-          const targetDate = msToDateStr(firstDate.getTime() + Math.round(targetDayIdx) * 86_400_000);
-          weightChartPoints.push({ date: targetDate, label: fmtDateLabel(targetDate), projected: targetWeightKg });
-        }
-      }
+  if (weightRows.length > 0) {
+    if (targetSetAt) {
+      // Find weight_log entry closest to when the goal was set
+      const closest = weightRows.reduce((best, r) =>
+        Math.abs(r.weighedAt.getTime() - targetSetAt.getTime()) <
+        Math.abs(best.weighedAt.getTime() - targetSetAt.getTime()) ? r : best
+      );
+      planStartDate   = targetSetAt;
+      planStartWeight = Number(closest.weightKg);
+    } else {
+      // Fallback: start from earliest weight entry
+      planStartDate   = weightRows[0].weighedAt;
+      planStartWeight = Number(weightRows[0].weightKg);
     }
+  } else {
+    planStartDate   = targetSetAt ?? new Date();
+    planStartWeight = profileRow?.currentWeightKg ? Number(profileRow.currentWeightKg) : null;
   }
+
+  // ── rate-based projections ───────────────────────────────────────────────
+
+  const canProject =
+    weightLossRate !== null &&
+    weightLossRate !== "maintain" &&
+    planStartWeight !== null &&
+    targetWeightKg  !== null &&
+    planStartWeight > targetWeightKg;
+
+  const arrival = canProject
+    ? computeArrival(planStartWeight!, targetWeightKg!, weightLossRate, planStartDate)
+    : null;
+
+  const slopeKgPerWeek = weightLossRate === "maintain"
+    ? 0
+    : weightLossRate !== null
+      ? -(RATE_KG_PER_WEEK[weightLossRate] ?? 0.5)
+      : null;
+
+  const projectedDate = arrival
+    ? arrival.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+
+  // ── build unified chart point map ────────────────────────────────────────
+
+  const pointMap = new Map<string, ProgressData["weightPoints"][number]>();
+
+  // Actual weight points
+  for (const p of actualWeightPoints) {
+    pointMap.set(p.date, { date: p.date, label: fmtDateLabel(p.date), actual: p.actual });
+  }
+
+  // Plan line + band (every 7 days from planStartDate to arrivalDate)
+  if (canProject && planStartWeight !== null && arrival !== null) {
+    const dailyPlan = dailyLossKg(weightLossRate);
+    const dailyCons = RATE_KG_PER_WEEK.conservative / 7;
+    const dailyAggr = RATE_KG_PER_WEEK.aggressive   / 7;
+
+    // Cap band at min(arrivalDate, +730 days) to avoid runaway charts
+    const endMs   = Math.min(arrival.getTime(), planStartDate.getTime() + 730 * 86_400_000);
+    const maxDays = Math.ceil((endMs - planStartDate.getTime()) / 86_400_000);
+
+    for (let d = 0; d <= maxDays; d += 7) {
+      const pt      = new Date(planStartDate.getTime() + d * 86_400_000);
+      const dateStr = pt.toISOString().split("T")[0];
+
+      const planW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyPlan * d) * 10) / 10);
+      const consW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyCons * d) * 10) / 10);
+      const aggrW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyAggr * d) * 10) / 10);
+
+      const existing = pointMap.get(dateStr) ?? { date: dateStr, label: fmtDateLabel(dateStr) };
+      pointMap.set(dateStr, {
+        ...existing,
+        plan:       planW,
+        bandBottom: aggrW,
+        bandSize:   Math.max(0, Math.round((consW - aggrW) * 10) / 10),
+      });
+    }
+
+    // Ensure arrival date is included
+    const arrStr     = arrival.toISOString().split("T")[0];
+    const arrExisting = pointMap.get(arrStr) ?? { date: arrStr, label: fmtDateLabel(arrStr) };
+    pointMap.set(arrStr, { ...arrExisting, plan: targetWeightKg!, bandBottom: targetWeightKg!, bandSize: 0 });
+  }
+
+  const weightChartPoints = Array.from(pointMap.values())
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // ── body fat trend ───────────────────────────────────────────────────────
 
@@ -155,19 +175,18 @@ export default async function ProgressPage() {
 
   // ── compliance stats ────────────────────────────────────────────────────
 
-  const daysOnPlan = complianceRows.length;
-  const good       = complianceRows.filter((r) => r.compliance === "yes" || r.compliance === "mostly").length;
+  const daysOnPlan    = complianceRows.length;
+  const good          = complianceRows.filter((r) => r.compliance === "yes" || r.compliance === "mostly").length;
   const compliancePct = daysOnPlan > 0 ? Math.round((good / daysOnPlan) * 100) : 0;
 
-  // Streak: consecutive days from today backwards with yes/mostly
   let streak = 0;
   const compByDate = new Map(complianceRows.map((r) => [r.logDate, r.compliance]));
   for (let i = 0; i < 365; i++) {
-    const d = msToDateStr(Date.now() - i * 86_400_000);
+    const d = new Date(Date.now() - i * 86_400_000).toISOString().split("T")[0];
     const c = compByDate.get(d);
     if (c === "yes" || c === "mostly") streak++;
     else if (c === "no") break;
-    else if (i > 0) break; // gap (no entry) — stop streak
+    else if (i > 0) break;
   }
 
   // ── ride energy weekly averages ─────────────────────────────────────────
@@ -175,8 +194,7 @@ export default async function ProgressPage() {
   const weekMap = new Map<string, number[]>();
   for (const r of energyRows) {
     if (!r.planDate) continue;
-    const d = new Date(r.planDate + "T12:00:00Z");
-    // ISO week start (Monday)
+    const d   = new Date(r.planDate + "T12:00:00Z");
     const day = d.getDay() === 0 ? 6 : d.getDay() - 1;
     const monday = new Date(d.getTime() - day * 86_400_000);
     const key = monday.toISOString().split("T")[0];
@@ -187,12 +205,13 @@ export default async function ProgressPage() {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([date, ratings]) => ({
       label: fmtDateLabel(date),
-      avg:   Math.round((ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length) * 10) / 10,
+      avg:   Math.round((ratings.reduce((s: number, r: number) => s + r, 0) / ratings.length) * 10) / 10,
     }));
 
   const data: ProgressData = {
-    weightPoints:    weightChartPoints,
+    weightPoints:   weightChartPoints,
     targetWeightKg,
+    weightLossRate,
     projectedDate,
     slopeKgPerWeek,
     bfPoints,
@@ -211,7 +230,7 @@ export default async function ProgressPage() {
 
           <ProgressView
             data={data}
-            unitSystem={(profileRows[0]?.unitSystem ?? "metric") as "metric" | "imperial"}
+            unitSystem={(profileRow?.unitSystem ?? "metric") as "metric" | "imperial"}
           />
         </div>
       </main>
