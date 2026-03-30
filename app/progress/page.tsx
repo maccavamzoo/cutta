@@ -67,6 +67,9 @@ export default async function ProgressPage() {
   const profileRow     = profileRows[0] ?? null;
   const targetWeightKg = profileRow?.targetWeightKg ? Number(profileRow.targetWeightKg) : null;
   const weightLossRate = profileRow?.weightLossRate ?? null;
+  // Treat null as "moderate" so the plan renders even when the column hasn't
+  // been migrated yet or the user hasn't explicitly saved a rate.
+  const effectiveRate  = weightLossRate !== "maintain" ? (weightLossRate ?? "moderate") : "maintain";
   const targetSetAt    = profileRow?.targetSetAt    ?? null;
 
   const actualWeightPoints = weightRows.map((r) => ({
@@ -102,21 +105,18 @@ export default async function ProgressPage() {
   // ── rate-based projections ───────────────────────────────────────────────
 
   const canProject =
-    weightLossRate !== null &&
-    weightLossRate !== "maintain" &&
+    effectiveRate   !== "maintain" &&
     planStartWeight !== null &&
     targetWeightKg  !== null &&
     planStartWeight > targetWeightKg;
 
   const arrival = canProject
-    ? computeArrival(planStartWeight!, targetWeightKg!, weightLossRate, planStartDate)
+    ? computeArrival(planStartWeight!, targetWeightKg!, effectiveRate, planStartDate)
     : null;
 
-  const slopeKgPerWeek = weightLossRate === "maintain"
+  const slopeKgPerWeek = effectiveRate === "maintain"
     ? 0
-    : weightLossRate !== null
-      ? -(RATE_KG_PER_WEEK[weightLossRate] ?? 0.5)
-      : null;
+    : -(RATE_KG_PER_WEEK[effectiveRate] ?? 0.5);
 
   const projectedDate = arrival
     ? arrival.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
@@ -133,7 +133,7 @@ export default async function ProgressPage() {
 
   // Plan line + band (every 7 days from planStartDate to arrivalDate)
   if (canProject && planStartWeight !== null && arrival !== null) {
-    const dailyPlan = dailyLossKg(weightLossRate);
+    const dailyPlan = dailyLossKg(effectiveRate);
     const dailyCons = RATE_KG_PER_WEEK.conservative / 7;
     const dailyAggr = RATE_KG_PER_WEEK.aggressive   / 7;
 
@@ -221,7 +221,7 @@ export default async function ProgressPage() {
   const data: ProgressData = {
     weightPoints:   weightChartPoints,
     targetWeightKg,
-    weightLossRate,
+    weightLossRate: effectiveRate,
     projectedDate,
     slopeKgPerWeek,
     bfPoints,
