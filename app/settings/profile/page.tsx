@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import Link from "next/link";
 import { db } from "@/lib/db";
 import { userProfiles } from "@/lib/db/schema";
 import BottomNav from "@/components/BottomNav";
@@ -62,21 +61,7 @@ export default async function ProfileEditPage() {
   return (
     <>
       <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 max-w-lg mx-auto pb-24">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <Link
-            href="/settings"
-            className="text-zinc-500 hover:text-white text-sm transition-colors"
-          >
-            ← Settings
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Edit profile</h1>
-            <p className="text-zinc-500 text-sm">Update your training habits and food preferences.</p>
-          </div>
-        </div>
-
-        <ProfileEditView initial={initial} unitSystem={unitSystem} />
+        <ProfileEditView initial={initial} unitSystem={unitSystem} backHref="/settings" />
       </main>
 
       <BottomNav active="more" />
