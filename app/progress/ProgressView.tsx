@@ -117,6 +117,7 @@ function WeightChart({
 
   const yMin = allValues.length > 0 ? Math.floor(Math.min(...allValues) - 1) : 0;
   const yMax = allValues.length > 0 ? Math.ceil(Math.max(...allValues)  + 1) : 100;
+  console.log("[WeightChart] yMin:", yMin, "yMax:", yMax, "allValues count:", allValues.length);
 
   // Show ~5 evenly-spaced labels. interval is index-based so this naturally
   // includes the last point (arrival date) because it's always at index n-1.
@@ -135,6 +136,7 @@ function WeightChart({
         />
         <YAxis
           domain={[yMin, yMax]}
+          allowDataOverflow={true}
           tick={{ fill: "#71717a", fontSize: 10 }}
           axisLine={false}
           tickLine={false}
