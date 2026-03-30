@@ -38,7 +38,6 @@ export async function POST(request: Request) {
     foodExclusions:   (body.foodExclusions as string[]) ?? [],
     // Appetite & timing — appetiteProfile is submitted as comma-joined string
     appetiteProfile: body.appetiteProfile || null,
-    preferredMealTiming: body.preferredMealTiming || null,
     // Supplements
     currentSupplements: (body.currentSupplements as string[]) ?? [],
     // Mark onboarding complete
@@ -63,7 +62,6 @@ export async function POST(request: Request) {
         trackStoolHealth: values.trackStoolHealth,
         foodExclusions:   values.foodExclusions,
         appetiteProfile: values.appetiteProfile,
-        preferredMealTiming: values.preferredMealTiming,
         currentSupplements: values.currentSupplements,
         onboardingComplete: true,
         updatedAt: new Date(),

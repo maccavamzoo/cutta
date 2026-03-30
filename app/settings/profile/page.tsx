@@ -29,7 +29,6 @@ export default async function ProfileEditPage() {
       foodExclusions:               userProfiles.foodExclusions,
       currentSupplements:           userProfiles.currentSupplements,
       appetiteProfile:              userProfiles.appetiteProfile,
-      preferredMealTiming:          userProfiles.preferredMealTiming,
       estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
       unitSystem:                   userProfiles.unitSystem,
     })
@@ -53,7 +52,6 @@ export default async function ProfileEditPage() {
     foodExclusions:               profile.foodExclusions               ?? [],
     currentSupplements:           profile.currentSupplements           ?? [],
     appetiteProfile:              profile.appetiteProfile              ?? null,
-    preferredMealTiming:          profile.preferredMealTiming          ?? null,
     estimatedMaintenanceCalories: profile.estimatedMaintenanceCalories ?? null,
   };
 

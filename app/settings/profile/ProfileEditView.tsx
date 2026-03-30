@@ -18,7 +18,6 @@ export interface ProfileData {
   foodExclusions:               string[] | null;
   currentSupplements:           string[] | null;
   appetiteProfile:              string | null;
-  preferredMealTiming:          string | null;
   estimatedMaintenanceCalories: number | null;
 }
 
@@ -168,22 +167,22 @@ export default function ProfileEditView({
   const [foodExclusions,   setFoodExclusions]   = useState<string[]>(initial.foodExclusions ?? []);
   const [supplements,    setSupplements]    = useState<string[]>(initial.currentSupplements ?? []);
 
-  // ── appetite ──────────────────────────────────────────────────────────────
-  const APPETITE_OPTS = [
-    "Big breakfast person",
-    "Not hungry in the morning",
-    "Prefer snacking throughout the day",
-    "Prefer 3 solid meals",
-    "Late eater — big dinner",
+  // ── eating style (merged appetite + meal timing) ─────────────────────────
+  const EATING_STYLE_OPTS = [
+    "3 big meals, no snacking",
+    "3 meals + snacks",
+    "Little and often / grazing",
+    "Big breakfast, lighter evening",
+    "Light morning, big dinner",
     "Done eating by 7pm",
-    "Large portions",
-    "Small portions",
+    "Small portions, more meals",
+    "Large portions, fewer meals",
   ];
 
   const [appetiteSelections, setAppetiteSelections] = useState<string[]>(() => {
     const stored = initial.appetiteProfile ?? "";
     const parts = stored.split(",").map((s) => s.trim()).filter(Boolean);
-    return parts.filter((p) => APPETITE_OPTS.includes(p));
+    return parts.filter((p) => EATING_STYLE_OPTS.includes(p));
   });
 
   function toggleAppetite(opt: string) {
@@ -191,7 +190,6 @@ export default function ProfileEditView({
       prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt]
     );
   }
-  const [mealTiming,      setMealTiming]      = useState(initial.preferredMealTiming ?? "");
 
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
@@ -207,13 +205,6 @@ export default function ProfileEditView({
     { v: "low",    l: "Low — rarely an issue"      },
     { v: "medium", l: "Medium — occasional issues" },
     { v: "high",   l: "High — frequent problems"   },
-  ];
-
-  const MEAL_TIMING_OPTS = [
-    { v: "3 meals + snacks", l: "3 meals + snacks"             },
-    { v: "3 meals only",     l: "3 meals only"                 },
-    { v: "2 meals + snacks", l: "2 meals + snacks"             },
-    { v: "grazing",          l: "Grazing / frequent small meals" },
   ];
 
   async function handleSave() {
@@ -254,7 +245,6 @@ export default function ProfileEditView({
       foodExclusions,
       currentSupplements:           supplements,
       appetiteProfile:              appetiteSelections.length ? appetiteSelections.join(", ") : null,
-      preferredMealTiming:          mealTiming        || null,
       estimatedMaintenanceCalories,
     };
 
@@ -479,31 +469,16 @@ export default function ProfileEditView({
 
       <div className="border-t border-zinc-800" />
 
-      {/* 5 — Appetite & timing */}
-      <Section title="Appetite & timing">
-        <Field label="Appetite profile">
+      {/* 5 — Eating style */}
+      <Section title="Eating style">
+        <div className="space-y-2">
+          <p className="text-zinc-500 text-xs">Select all that describe you.</p>
           <div className="flex flex-wrap gap-2">
-            {APPETITE_OPTS.map((opt) => (
+            {EATING_STYLE_OPTS.map((opt) => (
               <Pill key={opt} label={opt} active={appetiteSelections.includes(opt)} onClick={() => toggleAppetite(opt)} />
             ))}
           </div>
-        </Field>
-        <Field label="Preferred meal timing">
-          <div className="space-y-2">
-            {MEAL_TIMING_OPTS.map(({ v, l }) => (
-              <button
-                key={v} type="button" onClick={() => setMealTiming(v)}
-                className={`w-full text-left px-4 py-3 rounded-xl border text-sm transition-colors ${
-                  mealTiming === v
-                    ? "bg-lime-400 border-lime-400 text-black font-medium"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700"
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-        </Field>
+        </div>
       </Section>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}

@@ -50,9 +50,6 @@ export async function PATCH(req: NextRequest) {
   if (body.appetiteProfile !== undefined)
     update.appetiteProfile = body.appetiteProfile || null;
 
-  if (body.preferredMealTiming !== undefined)
-    update.preferredMealTiming = body.preferredMealTiming || null;
-
   if (body.estimatedMaintenanceCalories !== undefined)
     update.estimatedMaintenanceCalories = body.estimatedMaintenanceCalories
       ? Number(body.estimatedMaintenanceCalories)
