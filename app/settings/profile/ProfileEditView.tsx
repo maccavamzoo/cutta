@@ -12,6 +12,8 @@ export interface ProfileData {
   heightCm:                     number | null;
   age:                          number | null;
   sex:                          string | null;
+  weightLossRate:               string | null;
+  targetSetAt:                  string | null;
   fastedTraining:               boolean | null;
   gutSensitivity:               string | null;
   trackStoolHealth:             boolean;
@@ -143,6 +145,9 @@ export default function ProfileEditView({
   const [ageStr,    setAgeStr]    = useState(initial.age != null ? String(initial.age) : "");
   const [sex,       setSex]       = useState(initial.sex ?? "");
 
+  // ── weight loss rate ─────────────────────────────────────────────────────
+  const [weightLossRate, setWeightLossRate] = useState(initial.weightLossRate ?? "moderate");
+
   // ── training ─────────────────────────────────────────────────────────────
   const [fastedTraining, setFastedTraining] = useState(
     initial.fastedTraining === true ? "yes" : initial.fastedTraining === false ? "no" : "sometimes"
@@ -232,12 +237,19 @@ export default function ProfileEditView({
     setError(null);
     setSaved(false);
 
+    // Record when the goal changes
+    const goalChanged =
+      targetWeightKg !== initial.targetWeightKg ||
+      weightLossRate  !== (initial.weightLossRate ?? "moderate");
+
     const payload = {
       currentWeightKg,
       targetWeightKg,
       heightCm:                     heightStr ? Number(heightStr) : null,
       age:                          ageStr    ? Number(ageStr)    : null,
       sex:                          sex       || null,
+      weightLossRate,
+      ...(goalChanged ? { targetSetAt: new Date().toISOString() } : {}),
       fastedTraining,
       gutSensitivity:               gutSensitivity    || null,
       trackStoolHealth,
@@ -315,6 +327,30 @@ export default function ProfileEditView({
             </div>
           </Field>
         </div>
+
+        <Field label="Weight loss rate">
+          <p className="text-zinc-500 text-xs -mt-1 mb-2">How quickly do you want to reach your target?</p>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { v: "aggressive",   l: "Aggressive",   sub: "~0.75–1 kg/week" },
+              { v: "moderate",     l: "Moderate",     sub: "~0.5 kg/week"    },
+              { v: "conservative", l: "Conservative", sub: "~0.25 kg/week"   },
+              { v: "maintain",     l: "Maintain",     sub: "No deficit"      },
+            ] as const).map(({ v, l, sub }) => (
+              <button
+                key={v} type="button" onClick={() => setWeightLossRate(v)}
+                className={`text-left px-4 py-3 rounded-xl border text-sm transition-colors ${
+                  weightLossRate === v
+                    ? "bg-lime-400 border-lime-400 text-black"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700"
+                }`}
+              >
+                <span className="font-medium block">{l}</span>
+                <span className={`text-xs block mt-0.5 ${weightLossRate === v ? "text-black/60" : "text-zinc-500"}`}>{sub}</span>
+              </button>
+            ))}
+          </div>
+        </Field>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Height (cm)">

@@ -59,6 +59,10 @@ export const userProfiles = pgTable(
     unitSystem: varchar("unit_system", { length: 10 }).default("metric"),
     timezone: varchar("timezone", { length: 100 }),
 
+    // Weight goal
+    weightLossRate: varchar("weight_loss_rate", { length: 20 }),
+    targetSetAt: timestamp("target_set_at"),
+
     // Onboarding complete flag
     onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
 
