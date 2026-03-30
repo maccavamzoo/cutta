@@ -165,6 +165,18 @@ export default async function ProgressPage() {
   const weightChartPoints = Array.from(pointMap.values())
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  // ── diagnostic log (remove once confirmed working) ──────────────────────
+  console.log("[progress] canProject:", canProject, {
+    weightLossRate,
+    targetWeightKg,
+    planStartWeight,
+    planStartDate: planStartDate.toISOString(),
+    arrival: arrival?.toISOString() ?? null,
+    chartPointsTotal: weightChartPoints.length,
+    first3: weightChartPoints.slice(0, 3),
+    last3:  weightChartPoints.slice(-3),
+  });
+
   // ── body fat trend ───────────────────────────────────────────────────────
 
   const bfPoints = actualWeightPoints
