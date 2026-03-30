@@ -332,10 +332,10 @@ export default function ProfileEditView({
           <p className="text-zinc-500 text-xs -mt-1 mb-2">How quickly do you want to reach your target?</p>
           <div className="grid grid-cols-2 gap-2">
             {([
-              { v: "aggressive",   l: "Aggressive",   sub: "~0.75–1 kg/week" },
-              { v: "moderate",     l: "Moderate",     sub: "~0.5 kg/week"    },
-              { v: "conservative", l: "Conservative", sub: "~0.25 kg/week"   },
-              { v: "maintain",     l: "Maintain",     sub: "No deficit"      },
+              { v: "aggressive",   l: "Aggressive",   sub: "~0.75–1 kg/week"   },
+              { v: "moderate",     l: "Moderate",     sub: "~0.4–0.6 kg/week"  },
+              { v: "conservative", l: "Conservative", sub: "~0.2–0.3 kg/week"  },
+              { v: "maintain",     l: "Maintain",     sub: "No deficit"         },
             ] as const).map(({ v, l, sub }) => (
               <button
                 key={v} type="button" onClick={() => setWeightLossRate(v)}

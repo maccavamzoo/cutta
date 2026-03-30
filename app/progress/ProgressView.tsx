@@ -136,6 +136,7 @@ function WeightChart({
   };
 
   return (
+    <>
     <ResponsiveContainer width="100%" height={220}>
       <ComposedChart data={convertedPoints} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
@@ -228,6 +229,31 @@ function WeightChart({
         />
       </ComposedChart>
     </ResponsiveContainer>
+
+    {/* Legend */}
+    <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 pb-2 pt-1">
+      <span className="flex items-center gap-1.5 text-zinc-600 text-xs">
+        <span className="inline-block w-2 h-2 rounded-full bg-[#a3e635]" />
+        Weigh-ins
+      </span>
+      <span className="flex items-center gap-1.5 text-zinc-600 text-xs">
+        <svg width="18" height="8" className="shrink-0">
+          <line x1="0" y1="4" x2="18" y2="4" stroke="#71717a" strokeWidth="1.5" strokeDasharray="4 3" />
+        </svg>
+        Your plan
+      </span>
+      <span className="flex items-center gap-1.5 text-zinc-600 text-xs">
+        <span className="inline-block w-4 h-3 rounded-sm bg-[#a3e635]/20 border border-[#a3e635]/30" />
+        Possible range
+      </span>
+      <span className="flex items-center gap-1.5 text-zinc-600 text-xs">
+        <svg width="18" height="8" className="shrink-0">
+          <line x1="0" y1="4" x2="18" y2="4" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" />
+        </svg>
+        Target
+      </span>
+    </div>
+    </>
   );
 }
 
