@@ -128,8 +128,7 @@ export function buildPlanPrompt(
 - Gut sensitivity: ${profile.gutSensitivity || "none reported"}
 - Food exclusions: ${profile.foodExclusions?.join(", ") || "none"}
 - Current supplements: ${profile.currentSupplements?.join(", ") || "none"}
-- Appetite profile: ${profile.appetiteProfile || "unspecified"}
-- Preferred meal timing: ${profile.preferredMealTiming || "unspecified"}
+- Eating style: ${profile.appetiteProfile || "unspecified"}
 ${foodProfile?.positive?.length ? `- Preferred foods: ${foodProfile.positive.join(", ")}` : ""}
 ${foodProfile?.negative?.length ? `- Disliked foods: ${foodProfile.negative.join(", ")}` : ""}
 ${foodProfile?.gutTriggers?.length ? `- Known gut triggers: ${foodProfile.gutTriggers.join(", ")}` : ""}
