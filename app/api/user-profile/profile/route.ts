@@ -28,9 +28,6 @@ export async function PATCH(req: NextRequest) {
   if (body.sex !== undefined)
     update.sex = body.sex || null;
 
-  if (body.typicalWeeklyHours !== undefined)
-    update.typicalWeeklyHours = body.typicalWeeklyHours ? String(body.typicalWeeklyHours) : null;
-
   if (body.fastedTraining !== undefined) {
     update.fastedTraining =
       body.fastedTraining === "yes" ? true

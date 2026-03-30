@@ -12,7 +12,6 @@ export interface ProfileData {
   heightCm:                     number | null;
   age:                          number | null;
   sex:                          string | null;
-  typicalWeeklyHours:           string | null;
   fastedTraining:               boolean | null;
   gutSensitivity:               string | null;
   trackStoolHealth:             boolean;
@@ -26,20 +25,19 @@ export interface ProfileData {
 // ─── calorie calculation (Mifflin-St Jeor) ────────────────────────────────────
 
 function calcMaintenance(
-  weightKg:    number | null,
-  heightCm:    number | null,
-  age:         number | null,
-  sex:         string,
-  weeklyHours: string,
+  weightKg: number | null,
+  heightCm: number | null,
+  age:      number | null,
+  sex:      string,
 ): number | null {
   if (!weightKg || !heightCm || !age) return null;
   const bmr =
     sex === "male"   ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
     : sex === "female" ? 10 * weightKg + 6.25 * heightCm - 5 * age - 161
     :                    10 * weightKg + 6.25 * heightCm - 5 * age - 78;
-  const h    = parseFloat(weeklyHours) || 0;
-  const mult = h < 3 ? 1.375 : h < 6 ? 1.55 : h < 10 ? 1.725 : 1.9;
-  return Math.round(bmr * mult);
+  // Sedentary multiplier — the AI fuelling plan adds activity burn per day
+  // based on actual calendar events (duration, intensity, power).
+  return Math.round(bmr * 1.2);
 }
 
 // ─── sub-components ───────────────────────────────────────────────────────────
@@ -147,7 +145,6 @@ export default function ProfileEditView({
   const [sex,       setSex]       = useState(initial.sex ?? "");
 
   // ── training ─────────────────────────────────────────────────────────────
-  const [weeklyHours,    setWeeklyHours]    = useState(initial.typicalWeeklyHours ?? "");
   const [fastedTraining, setFastedTraining] = useState(
     initial.fastedTraining === true ? "yes" : initial.fastedTraining === false ? "no" : "sometimes"
   );
@@ -155,9 +152,9 @@ export default function ProfileEditView({
   // ── maintenance calories (auto-calc + optional override) ─────────────────
   const currentWeightKgParsed = currentWeightStr ? displayToKg(parseFloat(currentWeightStr), unitSystem) : null;
   const calculatedCals = useMemo(
-    () => calcMaintenance(currentWeightKgParsed, parseFloat(heightStr) || null, parseFloat(ageStr) || null, sex, weeklyHours),
+    () => calcMaintenance(currentWeightKgParsed, parseFloat(heightStr) || null, parseFloat(ageStr) || null, sex),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentWeightStr, heightStr, ageStr, sex, weeklyHours, unitSystem]
+    [currentWeightStr, heightStr, ageStr, sex, unitSystem]
   );
 
   const [overrideActive,   setOverrideActive]   = useState(initial.estimatedMaintenanceCalories !== null);
@@ -251,7 +248,6 @@ export default function ProfileEditView({
       heightCm:                     heightStr ? Number(heightStr) : null,
       age:                          ageStr    ? Number(ageStr)    : null,
       sex:                          sex       || null,
-      typicalWeeklyHours:           weeklyHours       || null,
       fastedTraining,
       gutSensitivity:               gutSensitivity    || null,
       trackStoolHealth,
@@ -416,14 +412,6 @@ export default function ProfileEditView({
           </div>
         )}
 
-        <Field label="Typical weekly training hours">
-          <input
-            type="number" inputMode="decimal" step="0.5" min="0" max="40"
-            placeholder="e.g. 8"
-            value={weeklyHours} onChange={(e) => setWeeklyHours(e.target.value)}
-            className="w-full bg-zinc-900 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800"
-          />
-        </Field>
       </Section>
 
       <div className="border-t border-zinc-800" />

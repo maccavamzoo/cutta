@@ -31,10 +31,6 @@ export async function POST(request: Request) {
     estimatedMaintenanceCalories: body.estimatedMaintenanceCalories
       ? Number(body.estimatedMaintenanceCalories)
       : null,
-    // Training
-    typicalWeeklyHours: body.typicalWeeklyHours
-      ? String(body.typicalWeeklyHours)
-      : null,
     fastedTraining,
     // Gut health
     gutSensitivity:   body.gutSensitivity || null,
@@ -62,7 +58,6 @@ export async function POST(request: Request) {
         age: values.age,
         sex: values.sex,
         estimatedMaintenanceCalories: values.estimatedMaintenanceCalories,
-        typicalWeeklyHours: values.typicalWeeklyHours,
         fastedTraining: values.fastedTraining,
         gutSensitivity:   values.gutSensitivity,
         trackStoolHealth: values.trackStoolHealth,
