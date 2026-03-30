@@ -100,15 +100,23 @@ function WeightChart({
 
   const targetDisplay = targetWeightKg !== null ? kgToDisplay(targetWeightKg, unitSystem) : null;
 
-  const actuals   = convertedPoints.filter((p) => p.actual     !== undefined).map((p) => p.actual!);
-  const planVals  = convertedPoints.filter((p) => p.plan       !== undefined).map((p) => p.plan!);
-  const bandTops  = convertedPoints
+  const actuals    = convertedPoints.filter((p) => p.actual     !== undefined).map((p) => p.actual!);
+  const planVals   = convertedPoints.filter((p) => p.plan       !== undefined).map((p) => p.plan!);
+  const bandBottoms = convertedPoints.filter((p) => p.bandBottom !== undefined).map((p) => p.bandBottom!);
+  const bandTops   = convertedPoints
     .filter((p) => p.bandBottom !== undefined && p.bandSize !== undefined)
     .map((p) => p.bandBottom! + p.bandSize!);
-  const allValues = [...actuals, ...planVals, ...bandTops, targetDisplay ?? 0].filter(Boolean);
 
-  const yMin = Math.floor(Math.min(...allValues) - 1);
-  const yMax = Math.ceil(Math.max(...allValues) + 1);
+  const allValues = [
+    ...actuals,
+    ...planVals,
+    ...bandBottoms,
+    ...bandTops,
+    ...(targetDisplay !== null ? [targetDisplay] : []),
+  ].filter((v) => typeof v === "number" && isFinite(v));
+
+  const yMin = allValues.length > 0 ? Math.floor(Math.min(...allValues) - 1) : 0;
+  const yMax = allValues.length > 0 ? Math.ceil(Math.max(...allValues)  + 1) : 100;
 
   // Show ~5 evenly-spaced labels. interval is index-based so this naturally
   // includes the last point (arrival date) because it's always at index n-1.
