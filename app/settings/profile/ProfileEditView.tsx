@@ -157,7 +157,7 @@ export default function ProfileEditView({
     [currentWeightStr, heightStr, ageStr, sex, unitSystem]
   );
 
-  const [overrideActive,   setOverrideActive]   = useState(initial.estimatedMaintenanceCalories !== null);
+  const [overrideActive,   setOverrideActive]   = useState(false);
   const [overrideCalsStr,  setOverrideCalsStr]   = useState(
     initial.estimatedMaintenanceCalories != null ? String(initial.estimatedMaintenanceCalories) : ""
   );
@@ -371,7 +371,7 @@ export default function ProfileEditView({
           </p>
           <p className="text-zinc-600 text-xs mt-1">
             {calculatedCals != null
-              ? "Calculated from your stats (Mifflin-St Jeor)"
+              ? "Calories to maintain your weight at rest. Training burn is added when you log activities."
               : "Fill in weight, height, age and sex to calculate"}
           </p>
         </div>
