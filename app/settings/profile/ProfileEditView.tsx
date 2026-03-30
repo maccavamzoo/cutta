@@ -169,20 +169,19 @@ export default function ProfileEditView({
 
   // ── eating style (merged appetite + meal timing) ─────────────────────────
   const EATING_STYLE_OPTS = [
-    "3 big meals, no snacking",
+    "3 big meals / no snacking",
     "3 meals + snacks",
     "Little and often / grazing",
-    "Big breakfast, lighter evening",
-    "Light morning, big dinner",
+    "Big breakfast / lighter evening",
+    "Light morning / big dinner",
     "Done eating by 7pm",
-    "Small portions, more meals",
-    "Large portions, fewer meals",
+    "Small portions / more meals",
+    "Large portions / fewer meals",
   ];
 
   const [appetiteSelections, setAppetiteSelections] = useState<string[]>(() => {
     const stored = initial.appetiteProfile ?? "";
-    const parts = stored.split(",").map((s) => s.trim()).filter(Boolean);
-    return parts.filter((p) => EATING_STYLE_OPTS.includes(p));
+    return stored.split(", ").filter((p) => EATING_STYLE_OPTS.includes(p));
   });
 
   function toggleAppetite(opt: string) {
