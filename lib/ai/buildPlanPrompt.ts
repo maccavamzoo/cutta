@@ -121,6 +121,7 @@ export function buildPlanPrompt(
 - Current weight: ${profile.currentWeightKg ?? "unknown"} kg
 - Target weight: ${profile.targetWeightKg ?? "unknown"} kg
 - Weight loss rate: ${profile.weightLossRate ?? "moderate"} (aggressive ≈ 750-1000 kcal/day deficit, moderate ≈ 500, conservative ≈ 250, maintain ≈ 0)
+- Daily calorie target: estimated maintenance (${profile.estimatedMaintenanceCalories ?? "unknown"} kcal) + training burn for the day − ${profile.weightLossRate === "aggressive" ? "875" : profile.weightLossRate === "conservative" ? "250" : profile.weightLossRate === "maintain" ? "0" : "500"} kcal deficit
 - Height: ${profile.heightCm ?? "unknown"} cm
 - Age: ${profile.age ?? "unknown"}
 - Sex: ${profile.sex ?? "unknown"}
