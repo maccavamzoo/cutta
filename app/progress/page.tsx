@@ -111,6 +111,20 @@ export default async function ProgressPage() {
     }
   }
 
+  // ── DEBUG (remove after diagnosis) ──────────────────────────────────────
+  console.log("[progress:debug]", {
+    targetSetAt:    targetSetAt?.toISOString() ?? null,
+    targetSetAtDay: targetSetAt ? targetSetAt.toISOString().split("T")[0] : null,
+    weightRows: weightRows.map((r) => ({
+      date: r.weighedAt.toISOString(),
+      dateDay: r.weighedAt.toISOString().split("T")[0],
+      weightKg: Number(r.weightKg),
+    })),
+    planStartDate:   planStartDate.toISOString(),
+    planStartWeight,
+    currentWeightKg: profileRow?.currentWeightKg ?? null,
+  });
+
   // ── rate-based projections ───────────────────────────────────────────────
 
   const canProject =
