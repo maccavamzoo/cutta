@@ -349,14 +349,14 @@ export default function ProfileEditView({
             <button
               type="button"
               onClick={() => setShowLeaveModal(false)}
-              className="flex-1 py-3 rounded-xl border border-zinc-700 text-zinc-300 text-sm font-medium hover:bg-zinc-800 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-lime-400 text-black"
             >
               Stay
             </button>
             <button
               type="button"
               onClick={() => router.push(backHref)}
-              className="flex-1 py-3 rounded-xl bg-lime-400 text-black text-sm font-bold hover:bg-lime-300 transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-zinc-800 text-zinc-300"
             >
               Leave
             </button>
