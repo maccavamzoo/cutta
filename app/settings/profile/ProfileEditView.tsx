@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { kgToDisplay, displayToKg, weightLabel, weightInputRange, type UnitSystem } from "@/lib/units";
 import BottomNav from "@/components/BottomNav";
@@ -237,13 +237,6 @@ export default function ProfileEditView({
   }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, weightLossRate,
       fastedTraining, gutSensitivity, trackStoolHealth, foodExclusions, supplements,
       appetiteSelections, overrideActive, overrideCalsStr, initial, unitSystem]);
-
-  useEffect(() => {
-    if (!isDirty) return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty]);
 
   const FASTED_OPTS = [
     { v: "yes",       l: "Yes"       },
