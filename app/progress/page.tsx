@@ -171,16 +171,17 @@ export default async function ProgressPage() {
 
     // Back-fill band values on every other point inside the plan window
     // (e.g. actual weigh-in dots between weekly anchors) so the stacked
-    // Area has no undefined gaps.
-    for (const [dateStr, point] of pointMap) {
-      if (point.bandLower !== undefined) continue;
+    // Area has no undefined gaps. Use forEach to avoid Map iteration
+    // incompatibility with the project's TS target.
+    pointMap.forEach((point, dateStr) => {
+      if (point.bandLower !== undefined) return;
       const ptMs = new Date(dateStr + "T12:00:00Z").getTime();
-      if (ptMs < planStartMs || ptMs > consArrMs) continue;
+      if (ptMs < planStartMs || ptMs > consArrMs) return;
       const d      = (ptMs - planStartMs) / 86_400_000;
       const bandLo = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyAggr * d) * 10) / 10);
       const bandHi = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyCons * d) * 10) / 10);
       pointMap.set(dateStr, { ...point, bandLower: bandLo, bandUpper: bandHi });
-    }
+    });
   }
 
   const sortedPoints = Array.from(pointMap.values())
