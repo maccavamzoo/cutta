@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { userProfiles } from "@/lib/db/schema";
 
@@ -69,6 +70,10 @@ export async function PATCH(req: NextRequest) {
 
   if (result.length === 0)
     return NextResponse.json({ error: "Profile not found." }, { status: 404 });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/plan");
+  revalidatePath("/progress");
 
   return NextResponse.json({ success: true });
 }
