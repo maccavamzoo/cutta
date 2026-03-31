@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -20,12 +19,24 @@ const MORE_ITEMS = [
 
 type NavKey = (typeof NAV_ITEMS)[number]["key"] | "more" | "calendar";
 
-export default function BottomNav({ active }: { active: NavKey }) {
+export default function BottomNav({
+  active,
+  onNavigate,
+}: {
+  active: NavKey;
+  onNavigate?: (href: string) => boolean;
+}) {
   const [moreOpen, setMoreOpen] = useState(false);
   const router = useRouter();
 
   function handleMoreItem(href: string) {
     setMoreOpen(false);
+    if (onNavigate && !onNavigate(href)) return;
+    router.push(href);
+  }
+
+  function handleNavItem(href: string) {
+    if (onNavigate && !onNavigate(href)) return;
     router.push(href);
   }
 
@@ -65,9 +76,9 @@ export default function BottomNav({ active }: { active: NavKey }) {
       <nav className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t border-zinc-800 z-40">
         <div className="flex max-w-lg mx-auto">
           {NAV_ITEMS.map((item) => (
-            <Link
+            <button
               key={item.key}
-              href={item.href}
+              onClick={() => handleNavItem(item.href)}
               className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors ${
                 active === item.key
                   ? "text-lime-400"
@@ -76,7 +87,7 @@ export default function BottomNav({ active }: { active: NavKey }) {
             >
               <span className="text-base leading-none">{item.icon}</span>
               <span className="font-medium">{item.label}</span>
-            </Link>
+            </button>
           ))}
 
           {/* More button */}

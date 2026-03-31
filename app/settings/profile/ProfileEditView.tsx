@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { kgToDisplay, displayToKg, weightLabel, weightInputRange, type UnitSystem } from "@/lib/units";
+import BottomNav from "@/components/BottomNav";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -202,7 +203,7 @@ export default function ProfileEditView({
   const [saved,  setSaved]  = useState(false);
 
   // ── unsaved changes guard ────────────────────────────────────────────────
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   const isDirty = useMemo(() => {
     const initCurrentWeight  = initial.currentWeightKg != null ? String(kgToDisplay(initial.currentWeightKg, unitSystem)) : "";
@@ -327,7 +328,11 @@ export default function ProfileEditView({
           throw new Error(d.error ?? "Failed to save.");
         }
         setSaved(true);
-        router.refresh();
+        if (pendingNavigation) {
+          router.push(pendingNavigation);
+        } else {
+          router.refresh();
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -336,33 +341,51 @@ export default function ProfileEditView({
     }
   }
 
+  function handleNavigation(href: string): boolean {
+    if (isDirty) {
+      setPendingNavigation(href);
+      return false;
+    }
+    return true;
+  }
+
   return (
     <>
-    {/* Leave-without-saving modal */}
-    {showLeaveModal && backHref && (
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/70" onClick={() => setShowLeaveModal(false)} />
-        <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-          <p className="text-white font-semibold text-base">Unsaved changes</p>
-          <p className="text-zinc-400 text-sm leading-relaxed">You have unsaved changes. Leave without saving?</p>
-          <div className="flex gap-3">
+    {/* Unsaved changes modal */}
+    {pendingNavigation && (
+      <>
+        <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setPendingNavigation(null)} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+          <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-6 max-w-sm w-full space-y-4">
+            <p className="text-white font-semibold">You have unsaved changes</p>
+            <p className="text-zinc-400 text-sm">Would you like to save before leaving?</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-lime-400 text-black disabled:opacity-60"
+              >
+                {saving ? "Saving…" : "Save & leave"}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(pendingNavigation)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-zinc-800 text-zinc-300"
+              >
+                Discard
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => setShowLeaveModal(false)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-lime-400 text-black"
+              onClick={() => setPendingNavigation(null)}
+              className="w-full text-center text-zinc-500 text-sm"
             >
-              Stay
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push(backHref)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-zinc-800 text-zinc-300"
-            >
-              Leave
+              Cancel
             </button>
           </div>
         </div>
-      </div>
+      </>
     )}
 
     <div className="space-y-8 pb-32">
@@ -371,7 +394,7 @@ export default function ProfileEditView({
         <div className="flex items-center gap-3 -mt-2 mb-0">
           <button
             type="button"
-            onClick={() => isDirty ? setShowLeaveModal(true) : router.push(backHref)}
+            onClick={() => isDirty ? setPendingNavigation(backHref) : router.push(backHref)}
             className="text-zinc-500 hover:text-white text-sm transition-colors"
           >
             ← Settings
@@ -608,30 +631,17 @@ export default function ProfileEditView({
       {error && <p className="text-red-400 text-sm">{error}</p>}
       {saved && !isDirty && <p className="text-lime-400 text-sm font-medium">Changes saved ✓</p>}
 
-      {/* Inline save button — always shown in onboarding; shown in edit when not dirty */}
-      {(mode === "onboarding" || !isDirty) && (
-        <button
-          type="button" onClick={handleSave} disabled={saving || (mode === "edit" && !isDirty)}
-          className="w-full py-4 bg-lime-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
-        >
-          {saving
-            ? (mode === "onboarding" ? "Setting up…" : "Saving…")
-            : (mode === "onboarding" ? "Get started →" : "Save changes")}
-        </button>
-      )}
-
-      {/* Sticky save button — floats above BottomNav when there are unsaved changes */}
-      {mode === "edit" && isDirty && (
-        <div className="fixed bottom-[52px] left-0 right-0 z-40 bg-black border-t border-zinc-800 px-4 py-3">
-          <button
-            type="button" onClick={handleSave} disabled={saving}
-            className="w-full max-w-lg mx-auto block py-4 bg-lime-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
-          >
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-        </div>
-      )}
+      <button
+        type="button" onClick={handleSave} disabled={saving || (mode === "edit" && !isDirty)}
+        className="w-full py-4 bg-lime-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
+      >
+        {saving
+          ? (mode === "onboarding" ? "Setting up…" : "Saving…")
+          : (mode === "onboarding" ? "Get started →" : "Save changes")}
+      </button>
     </div>
+
+    {mode === "edit" && <BottomNav active="more" onNavigate={handleNavigation} />}
     </>
   );
 }

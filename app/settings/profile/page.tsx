@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { userProfiles } from "@/lib/db/schema";
-import BottomNav from "@/components/BottomNav";
 import ProfileEditView, { type ProfileData } from "./ProfileEditView";
 import type { UnitSystem } from "@/lib/units";
 
@@ -59,12 +58,8 @@ export default async function ProfileEditPage() {
   };
 
   return (
-    <>
-      <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 max-w-lg mx-auto pb-24">
-        <ProfileEditView initial={initial} unitSystem={unitSystem} backHref="/settings" />
-      </main>
-
-      <BottomNav active="more" />
-    </>
+    <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 max-w-lg mx-auto pb-24">
+      <ProfileEditView initial={initial} unitSystem={unitSystem} backHref="/settings" />
+    </main>
   );
 }
