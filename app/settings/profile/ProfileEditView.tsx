@@ -276,10 +276,8 @@ export default function ProfileEditView({
     setError(null);
     setSaved(false);
 
-    // Record when the goal changes
-    const goalChanged =
-      targetWeightKg !== initial.targetWeightKg ||
-      weightLossRate  !== (initial.weightLossRate ?? "moderate");
+    // Record when the goal target changes (rate change alone doesn't reset the anchor)
+    const goalChanged = targetWeightKg !== initial.targetWeightKg;
 
     const payload = {
       currentWeightKg,
