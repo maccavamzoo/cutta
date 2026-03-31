@@ -93,13 +93,12 @@ export default async function ProgressPage() {
     );
     if (onOrBefore.length > 0) {
       planStartWeight = Number(onOrBefore[onOrBefore.length - 1].weightKg);
+    } else if (weightRows.length > 0) {
+      // All entries are after the goal date — use earliest available (closest to goal)
+      planStartWeight = Number(weightRows[0].weightKg);
     } else {
-      // No entry exists on or before the goal date — use the profile's
-      // currentWeightKg as it was the weight stored when the goal was set.
-      // Fallback to earliest available entry if profile weight is missing.
-      planStartWeight = profileRow?.currentWeightKg
-        ? Number(profileRow.currentWeightKg)
-        : weightRows.length > 0 ? Number(weightRows[0].weightKg) : null;
+      // No weight entries at all — fall back to profile's recorded weight
+      planStartWeight = profileRow?.currentWeightKg ? Number(profileRow.currentWeightKg) : null;
     }
   } else {
     // No goal set date — anchor from the earliest weight entry.
