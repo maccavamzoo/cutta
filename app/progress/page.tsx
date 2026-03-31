@@ -111,19 +111,6 @@ export default async function ProgressPage() {
     }
   }
 
-  // ── DEBUG (remove after diagnosis) ──────────────────────────────────────
-  console.log("[progress:debug]", {
-    targetSetAt:    targetSetAt?.toISOString() ?? null,
-    targetSetAtDay: targetSetAt ? targetSetAt.toISOString().split("T")[0] : null,
-    weightRows: weightRows.map((r) => ({
-      date: r.weighedAt.toISOString(),
-      dateDay: r.weighedAt.toISOString().split("T")[0],
-      weightKg: Number(r.weightKg),
-    })),
-    planStartDate:   planStartDate.toISOString(),
-    planStartWeight,
-    currentWeightKg: profileRow?.currentWeightKg ?? null,
-  });
 
   // ── rate-based projections ───────────────────────────────────────────────
 
@@ -155,39 +142,45 @@ export default async function ProgressPage() {
     pointMap.set(p.date, { date: p.date, label: fmtDateLabel(p.date), actual: p.actual });
   }
 
-  // Plan line + band — loop to conservative arrival so the band tapers
-  // naturally to zero rather than being pinched shut at the plan arrival date.
+  // Plan line + band — weekly anchors plus gap-fill for every point in the window
   if (canProject && planStartWeight !== null && arrival !== null) {
-    const dailyPlan = dailyLossKg(effectiveRate);
-    const dailyCons = RATE_KG_PER_WEEK.conservative / 7;
-    const dailyAggr = RATE_KG_PER_WEEK.aggressive   / 7;
+    const dailyPlan  = dailyLossKg(effectiveRate);
+    const dailyCons  = RATE_KG_PER_WEEK.conservative / 7;
+    const dailyAggr  = RATE_KG_PER_WEEK.aggressive   / 7;
+    const planStartMs = planStartDate.getTime();
 
-    // Conservative rate is slowest — extend loop to when it hits target
+    // Conservative rate is slowest — extend window to when it hits target
     const conservativeDays = Math.ceil((planStartWeight! - targetWeightKg!) / dailyCons);
+    const consArrMs        = planStartMs + conservativeDays * 86_400_000;
 
+    // Weekly plan line + band anchor points
     for (let d = 0; d <= conservativeDays; d += 7) {
-      const pt      = new Date(planStartDate.getTime() + d * 86_400_000);
+      const pt      = new Date(planStartMs + d * 86_400_000);
       const dateStr = pt.toISOString().split("T")[0];
-
-      // Math.max clamps each line at target once it arrives; no manual override needed
-      const planW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyPlan * d) * 10) / 10);
-      const consW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyCons * d) * 10) / 10);
-      const aggrW = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyAggr * d) * 10) / 10);
-
+      const planW   = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyPlan * d) * 10) / 10);
+      const bandLo  = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyAggr * d) * 10) / 10);
+      const bandHi  = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyCons * d) * 10) / 10);
       const existing = pointMap.get(dateStr) ?? { date: dateStr, label: fmtDateLabel(dateStr) };
-      pointMap.set(dateStr, {
-        ...existing,
-        plan:       planW,
-        bandBottom: aggrW,
-        bandSize:   Math.max(0, Math.round((consW - aggrW) * 10) / 10),
-      });
+      pointMap.set(dateStr, { ...existing, plan: planW, bandLower: bandLo, bandUpper: bandHi });
     }
 
-    // Ensure the conservative arrival date is included with the band fully closed
-    const consArrDate = new Date(planStartDate.getTime() + conservativeDays * 86_400_000);
-    const consArrStr  = consArrDate.toISOString().split("T")[0];
-    const consEx      = pointMap.get(consArrStr) ?? { date: consArrStr, label: fmtDateLabel(consArrStr) };
-    pointMap.set(consArrStr, { ...consEx, plan: targetWeightKg!, bandBottom: targetWeightKg!, bandSize: 0 });
+    // Close the band at the conservative arrival date
+    const consArrStr = new Date(consArrMs).toISOString().split("T")[0];
+    const consEx     = pointMap.get(consArrStr) ?? { date: consArrStr, label: fmtDateLabel(consArrStr) };
+    pointMap.set(consArrStr, { ...consEx, plan: targetWeightKg!, bandLower: targetWeightKg!, bandUpper: targetWeightKg! });
+
+    // Back-fill band values on every other point inside the plan window
+    // (e.g. actual weigh-in dots between weekly anchors) so the stacked
+    // Area has no undefined gaps.
+    for (const [dateStr, point] of pointMap) {
+      if (point.bandLower !== undefined) continue;
+      const ptMs = new Date(dateStr + "T12:00:00Z").getTime();
+      if (ptMs < planStartMs || ptMs > consArrMs) continue;
+      const d      = (ptMs - planStartMs) / 86_400_000;
+      const bandLo = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyAggr * d) * 10) / 10);
+      const bandHi = Math.max(targetWeightKg!, Math.round((planStartWeight! - dailyCons * d) * 10) / 10);
+      pointMap.set(dateStr, { ...point, bandLower: bandLo, bandUpper: bandHi });
+    }
   }
 
   const sortedPoints = Array.from(pointMap.values())

@@ -21,13 +21,13 @@ import {
 
 export interface ProgressData {
   weightPoints: {
-    date:        string;
-    label:       string;
-    dayIndex:    number;
-    actual?:     number;
-    plan?:       number;
-    bandBottom?: number;
-    bandSize?:   number;
+    date:       string;
+    label:      string;
+    dayIndex:   number;
+    actual?:    number;
+    plan?:      number;
+    bandLower?: number;  // aggressive rate weight (bottom of band)
+    bandUpper?: number;  // conservative rate weight (top of band)
   }[];
   chartStartDate:  string | null;
   targetWeightKg:  number | null;
@@ -76,6 +76,47 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+// ─── weight tooltip ───────────────────────────────────────────────────────────
+
+function WeightTooltip({
+  active,
+  payload,
+  wl,
+}: {
+  active?:  boolean;
+  payload?: { payload: { label?: string; actual?: number; plan?: number } }[];
+  wl:       string;
+}) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  const diff =
+    d.actual !== undefined && d.plan !== undefined
+      ? Math.round((d.actual - d.plan) * 10) / 10
+      : null;
+  return (
+    <div style={tooltipStyle} className="px-3 py-2.5 space-y-1 min-w-[150px]">
+      <p className="text-zinc-400 text-xs">{d.label}</p>
+      {d.actual !== undefined && (
+        <p className="text-white text-xs">
+          Weigh-in: <span className="font-semibold">{d.actual} {wl}</span>
+        </p>
+      )}
+      {d.plan !== undefined && (
+        <p className="text-zinc-500 text-xs">Plan: {d.plan} {wl}</p>
+      )}
+      {diff !== null && (
+        <p className={`text-xs font-medium ${diff === 0 ? "text-lime-400" : diff > 0 ? "text-red-400" : "text-lime-400"}`}>
+          {diff === 0
+            ? "On track"
+            : diff > 0
+            ? `${diff} ${wl} above plan`
+            : `${Math.abs(diff)} ${wl} below plan`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── weight chart ─────────────────────────────────────────────────────────────
 
 function WeightChart({
@@ -94,20 +135,28 @@ function WeightChart({
   // Convert all weight values to display units
   const convertedPoints = points.map((p) => ({
     ...p,
-    actual:     p.actual     !== undefined ? kgToDisplay(p.actual,     unitSystem) : undefined,
-    plan:       p.plan       !== undefined ? kgToDisplay(p.plan,       unitSystem) : undefined,
-    // bandBottom is an absolute weight — convert normally
-    bandBottom: p.bandBottom !== undefined ? kgToDisplay(p.bandBottom, unitSystem) : undefined,
-    // bandSize is a difference — same multiplier applies
-    bandSize:   p.bandSize   !== undefined ? kgToDisplay(p.bandSize,   unitSystem) : undefined,
+    actual:    p.actual    !== undefined ? kgToDisplay(p.actual,    unitSystem) : undefined,
+    plan:      p.plan      !== undefined ? kgToDisplay(p.plan,      unitSystem) : undefined,
+    bandLower: p.bandLower !== undefined ? kgToDisplay(p.bandLower, unitSystem) : undefined,
+    bandUpper: p.bandUpper !== undefined ? kgToDisplay(p.bandUpper, unitSystem) : undefined,
+  }));
+
+  // Derive bandBottom (transparent base) + bandSize (filled range) for Recharts stacking
+  const displayPoints = convertedPoints.map((p) => ({
+    ...p,
+    bandBottom: p.bandLower,
+    bandSize:
+      p.bandLower !== undefined && p.bandUpper !== undefined
+        ? Math.max(0, Math.round((p.bandUpper - p.bandLower) * 10) / 10)
+        : undefined,
   }));
 
   const targetDisplay = targetWeightKg !== null ? kgToDisplay(targetWeightKg, unitSystem) : null;
 
-  const actuals    = convertedPoints.filter((p) => p.actual     !== undefined).map((p) => p.actual!);
-  const planVals   = convertedPoints.filter((p) => p.plan       !== undefined).map((p) => p.plan!);
-  const bandBottoms = convertedPoints.filter((p) => p.bandBottom !== undefined).map((p) => p.bandBottom!);
-  const bandTops   = convertedPoints
+  const actuals     = displayPoints.filter((p) => p.actual     !== undefined).map((p) => p.actual!);
+  const planVals    = displayPoints.filter((p) => p.plan       !== undefined).map((p) => p.plan!);
+  const bandBottoms = displayPoints.filter((p) => p.bandBottom !== undefined).map((p) => p.bandBottom!);
+  const bandTops    = displayPoints
     .filter((p) => p.bandBottom !== undefined && p.bandSize !== undefined)
     .map((p) => p.bandBottom! + p.bandSize!);
 
@@ -121,7 +170,6 @@ function WeightChart({
 
   const yMin = allValues.length > 0 ? Math.floor(Math.min(...allValues) - 1) : 0;
   const yMax = allValues.length > 0 ? Math.ceil(Math.max(...allValues)  + 1) : 100;
-  console.log("[WeightChart] yMin:", yMin, "yMax:", yMax, "allValues count:", allValues.length);
 
   // Numeric x-axis: pick 5 tick values evenly spaced across the day range
   const firstDay = convertedPoints[0]?.dayIndex ?? 0;
@@ -138,7 +186,7 @@ function WeightChart({
   return (
     <>
     <ResponsiveContainer width="100%" height={220}>
-      <ComposedChart data={convertedPoints} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
+      <ComposedChart data={displayPoints} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
         <XAxis
           dataKey="dayIndex"
@@ -159,13 +207,13 @@ function WeightChart({
           tickFormatter={(v) => `${v}`}
         />
         <Tooltip
-          contentStyle={tooltipStyle}
-          formatter={(value, name) => {
-            if (name === "actual") return [`${value} ${wl}`, "Weight"];
-            if (name === "plan")   return [`${value} ${wl}`, "Plan"];
-            return [value, name];
-          }}
-          labelStyle={{ color: "#a1a1aa" }}
+          content={(props) => (
+            <WeightTooltip
+              active={props.active}
+              payload={props.payload as { payload: { label?: string; actual?: number; plan?: number } }[] | undefined}
+              wl={wl}
+            />
+          )}
         />
 
         {/* Band — stacked transparent base + filled range (back layer) */}
