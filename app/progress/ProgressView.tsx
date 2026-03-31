@@ -84,7 +84,7 @@ function WeightTooltip({
   wl,
 }: {
   active?:  boolean;
-  payload?: { payload: { label?: string; actual?: number; plan?: number } }[];
+  payload?: readonly { payload: { label?: string; actual?: number; plan?: number } }[];
   wl:       string;
 }) {
   if (!active || !payload?.length) return null;
@@ -210,7 +210,7 @@ function WeightChart({
           content={(props) => (
             <WeightTooltip
               active={props.active}
-              payload={props.payload as { payload: { label?: string; actual?: number; plan?: number } }[] | undefined}
+              payload={props.payload as readonly { payload: { label?: string; actual?: number; plan?: number } }[] | undefined}
               wl={wl}
             />
           )}
