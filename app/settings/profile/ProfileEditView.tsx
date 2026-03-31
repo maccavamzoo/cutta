@@ -329,7 +329,7 @@ export default function ProfileEditView({
         }
         setSaved(true);
         if (pendingNavigation) {
-          router.push(pendingNavigation);
+          window.location.href = pendingNavigation;
         } else {
           router.refresh();
         }
