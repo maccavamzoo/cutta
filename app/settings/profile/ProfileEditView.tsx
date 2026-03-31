@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { kgToDisplay, displayToKg, weightLabel, weightInputRange, type UnitSystem } from "@/lib/units";
 
@@ -202,17 +202,40 @@ export default function ProfileEditView({
   const [saved,  setSaved]  = useState(false);
 
   // ── unsaved changes guard ────────────────────────────────────────────────
-  const isFirstRender = useRef(true);
-  const [isDirty,        setIsDirty]        = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
-  useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
-    setIsDirty(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const isDirty = useMemo(() => {
+    const initCurrentWeight  = initial.currentWeightKg != null ? String(kgToDisplay(initial.currentWeightKg, unitSystem)) : "";
+    const initTargetWeight   = initial.targetWeightKg  != null ? String(kgToDisplay(initial.targetWeightKg,  unitSystem)) : "";
+    const initHeight         = initial.heightCm != null ? String(initial.heightCm) : "";
+    const initAge            = initial.age      != null ? String(initial.age)      : "";
+    const initSex            = initial.sex      ?? "";
+    const initWeightLossRate = initial.weightLossRate ?? "moderate";
+    const initFasted         = initial.fastedTraining === true ? "yes" : initial.fastedTraining === false ? "no" : "sometimes";
+    const initGutSensitivity = initial.gutSensitivity ?? "";
+    const initFoodExclusions = initial.foodExclusions ?? [];
+    const initSupplements    = initial.currentSupplements ?? [];
+    const initAppetite       = (initial.appetiteProfile ?? "").split(", ").filter((p) => EATING_STYLE_OPTS.includes(p));
+    const initOverrideCals   = initial.estimatedMaintenanceCalories != null ? String(initial.estimatedMaintenanceCalories) : "";
+
+    if (currentWeightStr !== initCurrentWeight)  return true;
+    if (targetWeightStr  !== initTargetWeight)   return true;
+    if (heightStr        !== initHeight)         return true;
+    if (ageStr           !== initAge)            return true;
+    if (sex              !== initSex)            return true;
+    if (weightLossRate   !== initWeightLossRate) return true;
+    if (fastedTraining   !== initFasted)         return true;
+    if (gutSensitivity   !== initGutSensitivity) return true;
+    if (trackStoolHealth !== initial.trackStoolHealth) return true;
+    if (JSON.stringify(foodExclusions)  !== JSON.stringify(initFoodExclusions)) return true;
+    if (JSON.stringify(supplements)     !== JSON.stringify(initSupplements))    return true;
+    if (JSON.stringify([...appetiteSelections].sort()) !== JSON.stringify([...initAppetite].sort())) return true;
+    if (overrideActive && overrideCalsStr !== initOverrideCals)  return true;
+    if (!overrideActive && initOverrideCals !== "" && overrideCalsStr !== initOverrideCals) return true;
+    return false;
   }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, weightLossRate,
       fastedTraining, gutSensitivity, trackStoolHealth, foodExclusions, supplements,
-      appetiteSelections, overrideActive, overrideCalsStr]);
+      appetiteSelections, overrideActive, overrideCalsStr, initial, unitSystem]);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -304,7 +327,6 @@ export default function ProfileEditView({
           throw new Error(d.error ?? "Failed to save.");
         }
         setSaved(true);
-        setIsDirty(false);
         router.refresh();
       }
     } catch (err) {
@@ -584,16 +606,31 @@ export default function ProfileEditView({
       </Section>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
-      {saved && <p className="text-lime-400 text-sm font-medium">Changes saved ✓</p>}
+      {saved && !isDirty && <p className="text-lime-400 text-sm font-medium">Changes saved ✓</p>}
 
-      <button
-        type="button" onClick={handleSave} disabled={saving}
-        className="w-full py-4 bg-lime-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
-      >
-        {saving
-          ? (mode === "onboarding" ? "Setting up…" : "Saving…")
-          : (mode === "onboarding" ? "Get started →" : "Save changes")}
-      </button>
+      {/* Inline save button — always shown in onboarding; shown in edit when not dirty */}
+      {(mode === "onboarding" || !isDirty) && (
+        <button
+          type="button" onClick={handleSave} disabled={saving || (mode === "edit" && !isDirty)}
+          className="w-full py-4 bg-lime-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
+        >
+          {saving
+            ? (mode === "onboarding" ? "Setting up…" : "Saving…")
+            : (mode === "onboarding" ? "Get started →" : "Save changes")}
+        </button>
+      )}
+
+      {/* Sticky save button — floats above BottomNav when there are unsaved changes */}
+      {mode === "edit" && isDirty && (
+        <div className="fixed bottom-[52px] left-0 right-0 z-40 bg-black border-t border-zinc-800 px-4 py-3">
+          <button
+            type="button" onClick={handleSave} disabled={saving}
+            className="w-full max-w-lg mx-auto block py-4 bg-lime-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 hover:bg-lime-300 transition-colors"
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      )}
     </div>
     </>
   );
