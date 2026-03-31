@@ -83,23 +83,33 @@ export default async function ProgressPage() {
   let planStartDate:   Date;
   let planStartWeight: number | null = null;
 
-  if (weightRows.length > 0) {
-    if (targetSetAt) {
-      // Find weight_log entry closest to when the goal was set
-      const closest = weightRows.reduce((best, r) =>
-        Math.abs(r.weighedAt.getTime() - targetSetAt.getTime()) <
-        Math.abs(best.weighedAt.getTime() - targetSetAt.getTime()) ? r : best
-      );
-      planStartDate   = targetSetAt;
-      planStartWeight = Number(closest.weightKg);
+  if (targetSetAt) {
+    planStartDate = targetSetAt;
+    // Use the most recent weight entry on or before the day the goal was set.
+    // weightRows is ordered ascending, so the last matching entry is the right one.
+    const goalDay = targetSetAt.toISOString().split("T")[0];
+    const onOrBefore = weightRows.filter(
+      (r) => r.weighedAt.toISOString().split("T")[0] <= goalDay
+    );
+    if (onOrBefore.length > 0) {
+      planStartWeight = Number(onOrBefore[onOrBefore.length - 1].weightKg);
     } else {
-      // Fallback: start from earliest weight entry
-      planStartDate   = weightRows[0].weighedAt;
-      planStartWeight = Number(weightRows[0].weightKg);
+      // No entry exists on or before the goal date — use the profile's
+      // currentWeightKg as it was the weight stored when the goal was set.
+      // Fallback to earliest available entry if profile weight is missing.
+      planStartWeight = profileRow?.currentWeightKg
+        ? Number(profileRow.currentWeightKg)
+        : weightRows.length > 0 ? Number(weightRows[0].weightKg) : null;
     }
   } else {
-    planStartDate   = targetSetAt ?? new Date();
-    planStartWeight = profileRow?.currentWeightKg ? Number(profileRow.currentWeightKg) : null;
+    // No goal set date — anchor from the earliest weight entry.
+    if (weightRows.length > 0) {
+      planStartDate   = weightRows[0].weighedAt;
+      planStartWeight = Number(weightRows[0].weightKg);
+    } else {
+      planStartDate   = new Date();
+      planStartWeight = profileRow?.currentWeightKg ? Number(profileRow.currentWeightKg) : null;
+    }
   }
 
   // ── rate-based projections ───────────────────────────────────────────────
@@ -183,18 +193,6 @@ export default async function ProgressPage() {
       (new Date(p.date + "T12:00:00Z").getTime() - chartStartMs) / 86_400_000
     ),
   }));
-
-  // ── diagnostic log (remove once confirmed working) ──────────────────────
-  console.log("[progress] canProject:", canProject, {
-    weightLossRate,
-    targetWeightKg,
-    planStartWeight,
-    planStartDate: planStartDate.toISOString(),
-    arrival: arrival?.toISOString() ?? null,
-    chartPointsTotal: weightChartPoints.length,
-    first3: weightChartPoints.slice(0, 3),
-    last3:  weightChartPoints.slice(-3),
-  });
 
   // ── body fat trend ───────────────────────────────────────────────────────
 
