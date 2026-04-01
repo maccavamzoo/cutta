@@ -54,9 +54,9 @@ export default function ProtocolPageShell({
 
   function handleBackClick() {
     if (hasPendingUpdate) {
-      setPendingNavigation("/");
+      setPendingNavigation("/settings");
     } else {
-      router.push("/");
+      router.push("/settings");
     }
   }
 
