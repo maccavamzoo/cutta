@@ -78,21 +78,32 @@ export default function ProtocolPageShell({
         </button>
 
         {/* Tab bar */}
-        <div className="flex border-b border-zinc-800">
-          {(["protocol", "advisor"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`px-4 pb-3 text-sm font-semibold capitalize transition-colors ${
-                tab === t
-                  ? "text-lime-400 border-b-2 border-lime-400 -mb-px"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {t === "protocol" ? "Protocol" : "Tweak with AI"}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 border-b border-zinc-800 pb-3">
+          {/* Protocol — plain underline tab */}
+          <button
+            type="button"
+            onClick={() => setTab("protocol")}
+            className={`text-sm font-semibold transition-colors pb-0 ${
+              tab === "protocol"
+                ? "text-lime-400 border-b-2 border-lime-400 -mb-3 pb-3"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Protocol
+          </button>
+
+          {/* Tweak with AI — pill style */}
+          <button
+            type="button"
+            onClick={() => setTab("advisor")}
+            className={`transition-colors rounded-full px-4 py-1.5 text-sm font-medium border ${
+              tab === "advisor"
+                ? "bg-sky-500/25 text-sky-400 border-sky-400/50"
+                : "bg-sky-500/15 text-sky-400 border-sky-400/30 hover:bg-sky-500/25"
+            }`}
+          >
+            ✨ Tweak with AI
+          </button>
         </div>
 
         {/* ── Protocol tab ─────────────────────────────────────────── */}
