@@ -40,7 +40,6 @@ export default function ProtocolChat({
   // Naming card state (shown instead of Apply/Reject buttons)
   const [showNamingCard, setShowNamingCard] = useState(false);
   const [proposedName, setProposedName]     = useState("");
-  const [saveAsTemplate, setSaveAsTemplate] = useState(true);
   const [saving, setSaving]                 = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -110,7 +109,6 @@ export default function ProtocolChat({
         setPendingUpdate(data.proposedUpdate);
         setShowNamingCard(false);
         setProposedName(`${activeProtocolName} (modified)`);
-        setSaveAsTemplate(true);
       }
 
       if (data.validationError) {
@@ -135,7 +133,6 @@ export default function ProtocolChat({
   // Show the naming card instead of immediately saving
   function handleApplyClick() {
     setProposedName(`${activeProtocolName} (modified)`);
-    setSaveAsTemplate(true);
     setShowNamingCard(true);
   }
 
@@ -146,7 +143,7 @@ export default function ProtocolChat({
     const payload = {
       ...pendingUpdate,
       protocol_name: proposedName.trim(),
-      saveAsTemplate,
+      saveAsTemplate: true,
     };
 
     try {
@@ -163,7 +160,7 @@ export default function ProtocolChat({
           ...prev,
           {
             role: "assistant",
-            content: `Protocol saved as "${proposedName.trim()}".${saveAsTemplate ? " Added to your templates." : ""} Your plan will use the new rules next time it generates.`,
+            content: `Protocol saved as "${proposedName.trim()}". Your plan will use the new rules next time it generates.`,
           },
         ]);
         router.refresh();
@@ -271,23 +268,6 @@ export default function ProtocolChat({
               placeholder="Protocol name…"
               className="w-full bg-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-zinc-500"
             />
-
-            {/* Save as template toggle */}
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <div
-                onClick={() => setSaveAsTemplate((v: boolean) => !v)}
-                className={`w-9 h-5 rounded-full relative transition-colors ${
-                  saveAsTemplate ? "bg-lime-400" : "bg-zinc-600"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${
-                    saveAsTemplate ? "translate-x-4" : "translate-x-0.5"
-                  }`}
-                />
-              </div>
-              <span className="text-zinc-300 text-sm">Save to my templates</span>
-            </label>
 
             <div className="flex gap-2">
               <button
