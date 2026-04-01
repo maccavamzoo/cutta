@@ -594,7 +594,7 @@ export default function UploadFlow() {
 
       {/* ── Manual tab ── */}
       {tab === "manual" && (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-24">
           {/* Date */}
           <div>
             <label className="block text-zinc-400 text-sm mb-1.5">Activity date</label>
