@@ -53,7 +53,7 @@ export default function ProtocolPageShell({
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            {t === "protocol" ? "Protocol" : "Advisor"}
+            {t === "protocol" ? "Protocol" : "Tweak with AI"}
           </button>
         ))}
       </div>
