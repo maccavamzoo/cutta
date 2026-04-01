@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import UploadFlow from "./UploadFlow";
+import BottomNav from "@/components/BottomNav";
 
 export default async function TrainingUploadPage() {
   const { userId } = await auth();
@@ -22,11 +23,11 @@ export default async function TrainingUploadPage() {
       </div>
 
       <p className="text-zinc-500 text-sm mb-6">
-        Upload a screenshot from Strava or Rouvy. The AI will extract your
-        training data — check the values and confirm.
+        Upload a screenshot from any cycling app, or enter your training data manually.
       </p>
 
       <UploadFlow />
+      <BottomNav active="more" />
     </main>
   );
 }
