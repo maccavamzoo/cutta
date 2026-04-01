@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
-import Link from "next/link";
 import { db } from "@/lib/db";
 import { protocols } from "@/lib/db/schema";
 import { ProtocolFile } from "@/lib/protocol";
@@ -36,14 +35,6 @@ export default async function ProtocolSettingsPage() {
 
   return (
     <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 max-w-lg mx-auto space-y-6">
-      {/* Back */}
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1 text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
-      >
-        ← Back
-      </Link>
-
       {/* Header */}
       <div className="space-y-1">
         <div className="flex items-center gap-3">
@@ -59,14 +50,13 @@ export default async function ProtocolSettingsPage() {
         </p>
       </div>
 
-      {/* Tab shell — client wrapper with Protocol + Advisor tabs */}
+      {/* Tab shell — back link, tabs, BottomNav, and modal all live inside the client shell */}
       <ProtocolPageShell
         activeProtocolName={content?.protocol_name ?? null}
         hasActiveProtocol={!!active}
         activeIsTemplate={active?.isTemplate ?? false}
         savedTemplates={savedTemplates}
       >
-        {/* ProtocolReadable is a server component passed as a child slot */}
         {active && content && (
           <ProtocolReadable
             protocol={content}

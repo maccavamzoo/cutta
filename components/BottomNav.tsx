@@ -7,14 +7,13 @@ const NAV_ITEMS = [
   { key: "today",    href: "/dashboard", label: "Today",    icon: "◉" },
   { key: "plan",     href: "/plan",      label: "Plan",     icon: "≡" },
   { key: "progress", href: "/progress",  label: "Progress", icon: "↗" },
+  { key: "settings", href: "/settings",  label: "Settings", icon: "⚙" },
 ] as const;
 
 const MORE_ITEMS = [
-  { label: "Shopping list", href: "/shopping",         icon: "☑" },
-  { label: "Log training",  href: "/training/upload",  icon: "⊕" },
-  { label: "Record note",   href: "/audio",            icon: "◎" },
-  { label: "Edit profile",  href: "/settings/profile", icon: "◑" },
-  { label: "Settings",      href: "/settings",         icon: "⚙" },
+  { label: "Shopping list", href: "/shopping",        icon: "☑" },
+  { label: "Log training",  href: "/training/upload", icon: "⊕" },
+  { label: "Record note",   href: "/audio",           icon: "◎" },
 ];
 
 type NavKey = (typeof NAV_ITEMS)[number]["key"] | "more" | "calendar";

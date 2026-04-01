@@ -632,7 +632,7 @@ export default function ProfileEditView({
       </button>
     </div>
 
-    {mode === "edit" && <BottomNav active="more" onNavigate={handleNavigation} />}
+    {mode === "edit" && <BottomNav active="settings" onNavigate={handleNavigation} />}
     </>
   );
 }

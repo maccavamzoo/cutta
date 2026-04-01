@@ -14,12 +14,15 @@ interface Props {
   activeProtocolName: string;
   /** When false, render the chat body directly without a collapse wrapper (used in Advisor tab) */
   collapsible?: boolean;
+  /** Called whenever the pending-update state changes — shell uses this to guard navigation */
+  onPendingChange?: (hasPending: boolean) => void;
 }
 
 export default function ProtocolChat({
   hasProtocol,
   activeProtocolName,
   collapsible = true,
+  onPendingChange,
 }: Props) {
   const router = useRouter();
 
@@ -47,6 +50,11 @@ export default function ProtocolChat({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, pendingUpdate, showNamingCard]);
+
+  // Notify parent when pending-update state changes
+  useEffect(() => {
+    onPendingChange?.(pendingUpdate !== null);
+  }, [pendingUpdate, onPendingChange]);
 
   // Focus input when panel opens (collapsible mode)
   useEffect(() => {
