@@ -7,6 +7,7 @@ import { protocols } from "@/lib/db/schema";
 import { ProtocolFile } from "@/lib/protocol";
 import ProtocolPageShell from "./ProtocolPageShell";
 import ProtocolReadable from "./ProtocolReadable";
+import ProtocolChat from "./ProtocolChat";
 
 export default async function ProtocolSettingsPage() {
   const { userId } = await auth();
@@ -63,6 +64,9 @@ export default async function ProtocolSettingsPage() {
           />
         </section>
       )}
+
+      {/* Protocol Q&A chat */}
+      {active && <ProtocolChat hasProtocol={true} />}
     </main>
   );
 }
