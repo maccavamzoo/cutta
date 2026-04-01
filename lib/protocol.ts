@@ -11,6 +11,7 @@ export type ProtocolDayMacros = {
 
 export type ProtocolFile = {
   protocol_name: string;
+  description?: string;
   target_weight_kg?: number;
   max_weekly_loss_kg?: number;
   rest_day?: ProtocolDayMacros;
