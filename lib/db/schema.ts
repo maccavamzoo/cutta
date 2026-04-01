@@ -89,6 +89,7 @@ export const protocols = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     content: jsonb("content").notNull(), // validated against ProtocolFile shape
     isActive: boolean("is_active").default(false).notNull(),
+    isTemplate: boolean("is_template").default(false).notNull(),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
