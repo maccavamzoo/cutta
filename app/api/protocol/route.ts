@@ -28,14 +28,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: unknown;
+  let rawBody: Record<string, unknown>;
   try {
-    body = await req.json();
+    rawBody = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const result = validateProtocol(body);
+  // Extract saveAsTemplate flag before validation so it doesn't end up in protocol content
+  const saveAsTemplate = rawBody.saveAsTemplate === true;
+  const { saveAsTemplate: _ignored, ...protocolData } = rawBody;
+
+  const result = validateProtocol(protocolData);
   if (!result.valid) {
     return NextResponse.json({ error: result.error }, { status: 422 });
   }
@@ -54,8 +58,34 @@ export async function POST(req: NextRequest) {
       name: result.data.protocol_name,
       content: result.data,
       isActive: true,
+      isTemplate: saveAsTemplate,
     })
     .returning();
 
   return NextResponse.json({ protocol: created }, { status: 201 });
+}
+
+// PATCH — set is_template = true on the active protocol ("save to my templates")
+export async function PATCH() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const [active] = await db
+    .select()
+    .from(protocols)
+    .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
+    .limit(1);
+
+  if (!active) {
+    return NextResponse.json({ error: "No active protocol." }, { status: 400 });
+  }
+
+  await db
+    .update(protocols)
+    .set({ isTemplate: true, updatedAt: new Date() })
+    .where(eq(protocols.id, active.id));
+
+  return NextResponse.json({ ok: true });
 }

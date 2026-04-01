@@ -1,3 +1,7 @@
+"use client";
+
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { ProtocolFile } from "@/lib/protocol";
 
@@ -57,27 +61,46 @@ const KNOWN_TOP_LEVEL = [
   "rest_day", "training_day", "pre_ride", "on_bike", "post_ride", "race_week",
 ] as const;
 
-const KNOWN_DAY_MACROS  = ["calories", "carbs", "protein", "fat"] as const;
-const KNOWN_PRE_RIDE    = ["timing_hours_before", "focus"] as const;
-const KNOWN_ON_BIKE     = ["under_90min", "over_90min", "over_3hrs"] as const;
-const KNOWN_POST_RIDE   = ["timing_minutes_after", "focus"] as const;
-const KNOWN_RACE_WEEK   = ["strategy"] as const;
+const KNOWN_DAY_MACROS = ["calories", "carbs", "protein", "fat"] as const;
+const KNOWN_PRE_RIDE   = ["timing_hours_before", "focus"] as const;
+const KNOWN_ON_BIKE    = ["under_90min", "over_90min", "over_3hrs"] as const;
+const KNOWN_POST_RIDE  = ["timing_minutes_after", "focus"] as const;
+const KNOWN_RACE_WEEK  = ["strategy"] as const;
 
 // ─── component ──────────────────────────────────────────────────────────────
 
 export default function ProtocolReadable({
   protocol,
   activatedAt,
+  isTemplate,
 }: {
   protocol: ProtocolFile;
   activatedAt: Date;
+  isTemplate: boolean;
 }) {
+  const router = useRouter();
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [savedTemplate,  setSavedTemplate]  = useState(false);
+
   const { rest_day, training_day, pre_ride, on_bike, post_ride, race_week } = protocol;
 
   const topLevelExtras = extraEntries(
     protocol as Record<string, unknown>,
     KNOWN_TOP_LEVEL
   );
+
+  async function handleSaveAsTemplate() {
+    setSavingTemplate(true);
+    try {
+      const res = await fetch("/api/protocol", { method: "PATCH" });
+      if (res.ok) {
+        setSavedTemplate(true);
+        router.refresh();
+      }
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -183,6 +206,34 @@ export default function ProtocolReadable({
             <Row key={k} label={labelFor(k)} value={formatValue(v)} />
           ))}
         </Section>
+      )}
+
+      {/* Save to my templates — only if not already a template */}
+      {!isTemplate && !savedTemplate && (
+        <button
+          type="button"
+          onClick={handleSaveAsTemplate}
+          disabled={savingTemplate}
+          className="flex items-center gap-2 text-zinc-500 text-xs hover:text-zinc-300 transition-colors disabled:opacity-50"
+        >
+          <svg
+            className="w-3.5 h-3.5 shrink-0"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 2h8l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
+            <path d="M5 2v4h6V2M5 11h6" />
+          </svg>
+          {savingTemplate ? "Saving…" : "Save to my templates"}
+        </button>
+      )}
+
+      {savedTemplate && (
+        <p className="text-lime-400 text-xs">Saved to your templates.</p>
       )}
     </div>
   );
