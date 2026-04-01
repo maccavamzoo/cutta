@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
 
   // Extract saveAsTemplate flag before validation so it doesn't end up in protocol content
   const saveAsTemplate = rawBody.saveAsTemplate === true;
-  const { saveAsTemplate: _ignored, ...protocolData } = rawBody;
+  const protocolData: Record<string, unknown> = { ...rawBody };
+  delete protocolData.saveAsTemplate;
 
   const result = validateProtocol(protocolData);
   if (!result.valid) {

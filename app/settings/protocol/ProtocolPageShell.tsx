@@ -27,7 +27,6 @@ interface Props {
 export default function ProtocolPageShell({
   activeProtocolName,
   hasActiveProtocol,
-  activeIsTemplate,
   savedTemplates,
   children,
 }: Props) {
