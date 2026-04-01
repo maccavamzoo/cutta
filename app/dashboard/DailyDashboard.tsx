@@ -87,9 +87,9 @@ function fmtDuration(mins: number): string {
 // ─── glycogen battery ─────────────────────────────────────────────────────────
 
 function BatterySVG({ value, color }: { value: number; color: string }) {
-  const bodyW = 220, bodyH = 46;
-  const capW = 10, capH = 20;
-  const pad = 5;
+  const bodyW = 220, bodyH = 28;
+  const capW = 10, capH = 14;
+  const pad = 4;
   const fillW = Math.max(0, (value / 100) * (bodyW - pad * 2));
 
   return (
@@ -114,7 +114,7 @@ function BatterySVG({ value, color }: { value: number; color: string }) {
         <rect
           x={pad} y={pad}
           width={fillW} height={bodyH - pad * 2}
-          rx={4} fill={color} opacity={0.85}
+          rx={3} fill={color} opacity={0.85}
         />
       )}
     </svg>
