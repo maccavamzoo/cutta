@@ -126,7 +126,7 @@ function GlyBattery({
   todayStr,
   onCalibrate,
 }: {
-  value: number;
+  value: number | null;
   todayStr: string;
   onCalibrate?: (val: number) => void;
 }) {
@@ -134,17 +134,21 @@ function GlyBattery({
   const [showCalibrate, setShowCalibrate] = useState(false);
   const [calibrating,   setCalibrating]   = useState(false);
 
-  const scheme =
-    value >= 70
-      ? { hex: "#a3e635", text: "text-lime-400",  card: "border-lime-400/20 bg-lime-400/5"   }
-      : value >= 40
-      ? { hex: "#f59e0b", text: "text-amber-400", card: "border-amber-400/20 bg-amber-400/5" }
-      : { hex: "#ef4444", text: "text-red-400",   card: "border-red-500/20 bg-red-500/5"     };
+  const isEmpty = value === null;
 
-  const message =
-    value >= 70 ? "Ready for a hard session" :
-    value >= 40 ? "Enough for moderate effort" :
-                  "Low — refuel before training";
+  const scheme = isEmpty
+    ? { hex: "#52525b", text: "text-zinc-600",  card: "border-zinc-800 bg-zinc-900/50"       }
+    : value >= 70
+    ? { hex: "#a3e635", text: "text-lime-400",  card: "border-lime-400/20 bg-lime-400/5"   }
+    : value >= 40
+    ? { hex: "#f59e0b", text: "text-amber-400", card: "border-amber-400/20 bg-amber-400/5" }
+    : { hex: "#ef4444", text: "text-red-400",   card: "border-red-500/20 bg-red-500/5"     };
+
+  const message = isEmpty
+    ? "Generate a plan to see your glycogen estimate"
+    : value >= 70 ? "Ready for a hard session"
+    : value >= 40 ? "Enough for moderate effort"
+    :               "Low — refuel before training";
 
   async function calibrate(target: number) {
     if (calibrating) return;
@@ -186,7 +190,7 @@ function GlyBattery({
           </button>
         </div>
         <span className={`text-3xl font-bold tabular-nums leading-none ${scheme.text}`}>
-          {value}%
+          {isEmpty ? "—" : `${value}%`}
         </span>
       </div>
 
@@ -203,18 +207,20 @@ function GlyBattery({
       )}
 
       {/* Battery icon */}
-      <BatterySVG value={value} color={scheme.hex} />
+      <BatterySVG value={isEmpty ? 0 : value} color={scheme.hex} />
 
       {/* Contextual message + calibrate link */}
       <div className="flex items-center justify-between">
         <p className={`text-sm font-semibold ${scheme.text}`}>{message}</p>
-        <button
-          type="button"
-          onClick={() => { setShowCalibrate((x) => !x); setShowInfo(false); }}
-          className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors font-medium"
-        >
-          Calibrate →
-        </button>
+        {!isEmpty && (
+          <button
+            type="button"
+            onClick={() => { setShowCalibrate((x) => !x); setShowInfo(false); }}
+            className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors font-medium"
+          >
+            Calibrate →
+          </button>
+        )}
       </div>
 
       {/* Calibrate popup */}
@@ -572,7 +578,7 @@ export default function DailyDashboard({
   const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
   const [displayWeight,  setDisplayWeight]  = useState<number | null>(todayWeighIn?.weightKg ?? null);
   const [displayBf,      setDisplayBf]      = useState<number | null>(todayWeighIn?.bodyFatPct ?? null);
-  const [glycogenValue,  setGlycogenValue]  = useState<number>(todayPlan?.glycogenBattery ?? 50);
+  const [glycogenValue,  setGlycogenValue]  = useState<number | null>(todayPlan?.glycogenBattery ?? null);
   const [events,         setEvents]         = useState<TodayEvent[]>(todayEvents);
   const [editingEvent,   setEditingEvent]   = useState<EditableEvent | null>(null);
 
@@ -668,14 +674,15 @@ export default function DailyDashboard({
           {/* Check-in card */}
           <CheckInCard existing={savedCheckIn} onOpen={() => setCheckInOpen(true)} />
 
+          {/* Glycogen battery — always visible; empty state when no plan */}
+          <GlyBattery
+            value={glycogenValue}
+            todayStr={todayStr}
+            onCalibrate={setGlycogenValue}
+          />
+
           {todayPlan ? (
             <>
-              {/* Glycogen battery */}
-              <GlyBattery
-                value={glycogenValue}
-                todayStr={todayStr}
-                onCalibrate={setGlycogenValue}
-              />
 
               {/* AI reasoning */}
               {todayPlan.aiReasoning && (
