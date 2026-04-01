@@ -23,11 +23,8 @@ interface EditableFields {
 interface ManualFields {
   date: string;
   durationMinutes: string;
-  distanceKm: string;
   avgPowerWatts: string;
   avgHeartRate: string;
-  elevationM: string;
-  estimatedCalories: string;
   notes: string;
 }
 
@@ -150,11 +147,8 @@ export default function UploadFlow() {
   const [manualFields, setManualFields] = useState<ManualFields>({
     date: today(),
     durationMinutes: "",
-    distanceKm: "",
     avgPowerWatts: "",
     avgHeartRate: "",
-    elevationM: "",
-    estimatedCalories: "",
     notes: "",
   });
   const [manualSaving, setManualSaving] = useState(false);
@@ -333,12 +327,9 @@ export default function UploadFlow() {
       source: "manual",
       activityDate: manualFields.date,
       calendarEventId: null,
-      durationMinutes:   manualFields.durationMinutes   !== "" ? parseInt(manualFields.durationMinutes, 10)    : null,
-      distanceKm:        manualFields.distanceKm         !== "" ? parseFloat(manualFields.distanceKm)          : null,
-      avgPowerWatts:     manualFields.avgPowerWatts       !== "" ? parseInt(manualFields.avgPowerWatts, 10)     : null,
-      avgHeartRate:      manualFields.avgHeartRate        !== "" ? parseInt(manualFields.avgHeartRate, 10)      : null,
-      elevationM:        manualFields.elevationM          !== "" ? parseInt(manualFields.elevationM, 10)        : null,
-      estimatedCalories: manualFields.estimatedCalories  !== "" ? parseInt(manualFields.estimatedCalories, 10) : null,
+      durationMinutes: manualFields.durationMinutes !== "" ? parseInt(manualFields.durationMinutes, 10) : null,
+      avgPowerWatts:   manualFields.avgPowerWatts   !== "" ? parseInt(manualFields.avgPowerWatts, 10)   : null,
+      avgHeartRate:    manualFields.avgHeartRate     !== "" ? parseInt(manualFields.avgHeartRate, 10)    : null,
       notes: manualFields.notes || null,
       extractionConfidence: null,
       extractedData: null,
@@ -618,19 +609,6 @@ export default function UploadFlow() {
             />
           </div>
 
-          {/* Distance */}
-          <div>
-            <label className="block text-zinc-400 text-sm mb-1.5">Distance (km)</label>
-            <input
-              type="number"
-              step="0.1"
-              value={manualFields.distanceKm}
-              onChange={(e) => handleManualFieldChange("distanceKm", e.target.value)}
-              placeholder="e.g. 45.2"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-lime-400"
-            />
-          </div>
-
           {/* Avg power */}
           <div>
             <label className="block text-zinc-400 text-sm mb-1.5">Avg power (watts) <span className="text-zinc-600">optional</span></label>
@@ -651,30 +629,6 @@ export default function UploadFlow() {
               value={manualFields.avgHeartRate}
               onChange={(e) => handleManualFieldChange("avgHeartRate", e.target.value)}
               placeholder="e.g. 148"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-lime-400"
-            />
-          </div>
-
-          {/* Elevation */}
-          <div>
-            <label className="block text-zinc-400 text-sm mb-1.5">Elevation (metres) <span className="text-zinc-600">optional</span></label>
-            <input
-              type="number"
-              value={manualFields.elevationM}
-              onChange={(e) => handleManualFieldChange("elevationM", e.target.value)}
-              placeholder="e.g. 620"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-lime-400"
-            />
-          </div>
-
-          {/* Calories */}
-          <div>
-            <label className="block text-zinc-400 text-sm mb-1.5">Estimated calories <span className="text-zinc-600">optional</span></label>
-            <input
-              type="number"
-              value={manualFields.estimatedCalories}
-              onChange={(e) => handleManualFieldChange("estimatedCalories", e.target.value)}
-              placeholder="e.g. 1200"
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-lime-400"
             />
           </div>

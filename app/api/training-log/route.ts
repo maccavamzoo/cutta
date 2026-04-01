@@ -40,13 +40,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const validSources = ["strava", "rouvy"];
-  if (!validSources.includes(body.source)) {
-    return NextResponse.json(
-      { error: "source must be strava or rouvy." },
-      { status: 422 }
-    );
-  }
 
   const [created] = await db
     .insert(trainingLog)
