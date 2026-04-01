@@ -2,8 +2,6 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic();
-
 // Shape of the JSON Claude returns
 export interface ExtractionResult {
   fields: {
@@ -19,21 +17,21 @@ export interface ExtractionResult {
   notes: string;
 }
 
-// POST body: { imageBase64: string; mimeType: string; source: "strava" | "rouvy" }
+// POST body: { imageBase64: string; mimeType: string }
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { imageBase64: string; mimeType: string; source: string };
+  let body: { imageBase64: string; mimeType: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { imageBase64, mimeType, source } = body;
+  const { imageBase64, mimeType } = body;
 
   if (!imageBase64 || !mimeType) {
     return NextResponse.json(
@@ -50,12 +48,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const sourceLabel =
-    source === "strava" ? "Strava" : source === "rouvy" ? "Rouvy" : "a cycling app";
-
-  const prompt = `You are analysing a cycling workout screenshot from ${sourceLabel}.
-
-Extract the following training metrics from this screenshot. Look carefully at all numbers, labels, and stats visible.
+  const prompt = `Extract training data from this screenshot. It could be from any cycling app or platform — Strava, Rouvy, Garmin, Wahoo, Zwift, TrainerRoad, or any other source. Extract whatever data you can identify.
 
 Return ONLY valid JSON in exactly this format — no markdown, no explanation, just the JSON object:
 
@@ -69,20 +62,21 @@ Return ONLY valid JSON in exactly this format — no markdown, no explanation, j
     "estimated_calories": { "value": <integer or null>, "confidence": <0-100> }
   },
   "overall_confidence": <0-100>,
-  "source_detected": "<strava|rouvy|unknown>",
+  "source_detected": "<name of the app/platform detected, or 'unknown'>",
   "notes": "<brief note about what you can and cannot see>"
 }
 
 Field rules:
 - duration_minutes: total moving or elapsed time converted to integer minutes
 - distance_km: distance in km (convert miles to km if needed: miles × 1.609)
-- avg_power_watts: average power in watts (common on Rouvy; may not appear on Strava)
+- avg_power_watts: average power in watts
 - avg_heart_rate: average heart rate in bpm
 - elevation_m: total elevation gain in metres (convert feet if needed: feet × 0.305)
 - estimated_calories: calories burned (often labelled kcal or Cal)
 - Use null when a field is not visible or cannot be reliably read
 - confidence: 90-100 = clearly visible and readable, 70-89 = visible but partially obscured, 50-69 = inferred or uncertain, 0-49 = guessed or very unclear`;
 
+  const client = new Anthropic();
   let extraction: ExtractionResult;
 
   try {
