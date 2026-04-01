@@ -136,12 +136,11 @@ export default function TemplatePicker({
           </p>
           <div className="grid grid-cols-2 gap-3">
             {savedTemplates.map((t) => {
-              const isSelected  = selected === t.name;
-              const isDeleting  = deleting === t.id;
-              const isConfirming = confirmDeleteId === t.id;
+              const isSelected = selected === t.name;
+              const isDeleting = deleting === t.id;
 
               return (
-                <div key={t.id} className="relative overflow-hidden rounded-xl">
+                <div key={t.id} className="relative rounded-xl">
                   {/* Card */}
                   <button
                     type="button"
@@ -156,49 +155,22 @@ export default function TemplatePicker({
                   </button>
 
                   {/* × trigger */}
-                  {!isConfirming && (
-                    <button
-                      type="button"
-                      onClick={(e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        setConfirmDeleteId(t.id);
-                      }}
-                      disabled={isDeleting}
-                      aria-label={`Remove ${t.name} template`}
-                      className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full text-zinc-600 hover:text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-40"
-                    >
-                      {isDeleting ? (
-                        <span className="w-2.5 h-2.5 border border-zinc-500 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <span className="text-xs leading-none">×</span>
-                      )}
-                    </button>
-                  )}
-
-                  {/* Inline delete confirmation overlay */}
-                  {isConfirming && (
-                    <div className="absolute inset-0 rounded-xl bg-zinc-900 border border-zinc-700 px-3 py-2.5 flex flex-col justify-between">
-                      <p className="text-zinc-300 text-xs font-medium leading-snug">
-                        Delete this template?
-                      </p>
-                      <div className="flex gap-3 mt-2">
-                        <button
-                          type="button"
-                          onClick={() => confirmDelete(t.id)}
-                          className="flex-1 text-xs font-semibold text-red-400 hover:text-red-300 transition-colors"
-                        >
-                          Delete
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="flex-1 text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      setConfirmDeleteId(t.id);
+                    }}
+                    disabled={isDeleting}
+                    aria-label={`Remove ${t.name} template`}
+                    className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full text-zinc-600 hover:text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-40"
+                  >
+                    {isDeleting ? (
+                      <span className="w-2.5 h-2.5 border border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span className="text-xs leading-none">×</span>
+                    )}
+                  </button>
                 </div>
               );
             })}
@@ -207,6 +179,42 @@ export default function TemplatePicker({
       )}
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
+
+      {/* Delete confirmation modal */}
+      {confirmDeleteId !== null && (() => {
+        const target = savedTemplates.find((t) => t.id === confirmDeleteId);
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setConfirmDeleteId(null)} />
+            <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+              <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-6 max-w-sm w-full space-y-4">
+                <div>
+                  <p className="text-white font-semibold text-base">Delete template?</p>
+                  {target && (
+                    <p className="text-zinc-400 text-sm mt-1">{target.name}</p>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => confirmDelete(confirmDeleteId)}
+                    className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-400 transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 font-semibold text-sm hover:bg-zinc-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {isDifferentFromActive && (
         <button
