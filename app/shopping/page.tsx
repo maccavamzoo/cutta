@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { weeklyStrategies } from "@/lib/db/schema";
-import BottomNav from "@/components/BottomNav";
 import ShoppingView, { type WeeklyStrategy } from "./ShoppingView";
 import { STRATEGY_TEMPLATES } from "@/lib/weekly-strategy-templates";
 
@@ -38,16 +37,13 @@ export default async function ShoppingPage() {
   }));
 
   return (
-    <>
-      <main className="min-h-[calc(100dvh-52px)] bg-black pb-24">
-        <div className="max-w-lg mx-auto px-4 pt-6 pb-6">
-          <ShoppingView
-            initialStrategy={initialStrategy}
-            templateNames={templateNames}
-          />
-        </div>
-      </main>
-      <BottomNav active="more" />
-    </>
+    <main className="min-h-[calc(100dvh-52px)] bg-black pb-24">
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-6">
+        <ShoppingView
+          initialStrategy={initialStrategy}
+          templateNames={templateNames}
+        />
+      </div>
+    </main>
   );
 }
