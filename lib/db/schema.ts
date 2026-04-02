@@ -297,6 +297,9 @@ export const trainingLog = pgTable(
     corrections: jsonb("corrections"), // { field: { original, corrected } }
     confirmed: boolean("confirmed").default(false).notNull(),
 
+    // Post-ride subjective effort (bimble | easy | moderate | hard | very hard)
+    perceivedEffort: varchar("perceived_effort", { length: 20 }),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
