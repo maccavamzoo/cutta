@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
@@ -348,6 +348,16 @@ function DayCard({
               </>
             )}
 
+            {/* Subtle regenerate when plan is up-to-date */}
+            {hasPlan && !isStale && !isGenerating && (
+              <button
+                onClick={() => onGenerate()}
+                className="text-zinc-600 text-xs hover:text-zinc-400 transition-colors"
+              >
+                Regenerate
+              </button>
+            )}
+
             {/* Add activity */}
             <button
               onClick={() => setSheetOpen(true)}
@@ -435,15 +445,6 @@ export default function PlanView({
       router.refresh();
     }
   }
-
-  // ── Auto-generate today on mount ─────────────────────────────────────────
-
-  useEffect(() => {
-    if (!plans.has(todayStr) && hasActiveProtocol) {
-      handleGenerate(todayStr);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // ── Event handlers ───────────────────────────────────────────────────────
 
