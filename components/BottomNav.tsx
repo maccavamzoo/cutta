@@ -11,7 +11,7 @@ const NAV_ITEMS = [
 ] as const;
 
 const MORE_ITEMS = [
-  { label: "Shopping list", href: "/shopping",        icon: "☑" },
+  { label: "Shopping",      href: "/shopping",        icon: "☑" },
   { label: "Log training",  href: "/training/upload", icon: "⊕" },
   { label: "Record note",   href: "/audio",           icon: "◎" },
 ];
