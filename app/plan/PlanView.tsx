@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
+import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
 import AddEventSheet, { type CalendarEvent } from "./AddEventSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
@@ -482,14 +482,18 @@ export default function PlanView({
 
   const dates = Array.from({ length: 10 }, (_, i) => addDays(todayStr, i));
 
-  async function handleGenerate(fromDateStr: string) {
-    setGenerating(fromDateStr);
+  async function handleGenerate(_fromDateStr: string) {
+    setGenerating(todayStr);
     try {
-      await fetch("/api/fuelling-plan/generate", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ startDate: fromDateStr }),
-      });
+      // Generate all 3 plan-zone days sequentially (today, +1, +2)
+      const dates = [todayStr, addDays(todayStr, 1), addDays(todayStr, 2)];
+      for (const d of dates) {
+        await fetch("/api/fuelling-plan/generate-day", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ date: d }),
+        });
+      }
       router.refresh();
     } finally {
       setGenerating(null);
