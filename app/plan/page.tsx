@@ -94,7 +94,7 @@ export default async function PlanPage() {
         .limit(1),
 
       db
-        .select({ id: weeklyStrategies.id })
+        .select({ id: weeklyStrategies.id, updatedAt: weeklyStrategies.updatedAt })
         .from(weeklyStrategies)
         .where(and(eq(weeklyStrategies.clerkUserId, userId), eq(weeklyStrategies.isActive, true)))
         .limit(1),
@@ -133,6 +133,7 @@ export default async function PlanPage() {
     profileRows[0]?.updatedAt,
     protocolRows[0]?.updatedAt,
     latestWeightRows[0]?.weighedAt,
+    strategyRows[0]?.updatedAt,
     ...eventRows.map((e) => e.updatedAt),
   ].filter((d): d is Date => d instanceof Date);
   const dataLastChangedAt = changeDates.length > 0
