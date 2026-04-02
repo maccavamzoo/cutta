@@ -415,6 +415,7 @@ export default function PlanView({
   );
   const [events, setEvents] = useState<PlanCalendarEvent[]>(calendarEvents);
   const [generatingDates, setGeneratingDates] = useState<Set<string>>(new Set());
+  const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
 
@@ -463,6 +464,7 @@ export default function PlanView({
         notes:           event.notes,
       },
     ]);
+    setLastDataChange(new Date().toISOString());
   }
 
   function handleEventUpdated(updated: EditableEvent) {
@@ -476,17 +478,19 @@ export default function PlanView({
           : e
       )
     );
+    setLastDataChange(new Date().toISOString());
   }
 
   function handleEventDeleted(id: number) {
     setEvents((prev) => prev.filter((e) => e.id !== id));
+    setLastDataChange(new Date().toISOString());
   }
 
   // ── Per-day staleness ────────────────────────────────────────────────────
 
   function isStale(plan: StoredPlan): boolean {
-    if (!dataLastChangedAt) return false;
-    return new Date(plan.generatedAt) < new Date(dataLastChangedAt);
+    if (!lastDataChange) return false;
+    return new Date(plan.generatedAt) < new Date(lastDataChange);
   }
 
   // ── Event grouping ───────────────────────────────────────────────────────

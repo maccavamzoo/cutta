@@ -111,7 +111,7 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
   lines.push(`- Supplements to schedule: ${brief.currentSupplements.length > 0 ? brief.currentSupplements.join(', ') : 'none'}`);
   lines.push(`- Eating style: ${brief.appetiteProfile ?? 'no preference'}`);
   if (brief.ingredientPool && brief.ingredientPool.length > 0) {
-    lines.push(`- Preferred ingredient pool (draw from these where possible): ${brief.ingredientPool.join(', ')}`);
+    lines.push(`- INGREDIENT POOL (use ONLY these ingredients for all meals — do not add items not on this list): ${brief.ingredientPool.join(', ')}`);
   }
   if (brief.yesterdayMeals.length > 0) {
     lines.push(`- Yesterday's meals (avoid repeating): ${brief.yesterdayMeals.join(', ')}`);
@@ -149,6 +149,9 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
   lines.push('- supplements: only from the provided list, assign sensible timing');
   lines.push('- ai_reasoning: brief, e.g. "Rest day deficit with high protein to preserve muscle"');
   lines.push('- Do NOT recalculate or override any targets — use them exactly as given');
+  if (brief.ingredientPool && brief.ingredientPool.length > 0) {
+    lines.push('- If an ingredient pool is provided, ALL meal ingredients MUST come from that list. Do not invent or substitute items outside the pool. Basic seasonings (salt, pepper, herbs, spices, oil for cooking) are exempt.');
+  }
 
   return lines.join('\n');
 }
