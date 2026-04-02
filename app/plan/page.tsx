@@ -12,7 +12,7 @@ import {
 } from "@/lib/db/schema";
 import PlanView, { type StoredPlan, type PlanCalendarEvent } from "./PlanView";
 import BottomNav from "@/components/BottomNav";
-import { dailyLossKg, arrivalDate } from "@/lib/weight-projection";
+import { arrivalDate } from "@/lib/weight-projection";
 import { kgToDisplay, weightLabel } from "@/lib/units";
 
 function isNewFormatProtocol(content: unknown): boolean {
@@ -110,9 +110,7 @@ export default async function PlanPage() {
   const hasWeeklyStrategy = strategyRows.length > 0;
 
   // Weight & projection
-  const weightLossRate    = profileRow?.weightLossRate ?? null;
-  const dailyWeightLossKg = dailyLossKg(weightLossRate);
-
+  const weightLossRate  = profileRow?.weightLossRate ?? null;
   const currentWeightKg = latestWeightRows[0]?.weightKg
     ? Number(latestWeightRows[0].weightKg)
     : profileRow?.currentWeightKg

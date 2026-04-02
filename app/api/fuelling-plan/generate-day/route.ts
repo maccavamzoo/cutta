@@ -22,7 +22,7 @@ export const maxDuration = 30;
 
 function log(tag: string, msg: string, data?: unknown) {
   const prefix = `[fuelling-plan/generate-day] ${tag}:`;
-  data !== undefined ? console.log(prefix, msg, data) : console.log(prefix, msg);
+  if (data !== undefined) { console.log(prefix, msg, data); } else { console.log(prefix, msg); }
 }
 
 function logError(tag: string, msg: string, err: unknown) {
@@ -67,7 +67,6 @@ export async function POST(req: NextRequest) {
 
   const todayUTC = new Date();
   todayUTC.setUTCHours(0, 0, 0, 0);
-  const todayStr    = todayUTC.toISOString().split("T")[0];
   const maxAllowed  = new Date(todayUTC.getTime() + 10 * 86_400_000);
 
   if (requestedDate < todayUTC || requestedDate > maxAllowed) {
