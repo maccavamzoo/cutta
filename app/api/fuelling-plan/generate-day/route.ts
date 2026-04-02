@@ -10,6 +10,7 @@ import {
   fuellingPlans,
   complianceLog,
   feedbackLog,
+  weeklyStrategies,
 } from "@/lib/db/schema";
 import { computeDayBrief, type PlanEngineInput } from "@/lib/plan-engine";
 import { buildDayPlanPrompt, type SingleDayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
@@ -90,14 +91,15 @@ export async function POST(req: NextRequest) {
   const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
 
   // ── 4. Fetch all required data in parallel ────────────────────────────────
-  let profileRows:    (typeof userProfiles.$inferSelect)[];
-  let protocolRows:   (typeof protocols.$inferSelect)[];
-  let todayEventRows: (typeof calendarEvents.$inferSelect)[];
+  let profileRows:       (typeof userProfiles.$inferSelect)[];
+  let protocolRows:      (typeof protocols.$inferSelect)[];
+  let todayEventRows:    (typeof calendarEvents.$inferSelect)[];
   let tomorrowEventRows: (typeof calendarEvents.$inferSelect)[];
-  let yesterdayEventRows: (typeof calendarEvents.$inferSelect)[];
+  let yesterdayEventRows:(typeof calendarEvents.$inferSelect)[];
   let yesterdayPlanRows: (typeof fuellingPlans.$inferSelect)[];
-  let complianceRows: { compliance: string }[];
-  let feedbackRows:   { feedbackType: string; rating: number }[];
+  let complianceRows:    { compliance: string }[];
+  let feedbackRows:      { feedbackType: string; rating: number }[];
+  let strategyRows:      { ingredientPool: unknown }[];
 
   try {
     [
@@ -109,6 +111,7 @@ export async function POST(req: NextRequest) {
       yesterdayPlanRows,
       complianceRows,
       feedbackRows,
+      strategyRows,
     ] = await Promise.all([
       db.select().from(userProfiles).where(eq(userProfiles.clerkUserId, userId)).limit(1),
 
@@ -159,6 +162,11 @@ export async function POST(req: NextRequest) {
             gte(feedbackLog.planDate, sevenDaysAgoStr),
           )
         ),
+
+      db.select({ ingredientPool: weeklyStrategies.ingredientPool })
+        .from(weeklyStrategies)
+        .where(and(eq(weeklyStrategies.clerkUserId, userId), eq(weeklyStrategies.isActive, true)))
+        .limit(1),
     ]) as [
       typeof profileRows,
       typeof protocolRows,
@@ -168,6 +176,7 @@ export async function POST(req: NextRequest) {
       typeof yesterdayPlanRows,
       typeof complianceRows,
       typeof feedbackRows,
+      typeof strategyRows,
     ];
   } catch (err) {
     logError("db-fetch", "Database query failed", err);
@@ -270,7 +279,7 @@ export async function POST(req: NextRequest) {
       scheduledAt:     e.scheduledAt.toISOString(),
     })),
     yesterdayMeals,
-    ingredientPool:         null,
+    ingredientPool:         (strategyRows[0]?.ingredientPool as string[] | null) ?? null,
     recentFeedback,
     previousGlycogen,
     previousDayHadTraining,
