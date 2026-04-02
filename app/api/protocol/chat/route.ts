@@ -18,6 +18,55 @@ interface ChatRequest {
   conversationHistory: ChatMessage[];
 }
 
+const PROTOCOL_SCHEMA = `
+interface MacroRange { min: number; max: number; }
+
+interface DayMacros {
+  calorie_offset: number;       // e.g. -400 means maintenance - 400 kcal
+  add_training_burn: boolean;   // add training burn on top of offset
+  carbs_g_per_kg: MacroRange;
+  protein_g_per_kg: MacroRange;
+  fat_g_per_kg: MacroRange;
+}
+
+interface PreRideRules {
+  timing_hours_before: number;
+  focus: string;
+}
+
+interface OnBikeRules {
+  under_90min_carbs_per_hour: number;   // 0 means no carbs needed
+  over_90min_carbs_per_hour: MacroRange;
+  over_3hrs_carbs_per_hour: MacroRange;
+}
+
+interface PostRideRules {
+  timing_minutes_after: number;
+  focus: string;
+  protein_g_per_kg: number;
+  carbs_g_per_kg: number;
+}
+
+interface RaceWeekRules {
+  carb_load_days_before: number;
+  carb_load_g_per_kg: MacroRange;
+  race_morning_carbs_g_per_kg: number;
+  race_morning_hours_before: number;
+  strategy_notes: string;
+}
+
+interface ProtocolFile {
+  protocol_name: string;
+  description: string;
+  rest_day: DayMacros;
+  training_day: DayMacros;
+  pre_ride: PreRideRules;
+  on_bike: OnBikeRules;
+  post_ride: PostRideRules;
+  race_week: RaceWeekRules;
+}
+`;
+
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
@@ -45,14 +94,25 @@ export async function POST(req: NextRequest) {
 
   if (!active) {
     return NextResponse.json(
-      { error: "No active protocol. Select or upload one first." },
+      { error: "No active protocol. Select one first." },
       { status: 400 }
     );
   }
 
   const protocolContent = active.content as ProtocolFile;
 
-  const systemPrompt = `You are Cutta's protocol advisor. The user has a fuelling protocol (JSON) that controls how their AI meal plans are generated.
+  const systemPrompt = `You are Cutta's protocol advisor. The user has a fuelling protocol that controls how their AI meal plans are generated.
+
+The protocol follows this exact TypeScript schema:
+${PROTOCOL_SCHEMA}
+
+Key field explanations:
+- calorie_offset: calories relative to maintenance (e.g. -400 = maintenance minus 400). Use 0 for maintenance.
+- add_training_burn: if true, training calories are added on top of the offset
+- MacroRange: { min, max } in g/kg body weight. Use same value for min and max when there's no range.
+- under_90min_carbs_per_hour: use 0 to mean "water/electrolytes only"
+- post_ride protein_g_per_kg and carbs_g_per_kg: grams per kg to consume within the recovery window
+- race_week.strategy_notes: plain English strategy description
 
 Current active protocol:
 ${JSON.stringify(protocolContent, null, 2)}
@@ -68,6 +128,7 @@ When the user asks you to make a change:
 {"protocol_name": "...", ...complete JSON...}
 </protocol_update>
 - The JSON inside the tag must be the FULL protocol with the change applied, not a partial diff
+- The JSON must exactly match the ProtocolFile schema — do not add or rename fields
 - Only include the <protocol_update> tag when actually making changes, not when just answering questions
 
 Keep responses concise and practical. You're talking to a cyclist, not a nutritionist. Use plain language.`;
