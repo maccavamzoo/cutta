@@ -385,8 +385,6 @@ export default function PlanView({
   initialPlans,
   calendarEvents,
   todayStr,
-  currentWeightKg: _currentWeightKg,
-  dailyWeightLossKg: _dailyWeightLossKg,
   unitSystem,
   hasActiveProtocol,
   hasWeeklyStrategy,
@@ -395,8 +393,6 @@ export default function PlanView({
   initialPlans:      StoredPlan[];
   calendarEvents:    PlanCalendarEvent[];
   todayStr:          string;
-  currentWeightKg:   number | null;
-  dailyWeightLossKg: number | null;
   unitSystem:        UnitSystem;
   hasActiveProtocol: boolean;
   hasWeeklyStrategy: boolean;

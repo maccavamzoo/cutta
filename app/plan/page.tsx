@@ -190,8 +190,6 @@ export default async function PlanPage() {
           initialPlans={initialPlans}
           calendarEvents={planCalendarEvents}
           todayStr={todayStr}
-          currentWeightKg={currentWeightKg}
-          dailyWeightLossKg={dailyWeightLossKg}
           unitSystem={unitSystem}
           hasActiveProtocol={hasActiveProtocol}
           hasWeeklyStrategy={hasWeeklyStrategy}
