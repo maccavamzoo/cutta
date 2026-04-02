@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { eq, and, gte, lte, lt, gt, desc } from "drizzle-orm";
+import { eq, and, gte, lte, lt, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   fuellingPlans,
@@ -8,11 +8,18 @@ import {
   userProfiles,
   protocols,
   weightLog,
+  weeklyStrategies,
 } from "@/lib/db/schema";
-import PlanView, { type StoredPlan, type PlanCalendarEvent, type CalorieMeta } from "./PlanView";
+import PlanView, { type StoredPlan, type PlanCalendarEvent } from "./PlanView";
 import BottomNav from "@/components/BottomNav";
 import { dailyLossKg, arrivalDate } from "@/lib/weight-projection";
 import { kgToDisplay, weightLabel } from "@/lib/units";
+
+function isNewFormatProtocol(content: unknown): boolean {
+  if (typeof content !== "object" || content === null) return false;
+  const restDay = (content as Record<string, Record<string, unknown>>).rest_day;
+  return typeof restDay?.calorie_offset === "number";
+}
 
 export default async function PlanPage() {
   const { userId } = await auth();
@@ -22,83 +29,87 @@ export default async function PlanPage() {
   today.setUTCHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
 
-  // 3-day window for meal plans: today, +1, +2
-  const day2    = new Date(today.getTime() + 2 * 86_400_000);
-  const day2Str = day2.toISOString().split("T")[0];
-  // 10-day window for calendar events: today through today+9
+  // 7-day window for meal plans: today through today+6
+  const day6    = new Date(today.getTime() + 6 * 86_400_000);
+  const day6Str = day6.toISOString().split("T")[0];
+  // 10-day window for calendar events
   const day10 = new Date(today.getTime() + 10 * 86_400_000);
 
-  // ── Clean up stale plan rows ───────────────────────────────────────────────
-  await Promise.all([
-    db.delete(fuellingPlans).where(
-      and(eq(fuellingPlans.clerkUserId, userId), lt(fuellingPlans.planDate, todayStr))
-    ),
-    db.delete(fuellingPlans).where(
-      and(eq(fuellingPlans.clerkUserId, userId), gt(fuellingPlans.planDate, day2Str))
-    ),
-  ]);
+  // ── Clean up past plan rows (before today only) ───────────────────────────
+  await db.delete(fuellingPlans).where(
+    and(eq(fuellingPlans.clerkUserId, userId), lt(fuellingPlans.planDate, todayStr))
+  );
 
   // ── Fetch all data ─────────────────────────────────────────────────────────
-  const [planRows, eventRows, profileRows, protocolRows, latestWeightRows] = await Promise.all([
-    db
-      .select()
-      .from(fuellingPlans)
-      .where(
-        and(
-          eq(fuellingPlans.clerkUserId, userId),
-          gte(fuellingPlans.planDate, todayStr),
-          lte(fuellingPlans.planDate, day2Str)
+  const [planRows, eventRows, profileRows, protocolRows, latestWeightRows, strategyRows] =
+    await Promise.all([
+      db
+        .select()
+        .from(fuellingPlans)
+        .where(
+          and(
+            eq(fuellingPlans.clerkUserId, userId),
+            gte(fuellingPlans.planDate, todayStr),
+            lte(fuellingPlans.planDate, day6Str)
+          )
         )
-      )
-      .orderBy(fuellingPlans.planDate),
+        .orderBy(fuellingPlans.planDate),
 
-    db
-      .select()
-      .from(calendarEvents)
-      .where(
-        and(
-          eq(calendarEvents.clerkUserId, userId),
-          gte(calendarEvents.scheduledAt, today),
-          lte(calendarEvents.scheduledAt, day10)
+      db
+        .select()
+        .from(calendarEvents)
+        .where(
+          and(
+            eq(calendarEvents.clerkUserId, userId),
+            gte(calendarEvents.scheduledAt, today),
+            lte(calendarEvents.scheduledAt, day10)
+          )
         )
-      )
-      .orderBy(calendarEvents.scheduledAt),
+        .orderBy(calendarEvents.scheduledAt),
 
-    db
-      .select({
-        estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
-        currentWeightKg:              userProfiles.currentWeightKg,
-        targetWeightKg:               userProfiles.targetWeightKg,
-        weightLossRate:               userProfiles.weightLossRate,
-        unitSystem:                   userProfiles.unitSystem,
-        updatedAt:                    userProfiles.updatedAt,
-      })
-      .from(userProfiles)
-      .where(eq(userProfiles.clerkUserId, userId))
-      .limit(1),
+      db
+        .select({
+          estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
+          currentWeightKg:              userProfiles.currentWeightKg,
+          targetWeightKg:               userProfiles.targetWeightKg,
+          weightLossRate:               userProfiles.weightLossRate,
+          unitSystem:                   userProfiles.unitSystem,
+          updatedAt:                    userProfiles.updatedAt,
+        })
+        .from(userProfiles)
+        .where(eq(userProfiles.clerkUserId, userId))
+        .limit(1),
 
-    db
-      .select({ content: protocols.content, updatedAt: protocols.updatedAt })
-      .from(protocols)
-      .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
-      .limit(1),
+      db
+        .select({ name: protocols.name, content: protocols.content, updatedAt: protocols.updatedAt })
+        .from(protocols)
+        .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
+        .limit(1),
 
-    db
-      .select({ weightKg: weightLog.weightKg, weighedAt: weightLog.weighedAt })
-      .from(weightLog)
-      .where(eq(weightLog.clerkUserId, userId))
-      .orderBy(desc(weightLog.weighedAt))
-      .limit(1),
-  ]);
+      db
+        .select({ weightKg: weightLog.weightKg, weighedAt: weightLog.weighedAt })
+        .from(weightLog)
+        .where(eq(weightLog.clerkUserId, userId))
+        .orderBy(desc(weightLog.weighedAt))
+        .limit(1),
 
-  const profileRow      = profileRows[0] ?? null;
-  const maintenance     = profileRow?.estimatedMaintenanceCalories
-    ? Number(profileRow.estimatedMaintenanceCalories)
-    : null;
-  const protocolContent = protocolRows[0]?.content as Record<string, Record<string, unknown>> | null;
-  const unitSystem      = (profileRow?.unitSystem ?? "metric") as "metric" | "imperial";
+      db
+        .select({ id: weeklyStrategies.id })
+        .from(weeklyStrategies)
+        .where(and(eq(weeklyStrategies.clerkUserId, userId), eq(weeklyStrategies.isActive, true)))
+        .limit(1),
+    ]);
 
-  // Daily weight-loss projection (kg/day) from the user's selected rate
+  const profileRow  = profileRows[0] ?? null;
+  const protocolRow = protocolRows[0] ?? null;
+  const unitSystem  = (profileRow?.unitSystem ?? "metric") as "metric" | "imperial";
+
+  // Protocol status
+  const hasActiveProtocol = protocolRow !== null && isNewFormatProtocol(protocolRow.content);
+  const protocolName      = protocolRow?.name ?? null;
+  const hasWeeklyStrategy = strategyRows.length > 0;
+
+  // Weight & projection
   const weightLossRate    = profileRow?.weightLossRate ?? null;
   const dailyWeightLossKg = dailyLossKg(weightLossRate);
 
@@ -112,15 +123,14 @@ export default async function PlanPage() {
     ? Number(profileRow.targetWeightKg)
     : null;
 
-  // Arrival date: projected from today's weight at the selected rate
-  const arrival     = (currentWeightKg != null && targetWeightKg != null)
+  const arrival    = (currentWeightKg != null && targetWeightKg != null)
     ? arrivalDate(currentWeightKg, targetWeightKg, weightLossRate, today)
     : null;
-  const arrivalStr  = arrival
+  const arrivalStr = arrival
     ? arrival.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
     : null;
 
-  // Compute the latest data-change timestamp so PlanView can detect per-day staleness
+  // Data-change timestamp for per-day staleness detection
   const changeDates: Date[] = [
     profileRows[0]?.updatedAt,
     protocolRows[0]?.updatedAt,
@@ -130,16 +140,6 @@ export default async function PlanPage() {
   const dataLastChangedAt = changeDates.length > 0
     ? new Date(Math.max(...changeDates.map((d) => d.getTime()))).toISOString()
     : null;
-
-  function roughCalories(isTraining: boolean): number | null {
-    if (!maintenance) return null;
-    const rule = isTraining
-      ? protocolContent?.training_day?.calories
-      : protocolContent?.rest_day?.calories;
-    if (typeof rule === "number") return rule;
-    if (!isTraining) return maintenance - 350;
-    return maintenance;
-  }
 
   const initialPlans: StoredPlan[] = planRows.map((r) => ({
     id:              r.id,
@@ -166,14 +166,7 @@ export default async function PlanPage() {
     durationMinutes: e.durationMinutes,
     intensity:       e.intensity,
     notes:           e.notes,
-    roughCalories:   roughCalories(e.eventType === "ride" || e.eventType === "race"),
   }));
-
-  const calorieMeta: CalorieMeta = {
-    maintenance,
-    restDayCalories:     roughCalories(false),
-    trainingDayCalories: roughCalories(true),
-  };
 
   return (
     <>
@@ -182,18 +175,26 @@ export default async function PlanPage() {
           <h1 className="text-xl font-bold tracking-tight text-white">Plan</h1>
           {targetWeightKg != null && arrivalStr && (
             <p className="text-zinc-500 text-sm mt-1">
-              Target {kgToDisplay(targetWeightKg, unitSystem).toFixed(1)} {weightLabel(unitSystem)} · est. arrival {arrivalStr}
+              Target {kgToDisplay(targetWeightKg, unitSystem).toFixed(1)}{weightLabel(unitSystem)} · est. arrival {arrivalStr}
+            </p>
+          )}
+          {hasActiveProtocol && protocolName && (
+            <p className="text-zinc-600 text-xs mt-1">
+              <span className="inline-block px-2 py-0.5 bg-zinc-900 border border-zinc-800 rounded-full">
+                {protocolName}
+              </span>
             </p>
           )}
         </div>
         <PlanView
           initialPlans={initialPlans}
           calendarEvents={planCalendarEvents}
-          calorieMeta={calorieMeta}
           todayStr={todayStr}
           currentWeightKg={currentWeightKg}
           dailyWeightLossKg={dailyWeightLossKg}
           unitSystem={unitSystem}
+          hasActiveProtocol={hasActiveProtocol}
+          hasWeeklyStrategy={hasWeeklyStrategy}
           dataLastChangedAt={dataLastChangedAt}
         />
       </main>

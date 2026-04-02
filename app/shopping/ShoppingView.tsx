@@ -1,337 +1,435 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 
-// ─── types ────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ShoppingItem {
-  display:    string;
-  totalGrams: number;
-  category:   string;
+  item:     string;
+  category: string;
+  amount:   string;
 }
 
-interface DayItems {
-  date:  string;
-  items: ShoppingItem[];
+export interface WeeklyStrategy {
+  id:             number;
+  name:           string;
+  weekOverview:   string | null;
+  ingredientPool: string[];
+  shoppingItems:  ShoppingItem[];
+  proposedUpdate: { ingredientPool?: string[]; shoppingItems?: ShoppingItem[] } | null;
+  aiReasoning:    string | null;
 }
 
-// items JSONB can be either the new { aggregated, byDay } shape
-// or the legacy flat array (from rows generated before this change)
-type ItemsPayload =
-  | { aggregated: ShoppingItem[]; byDay: DayItems[] }
-  | ShoppingItem[];
-
-export interface ShoppingList {
-  id:                number;
-  generatedForStart: string;
-  generatedForEnd:   string;
-  generatedAt:       string;
-  items:             ItemsPayload;
+interface TemplateMeta {
+  name:  string;
+  focus: string;
+  days:  number;
 }
 
-function resolveItems(items: ItemsPayload): { all: ShoppingItem[]; byDay: DayItems[] } {
-  if (Array.isArray(items)) return { all: items, byDay: [] };
-  return { all: items.aggregated, byDay: items.byDay };
+interface ChatMessage {
+  role:    "user" | "assistant";
+  content: string;
 }
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────────────
 
-function fmtDateRange(start: string, end: string): string {
-  const fmt = (d: string) =>
-    new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", {
-      weekday: "short",
-      day:     "numeric",
-      month:   "short",
-    });
-  return `${fmt(start)} – ${fmt(end)}`;
-}
+const CATEGORY_ORDER = ["protein", "carbs", "fats", "vegetables", "dairy", "supplements", "other"];
 
-function fmtGrams(g: number): string {
-  if (g >= 1000) return `${(g / 1000).toFixed(1).replace(/\.0$/, "")}kg`;
-  return `${g}g`;
-}
-
-// Distinct colour per category
-const CATEGORY_COLOUR: Record<string, string> = {
-  "Protein":      "text-blue-400  border-blue-400/20  bg-blue-400/5",
-  "Carbs":        "text-amber-400 border-amber-400/20 bg-amber-400/5",
-  "Fruit & Veg":  "text-lime-400  border-lime-400/20  bg-lime-400/5",
-  "Dairy":        "text-cyan-400  border-cyan-400/20  bg-cyan-400/5",
-  "Fats & Oils":  "text-orange-400 border-orange-400/20 bg-orange-400/5",
-  "Supplements":  "text-violet-400 border-violet-400/20 bg-violet-400/5",
-  "Other":        "text-zinc-400  border-zinc-700      bg-zinc-900",
+const CATEGORY_LABELS: Record<string, string> = {
+  protein:     "Protein",
+  carbs:       "Carbs & Grains",
+  fats:        "Fats & Nuts",
+  vegetables:  "Vegetables",
+  dairy:       "Dairy",
+  supplements: "Supplements",
+  other:       "Other",
 };
 
-function categoryColour(cat: string) {
-  return CATEGORY_COLOUR[cat] ?? CATEGORY_COLOUR["Other"];
-}
-
-// ─── category section ─────────────────────────────────────────────────────────
-
-function CategorySection({
-  category,
-  items,
-  ticked,
-  onToggle,
-}: {
-  category: string;
-  items:    ShoppingItem[];
-  ticked:   Set<string>;
-  onToggle: (key: string) => void;
-}) {
-  const colour  = categoryColour(category);
-  const allDone = items.every((it) => ticked.has(it.display.toLowerCase()));
-
-  return (
-    <div className={`rounded-2xl border overflow-hidden ${colour}`}>
-      {/* Category header */}
-      <div className="flex items-center justify-between px-4 py-2.5">
-        <p className={`text-xs font-semibold uppercase tracking-wider ${colour.split(" ")[0]}`}>
-          {category}
-        </p>
-        {allDone && (
-          <span className="text-xs text-zinc-600">all done</span>
-        )}
-      </div>
-
-      {/* Items */}
-      <div className="divide-y divide-white/5">
-        {items.map((item) => {
-          const key    = item.display.toLowerCase();
-          const bought = ticked.has(key);
-          return (
-            <button
-              key={key}
-              onClick={() => onToggle(key)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all active:bg-white/5 ${
-                bought ? "opacity-50" : ""
-              }`}
-            >
-              {/* Checkbox */}
-              <span
-                className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                  bought
-                    ? "bg-lime-400 border-lime-400"
-                    : "border-zinc-600 bg-transparent"
-                }`}
-              >
-                {bought && (
-                  <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3">
-                    <path
-                      d="M2 6l3 3 5-5"
-                      stroke="black"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
-              </span>
-
-              {/* Label */}
-              <span
-                className={`flex-1 text-sm transition-colors ${
-                  bought
-                    ? "text-zinc-500 line-through decoration-zinc-500 decoration-2"
-                    : "text-zinc-200"
-                }`}
-              >
-                {item.display}
-              </span>
-
-              {/* Amount */}
-              <span
-                className={`text-xs tabular-nums shrink-0 transition-colors ${
-                  bought ? "text-zinc-700" : "text-zinc-500"
-                }`}
-              >
-                {fmtGrams(item.totalGrams)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── main component ───────────────────────────────────────────────────────────
-
-function fmtDayLabel(date: string): string {
-  const d = new Date(date + "T12:00:00Z");
-  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
-}
-
-const CATEGORY_ORDER = ["Protein", "Carbs", "Fruit & Veg", "Dairy", "Fats & Oils", "Supplements", "Other"];
-
-function groupByCategory(items: ShoppingItem[]): Record<string, ShoppingItem[]> {
-  return items.reduce<Record<string, ShoppingItem[]>>((acc, item) => {
-    (acc[item.category] ??= []).push(item);
-    return acc;
-  }, {});
-}
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ShoppingView({
-  initialList,
+  initialStrategy,
+  templateNames,
 }: {
-  initialList: ShoppingList | null;
+  initialStrategy: WeeklyStrategy | null;
+  templateNames:   TemplateMeta[];
 }) {
-  const [list,      setList]     = useState<ShoppingList | null>(initialList);
-  const [ticked,    setTicked]   = useState<Set<string>>(new Set());
-  const [loading,   setLoading]  = useState(false);
-  const [error,     setError]    = useState<string | null>(null);
-  // null = show all; index = show that day's items
-  const [dayFilter, setDayFilter] = useState<number | null>(null);
+  const [strategy, setStrategy]               = useState<WeeklyStrategy | null>(initialStrategy);
+  const [checked, setChecked]                 = useState<Set<string>>(new Set());
+  const [chatOpen, setChatOpen]               = useState(false);
+  const [messages, setMessages]               = useState<ChatMessage[]>([]);
+  const [input, setInput]                     = useState("");
+  const [chatLoading, setChatLoading]         = useState(false);
+  const [applying, setApplying]               = useState(false);
+  const [pickingTemplate, setPickingTemplate] = useState(false);
+  const [loadingTemplate, setLoadingTemplate] = useState<number | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const generate = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setTicked(new Set());
-    setDayFilter(null);
+  useEffect(() => {
+    if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, chatOpen]);
 
+  // ── Template picker ────────────────────────────────────────────────────────
+
+  async function selectTemplate(index: number) {
+    setLoadingTemplate(index);
     try {
-      const res = await fetch("/api/shopping-list", { method: "POST" });
-
-      if (!res.headers.get("content-type")?.includes("application/json")) {
-        throw new Error("Server error — check ANTHROPIC_API_KEY in environment");
+      const res = await fetch("/api/weekly-strategy", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ templateIndex: index }),
+      });
+      const data = await res.json() as { strategy: WeeklyStrategy };
+      if (res.ok) {
+        setStrategy(data.strategy);
+        setChecked(new Set());
+        setMessages([]);
+        setPickingTemplate(false);
+        setChatOpen(false);
       }
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setList(data.list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate list");
     } finally {
-      setLoading(false);
+      setLoadingTemplate(null);
     }
-  }, []);
+  }
 
-  const toggleItem = useCallback((key: string) => {
-    setTicked((prev) => {
+  // ── Checklist ─────────────────────────────────────────────────────────────
+
+  function toggleCheck(key: string) {
+    setChecked((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else               next.add(key);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
-  }, []);
+  }
 
-  const { all: allItems, byDay } = list ? resolveItems(list.items) : { all: [], byDay: [] };
+  function copyUnchecked() {
+    if (!strategy) return;
+    const lines = strategy.shoppingItems
+      .filter((it) => !checked.has(itemKey(it)))
+      .map((it) => `${it.item} — ${it.amount}`);
+    navigator.clipboard.writeText(lines.join("\n"));
+  }
 
-  // Active items based on filter
-  const activeItems = dayFilter !== null && byDay[dayFilter]
-    ? byDay[dayFilter].items
-    : allItems;
+  // ── Chat ──────────────────────────────────────────────────────────────────
 
-  const grouped    = groupByCategory(activeItems);
-  const categories = Object.keys(grouped).sort((a, b) =>
-    (CATEGORY_ORDER.indexOf(a) ?? 99) - (CATEGORY_ORDER.indexOf(b) ?? 99)
-  );
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || chatLoading) return;
+    const userMsg: ChatMessage = { role: "user", content: text };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    setChatLoading(true);
+    try {
+      const res = await fetch("/api/weekly-strategy/chat", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ message: text, history: messages }),
+      });
+      const data = await res.json() as { reply: string; hasProposedUpdate: boolean };
+      if (res.ok) {
+        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+        if (data.hasProposedUpdate) {
+          const sr = await fetch("/api/weekly-strategy");
+          const sd = await sr.json() as { strategy: WeeklyStrategy | null };
+          if (sd.strategy) setStrategy(sd.strategy);
+        }
+      }
+    } finally {
+      setChatLoading(false);
+    }
+  }
 
-  const totalItems  = activeItems.length;
-  const tickedCount = activeItems.filter((it) => ticked.has(it.display.toLowerCase())).length;
+  // ── Confirm proposed update ───────────────────────────────────────────────
 
-  return (
-    <div className="space-y-5">
-      {/* Generate button + meta */}
-      <div className="space-y-3">
-        <button
-          onClick={generate}
-          disabled={loading}
-          className="w-full py-3.5 bg-lime-400 text-black font-semibold text-sm rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50"
-        >
-          {loading
-            ? "Generating…"
-            : list
-            ? "Regenerate list"
-            : "Generate shopping list"}
-        </button>
+  async function applyUpdate() {
+    setApplying(true);
+    try {
+      const res = await fetch("/api/weekly-strategy/confirm", { method: "POST" });
+      const data = await res.json() as { strategy: WeeklyStrategy };
+      if (res.ok) {
+        setStrategy(data.strategy);
+        setChecked(new Set());
+      }
+    } finally {
+      setApplying(false);
+    }
+  }
 
-        {error && (
-          <p className="text-red-400 text-sm text-center">{error}</p>
-        )}
+  function discardUpdate() {
+    if (!strategy) return;
+    setStrategy({ ...strategy, proposedUpdate: null });
+  }
 
-        {list && !error && (
-          <div className="flex items-center justify-between px-1">
-            <p className="text-zinc-600 text-xs">
-              {fmtDateRange(list.generatedForStart, list.generatedForEnd)}
-            </p>
-            <p className="text-zinc-500 text-xs">
-              {tickedCount}/{totalItems} items
-            </p>
-          </div>
-        )}
-      </div>
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-      {/* Day filter toggle — only shown when per-day data is available */}
-      {byDay.length > 1 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-          <button
-            onClick={() => setDayFilter(null)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-              dayFilter === null
-                ? "bg-lime-400 text-black"
-                : "bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700"
-            }`}
-          >
-            All {byDay.length} days
-          </button>
-          {byDay.map((day, i) => (
+  function itemKey(it: ShoppingItem) {
+    return `${it.item}::${it.category}`;
+  }
+
+  function groupedItems(items: ShoppingItem[]) {
+    const groups: Record<string, ShoppingItem[]> = {};
+    for (const it of items) {
+      const cat = CATEGORY_ORDER.includes(it.category) ? it.category : "other";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(it);
+    }
+    return CATEGORY_ORDER.filter((c) => groups[c]?.length).map((c) => ({
+      category: c,
+      label:    CATEGORY_LABELS[c] ?? c,
+      items:    groups[c],
+    }));
+  }
+
+  // ── No strategy — show template picker ────────────────────────────────────
+
+  if (!strategy) {
+    return (
+      <div>
+        <div className="mb-6">
+          <h1 className="text-xl font-bold tracking-tight text-white">Shopping</h1>
+          <p className="text-zinc-500 text-sm mt-1">Choose a weekly strategy to get started.</p>
+        </div>
+        <div className="space-y-3">
+          {templateNames.map((t, i) => (
             <button
-              key={day.date}
-              onClick={() => setDayFilter(dayFilter === i ? null : i)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
-                dayFilter === i
-                  ? "bg-lime-400 text-black"
-                  : "bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700"
-              }`}
+              key={i}
+              onClick={() => selectTemplate(i)}
+              disabled={loadingTemplate !== null}
+              className="w-full text-left bg-zinc-900 rounded-xl p-4 border border-zinc-800 hover:border-zinc-600 transition-colors disabled:opacity-50"
             >
-              {fmtDayLabel(day.date)}
+              <div className="flex items-center justify-between">
+                <span className="text-white font-semibold text-sm">{t.name}</span>
+                <span className="text-zinc-500 text-xs">{t.days} training days</span>
+              </div>
+              <p className="text-zinc-400 text-xs mt-1 leading-snug">{t.focus}</p>
+              {loadingTemplate === i && (
+                <p className="text-lime-400 text-xs mt-2">Setting up…</p>
+              )}
             </button>
           ))}
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Progress bar */}
-      {totalItems > 0 && (
-        <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-lime-400 rounded-full transition-all duration-300"
-            style={{ width: `${(tickedCount / totalItems) * 100}%` }}
-          />
+  // ── Template picker overlay ────────────────────────────────────────────────
+
+  if (pickingTemplate) {
+    return (
+      <div>
+        <div className="mb-6 flex items-center gap-3">
+          <button
+            onClick={() => setPickingTemplate(false)}
+            className="text-zinc-400 hover:text-white text-sm"
+          >
+            ← Back
+          </button>
+          <h1 className="text-xl font-bold tracking-tight text-white">Change strategy</h1>
         </div>
-      )}
-
-      {/* Category sections */}
-      {categories.length > 0 && (
+        <p className="text-zinc-500 text-sm mb-4">
+          Starting a new strategy will replace your current one.
+        </p>
         <div className="space-y-3">
-          {categories.map((cat) => (
-            <CategorySection
-              key={cat}
-              category={cat}
-              items={grouped[cat]}
-              ticked={ticked}
-              onToggle={toggleItem}
-            />
+          {templateNames.map((t, i) => (
+            <button
+              key={i}
+              onClick={() => selectTemplate(i)}
+              disabled={loadingTemplate !== null}
+              className="w-full text-left bg-zinc-900 rounded-xl p-4 border border-zinc-800 hover:border-zinc-600 transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-white font-semibold text-sm">{t.name}</span>
+                <span className="text-zinc-500 text-xs">{t.days} training days</span>
+              </div>
+              <p className="text-zinc-400 text-xs mt-1 leading-snug">{t.focus}</p>
+              {loadingTemplate === i && (
+                <p className="text-lime-400 text-xs mt-2">Setting up…</p>
+              )}
+            </button>
           ))}
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Empty state */}
-      {!list && !loading && (
-        <div className="py-12 text-center space-y-2">
-          <p className="text-zinc-400 font-medium">No shopping list yet</p>
-          <p className="text-zinc-600 text-sm max-w-xs mx-auto leading-relaxed">
-            Generates from your next 3 days of fuelling plans. Make sure your plan is up to date first.
+  // ── Active strategy view ───────────────────────────────────────────────────
+
+  const groups = groupedItems(strategy.shoppingItems);
+  const checkedCount = strategy.shoppingItems.filter((it) => checked.has(itemKey(it))).length;
+  const total        = strategy.shoppingItems.length;
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-5 flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-white">Shopping</h1>
+          <p className="text-zinc-400 text-sm mt-0.5">{strategy.name}</p>
+          {strategy.weekOverview && (
+            <p className="text-zinc-500 text-xs mt-0.5 leading-snug">{strategy.weekOverview}</p>
+          )}
+        </div>
+        <button
+          onClick={() => setPickingTemplate(true)}
+          className="text-zinc-500 hover:text-zinc-300 text-xs mt-1"
+        >
+          Change
+        </button>
+      </div>
+
+      {/* Proposed update banner */}
+      {strategy.proposedUpdate && (
+        <div className="mb-4 bg-zinc-900 border border-lime-400/40 rounded-xl p-4">
+          <p className="text-lime-400 text-sm font-semibold mb-1">AI has suggested changes</p>
+          <p className="text-zinc-400 text-xs mb-3">
+            Review the chat below to see what was proposed, then apply or discard.
           </p>
+          <div className="flex gap-2">
+            <button
+              onClick={applyUpdate}
+              disabled={applying}
+              className="flex-1 bg-lime-400 text-black text-xs font-semibold py-2 rounded-lg disabled:opacity-50"
+            >
+              {applying ? "Applying…" : "Apply changes"}
+            </button>
+            <button
+              onClick={discardUpdate}
+              disabled={applying}
+              className="flex-1 bg-zinc-800 text-zinc-300 text-xs font-semibold py-2 rounded-lg disabled:opacity-50"
+            >
+              Discard
+            </button>
+          </div>
         </div>
       )}
 
+      {/* Progress + copy */}
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-zinc-500 text-xs">
+          {checkedCount} of {total} items
+        </span>
+        <button
+          onClick={copyUnchecked}
+          className="text-zinc-400 hover:text-white text-xs border border-zinc-700 rounded-lg px-3 py-1.5"
+        >
+          Copy remaining
+        </button>
+      </div>
+
+      {/* Shopping list */}
+      <div className="space-y-5 mb-6">
+        {groups.map((g) => (
+          <div key={g.category}>
+            <h2 className="text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-2">
+              {g.label}
+            </h2>
+            <div className="space-y-1">
+              {g.items.map((it) => {
+                const key  = itemKey(it);
+                const done = checked.has(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => toggleCheck(key)}
+                    className="w-full flex items-center gap-3 bg-zinc-900 rounded-lg px-3 py-2.5 text-left"
+                  >
+                    <span
+                      className={`w-4 h-4 flex-shrink-0 rounded border flex items-center justify-center ${
+                        done ? "bg-lime-400 border-lime-400" : "border-zinc-600"
+                      }`}
+                    >
+                      {done && (
+                        <svg className="w-2.5 h-2.5 text-black" fill="none" viewBox="0 0 10 8">
+                          <path
+                            d="M1 4l3 3 5-6"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    <span className={`flex-1 text-sm ${done ? "text-zinc-600 line-through" : "text-white"}`}>
+                      {it.item}
+                    </span>
+                    <span className={`text-xs ${done ? "text-zinc-700" : "text-zinc-500"}`}>
+                      {it.amount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* All done state */}
-      {tickedCount > 0 && tickedCount === totalItems && (
-        <div className="text-center py-4">
+      {checkedCount > 0 && checkedCount === total && (
+        <div className="text-center py-4 mb-4">
           <p className="text-lime-400 font-semibold text-sm">All done — good to go!</p>
         </div>
       )}
+
+      {/* AI Chat toggle */}
+      <div className="border-t border-zinc-800 pt-4">
+        <button
+          onClick={() => setChatOpen((o) => !o)}
+          className="w-full flex items-center justify-between text-zinc-400 hover:text-white text-sm py-1"
+        >
+          <span>✨ Tweak with AI</span>
+          <span className="text-xs">{chatOpen ? "▼" : "▲"}</span>
+        </button>
+
+        {chatOpen && (
+          <div className="mt-3">
+            <div className="space-y-3 mb-3 max-h-80 overflow-y-auto">
+              {messages.length === 0 && (
+                <p className="text-zinc-600 text-xs">
+                  Ask me to swap ingredients, adjust amounts, or tailor the list to your preferences.
+                </p>
+              )}
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className={`text-sm rounded-xl px-3 py-2 ${
+                    m.role === "user"
+                      ? "bg-zinc-800 text-white ml-6"
+                      : "bg-zinc-900 text-zinc-200 mr-6"
+                  }`}
+                >
+                  {m.content}
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="bg-zinc-900 text-zinc-500 text-sm rounded-xl px-3 py-2 mr-6 animate-pulse">
+                  Thinking…
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+                placeholder="e.g. swap salmon for tuna, add cottage cheese…"
+                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                disabled={chatLoading}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={chatLoading || !input.trim()}
+                className="bg-lime-400 text-black text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

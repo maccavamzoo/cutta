@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     extractionConfidence?: number | null;
     extractedData?: unknown;
     corrections?: unknown;
+    perceivedEffort?: string | null;
   };
 
   try {
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
       extractionConfidence: body.extractionConfidence ?? null,
       extractedData: body.extractedData ?? null,
       corrections: body.corrections ?? null,
+      perceivedEffort: body.perceivedEffort ?? null,
       confirmed: true,
     })
     .returning();

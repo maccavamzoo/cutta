@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { DayPlanOutput } from "@/lib/ai/buildPlanPrompt";
+import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
 import BottomNav from "@/components/BottomNav";
 import CheckInSheet, { type ExistingCheckIn } from "./CheckInSheet";
 import WeighInSheet from "./WeighInSheet";

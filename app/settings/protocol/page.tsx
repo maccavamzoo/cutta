@@ -7,6 +7,13 @@ import { ProtocolFile } from "@/lib/protocol";
 import ProtocolPageShell from "./ProtocolPageShell";
 import ProtocolReadable from "./ProtocolReadable";
 
+function isNewFormatProtocol(content: unknown): content is ProtocolFile {
+  if (typeof content !== "object" || content === null) return false;
+  const c = content as Record<string, unknown>;
+  const restDay = c.rest_day as Record<string, unknown> | undefined;
+  return typeof restDay?.calorie_offset === "number";
+}
+
 export default async function ProtocolSettingsPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
@@ -24,14 +31,17 @@ export default async function ProtocolSettingsPage() {
       .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isTemplate, true))),
   ]);
 
-  const active  = activeRows[0];
-  const content = active?.content as ProtocolFile | undefined;
+  const active = activeRows[0];
+  // Only treat as active if it's in the new numeric format
+  const content = active && isNewFormatProtocol(active.content) ? active.content : undefined;
 
-  const savedTemplates = templateRows.map((p: typeof templateRows[0]) => ({
-    id: p.id,
-    name: p.name,
-    content: p.content as ProtocolFile,
-  }));
+  const savedTemplates = templateRows
+    .filter((p: typeof templateRows[0]) => isNewFormatProtocol(p.content))
+    .map((p: typeof templateRows[0]) => ({
+      id: p.id,
+      name: p.name,
+      content: p.content as ProtocolFile,
+    }));
 
   return (
     <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 max-w-lg mx-auto space-y-6">
@@ -53,7 +63,7 @@ export default async function ProtocolSettingsPage() {
       {/* Tab shell — back link, tabs, BottomNav, and modal all live inside the client shell */}
       <ProtocolPageShell
         activeProtocolName={content?.protocol_name ?? null}
-        hasActiveProtocol={!!active}
+        hasActiveProtocol={!!content}
         activeIsTemplate={active?.isTemplate ?? false}
         savedTemplates={savedTemplates}
       >

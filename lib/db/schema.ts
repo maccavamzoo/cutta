@@ -297,6 +297,9 @@ export const trainingLog = pgTable(
     corrections: jsonb("corrections"), // { field: { original, corrected } }
     confirmed: boolean("confirmed").default(false).notNull(),
 
+    // Post-ride subjective effort (bimble | easy | moderate | hard | very hard)
+    perceivedEffort: varchar("perceived_effort", { length: 20 }),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -358,6 +361,43 @@ export const weightLog = pgTable(
     clerkUserIdIdx: index("weight_log_clerk_user_id_idx").on(t.clerkUserId),
     weighedAtIdx: index("weight_log_weighed_at_idx").on(t.weighedAt),
     uniquePerDay: uniqueIndex("weight_log_user_date_idx").on(t.clerkUserId, t.logDate),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Weekly Strategies
+// User's agreed ingredient pool + shopping list for the week.
+// One active strategy at a time; others retained as history.
+// ---------------------------------------------------------------------------
+export const weeklyStrategies = pgTable(
+  "weekly_strategies",
+  {
+    id: serial("id").primaryKey(),
+    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    name: varchar("name", { length: 255 }).notNull(),
+    weekOverview: text("week_overview"),
+
+    // Array of ingredient name strings fed into daily plan generation
+    ingredientPool: jsonb("ingredient_pool").notNull().default([]),
+
+    // Array of { item: string, category: string, amount: string }
+    shoppingItems: jsonb("shopping_items").notNull().default([]),
+
+    // Pending AI-proposed changes awaiting user confirmation
+    // { ingredientPool?: string[], shoppingItems?: ShoppingItem[] }
+    proposedUpdate: jsonb("proposed_update"),
+
+    aiReasoning: text("ai_reasoning"),
+    isActive: boolean("is_active").notNull().default(false),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("weekly_strategies_clerk_user_id_idx").on(
+      t.clerkUserId
+    ),
   })
 );
 
