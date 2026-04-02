@@ -279,8 +279,8 @@ function computeMacros(
     ? dayRules.carbs_g_per_kg.min * 0.3 + dayRules.carbs_g_per_kg.max * 0.7
     : midpoint(dayRules.carbs_g_per_kg);
 
-  let carbsG = Math.round(weightKg * carbMult + guardrailCarbsG);
-  let proteinG = Math.round(weightKg * midpoint(dayRules.protein_g_per_kg));
+  const carbsG = Math.round(weightKg * carbMult + guardrailCarbsG);
+  const proteinG = Math.round(weightKg * midpoint(dayRules.protein_g_per_kg));
   let fatG = Math.round(weightKg * midpoint(dayRules.fat_g_per_kg));
 
   // Reconcile with calorie target — fat is the flex macro
