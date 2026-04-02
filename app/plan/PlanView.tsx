@@ -272,7 +272,7 @@ function DayCard({
                   est. {projW}{wLabel}
                 </span>
               )}
-              <span className="text-zinc-700 text-sm">{expanded ? "▲" : "▼"}</span>
+              <span className="text-zinc-700 text-sm">{expanded ? "▼" : "▲"}</span>
             </div>
           </div>
 
