@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
-import { protocols } from "@/lib/db/schema";
+import { protocols, weeklyStrategies } from "@/lib/db/schema";
 import { ProtocolFile, validateProtocol } from "@/lib/protocol";
 
 export const maxDuration = 30;
@@ -96,12 +96,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message is required." }, { status: 400 });
   }
 
-  // Fetch active protocol
-  const [active] = await db
-    .select()
-    .from(protocols)
-    .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
-    .limit(1);
+  // Fetch active protocol and active weekly strategy in parallel
+  const [[active], [strategyRow]] = await Promise.all([
+    db
+      .select()
+      .from(protocols)
+      .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
+      .limit(1),
+    db
+      .select({ name: weeklyStrategies.name, ingredientPool: weeklyStrategies.ingredientPool })
+      .from(weeklyStrategies)
+      .where(and(eq(weeklyStrategies.clerkUserId, userId), eq(weeklyStrategies.isActive, true)))
+      .limit(1),
+  ]);
 
   if (!active) {
     return NextResponse.json(
@@ -111,6 +118,14 @@ export async function POST(req: NextRequest) {
   }
 
   const protocolContent = active.content as ProtocolFile;
+
+  const shoppingSection = strategyRow
+    ? `## Current weekly shopping strategy: ${strategyRow.name}
+Ingredient pool: ${(strategyRow.ingredientPool as string[]).join(", ")}
+
+The user has these ingredients available this week. If you make protocol changes that affect what foods are needed (e.g. adding a new activity type, changing macro targets significantly, adding during-activity fuelling), let the user know they may want to update their shopping list too.`
+    : `## Current weekly shopping strategy
+No weekly shopping strategy set. If the user asks about food or ingredients, suggest they set one up on the Shopping page.`;
 
   const systemPrompt = `You are Cutta's protocol advisor. The user has a fuelling protocol that controls how their AI meal plans are generated.
 
@@ -149,7 +164,9 @@ When the user asks you to make a change:
 - The JSON must exactly match the ProtocolFile schema — do not add or rename fields
 - Only include the <protocol_update> tag when actually making changes, not when just answering questions
 
-Keep responses concise and practical. You're talking to a cyclist, not a nutritionist. Use plain language.`;
+Keep responses concise and practical. You're talking to a cyclist, not a nutritionist. Use plain language.
+
+${shoppingSection}`;
 
   // Instantiate SDK inside handler (project constraint)
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

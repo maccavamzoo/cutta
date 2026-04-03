@@ -198,7 +198,7 @@ function DayCard({
 
   return (
     <>
-      <div className={`rounded-xl border transition-colors ${calorieBorder(plan?.totalCalories ?? null)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}>
+      <div className={`rounded-xl border transition-all ${isGenerating ? "border-lime-400/30 bg-zinc-900 shadow-[0_0_20px_rgba(163,230,53,0.08)]" : `${calorieBorder(plan?.totalCalories ?? null)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}`}>
 
         {/* Header row — tap to expand/collapse */}
         <button className="w-full px-4 py-3 text-left" onClick={() => setExpanded((x) => !x)}>
@@ -256,7 +256,13 @@ function DayCard({
             {/* Right: generate button + arrow */}
             <div className="flex items-center gap-2 shrink-0 pt-0.5">
               {isGenerating && (
-                <span className="text-zinc-500 text-xs animate-pulse">Generating…</span>
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 animate-spin text-lime-400" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-20" />
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  <span className="text-lime-400 text-sm font-medium animate-pulse">Generating…</span>
+                </div>
               )}
               {!isGenerating && !hasPlan && hasActiveProtocol && (
                 <button
