@@ -189,7 +189,7 @@ function DayCard({
   onEventUpdated,
   onEventDeleted,
 }: DayCardProps) {
-  const [expanded,     setExpanded]     = useState(isToday);
+  const [expanded,     setExpanded]     = useState(false);
   const [sheetOpen,    setSheetOpen]    = useState(false);
   const [editingEvent, setEditingEvent] = useState<EditableEvent | null>(null);
 
