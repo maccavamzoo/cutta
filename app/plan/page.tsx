@@ -107,7 +107,7 @@ export default async function PlanPage() {
 
   // Protocol status
   const hasActiveProtocol = protocolRow !== null && isNewFormatProtocol(protocolRow.content);
-  const protocolName      = protocolRow?.name ?? null;
+  const protocolName      = hasActiveProtocol ? (protocolRow?.name ?? null) : null;
   const hasWeeklyStrategy = strategyRows.length > 0;
 
   // Weight & projection
@@ -168,6 +168,7 @@ export default async function PlanPage() {
   }));
 
   const activityTypes: ActivityTypeOption[] = (() => {
+    if (!hasActiveProtocol) return [];
     const content = protocolRow?.content as Record<string, unknown> | null ?? null;
     if (!content || !Array.isArray(content.activity_types)) return [];
     return (content.activity_types as Array<Record<string, unknown>>)

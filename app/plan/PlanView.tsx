@@ -499,53 +499,59 @@ export default function PlanView({
   return (
     <div className="space-y-3">
 
-      {/* No active protocol warning */}
+      {/* No active protocol — full empty state, no day cards */}
       {!hasActiveProtocol && (
-        <Link
-          href="/settings/protocol"
-          className="flex items-center justify-between bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-3"
-        >
-          <div>
-            <p className="text-amber-400 text-sm font-semibold">No active protocol</p>
-            <p className="text-amber-600 text-xs mt-0.5">Set a fuelling protocol to enable plan generation.</p>
-          </div>
-          <span className="text-amber-400 text-sm shrink-0">→</span>
-        </Link>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 space-y-3">
+          <p className="text-zinc-400 text-lg font-semibold">No protocol set</p>
+          <p className="text-zinc-600 text-sm leading-relaxed max-w-xs">
+            Select a fuelling protocol to start generating your plan.
+          </p>
+          <Link
+            href="/settings/protocol"
+            className="mt-2 inline-block px-5 py-2.5 bg-lime-400 text-black text-sm font-semibold rounded-full hover:bg-lime-300 transition-colors"
+          >
+            Set up protocol →
+          </Link>
+        </div>
       )}
 
-      {/* No weekly strategy prompt */}
-      {!hasWeeklyStrategy && (
-        <Link
-          href="/shopping"
-          className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3"
-        >
-          <p className="text-zinc-500 text-sm">No weekly shopping strategy set</p>
-          <span className="text-zinc-600 text-sm shrink-0">Set one →</span>
-        </Link>
-      )}
+      {hasActiveProtocol && (
+        <>
+          {/* No weekly strategy prompt */}
+          {!hasWeeklyStrategy && (
+            <Link
+              href="/shopping"
+              className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3"
+            >
+              <p className="text-zinc-500 text-sm">No weekly shopping strategy set</p>
+              <span className="text-zinc-600 text-sm shrink-0">Set one →</span>
+            </Link>
+          )}
 
-      {/* Day cards */}
-      {dates.map((dateStr, i) => {
-        const plan = plans.get(dateStr) ?? null;
-        return (
-          <DayCard
-            key={dateStr}
-            dateStr={dateStr}
-            isToday={i === 0}
-            plan={plan}
-            events={eventsByDate.get(dateStr) ?? []}
-            isGenerating={generatingDates.has(dateStr)}
-            isStale={plan !== null && isStale(plan)}
-            hasActiveProtocol={hasActiveProtocol}
-            unitSystem={unitSystem}
-            activityTypes={activityTypes}
-            onGenerate={() => handleGenerate(dateStr)}
-            onEventAdded={handleEventAdded}
-            onEventUpdated={handleEventUpdated}
-            onEventDeleted={handleEventDeleted}
-          />
-        );
-      })}
+          {/* Day cards */}
+          {dates.map((dateStr, i) => {
+            const plan = plans.get(dateStr) ?? null;
+            return (
+              <DayCard
+                key={dateStr}
+                dateStr={dateStr}
+                isToday={i === 0}
+                plan={plan}
+                events={eventsByDate.get(dateStr) ?? []}
+                isGenerating={generatingDates.has(dateStr)}
+                isStale={plan !== null && isStale(plan)}
+                hasActiveProtocol={hasActiveProtocol}
+                unitSystem={unitSystem}
+                activityTypes={activityTypes}
+                onGenerate={() => handleGenerate(dateStr)}
+                onEventAdded={handleEventAdded}
+                onEventUpdated={handleEventUpdated}
+                onEventDeleted={handleEventDeleted}
+              />
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
