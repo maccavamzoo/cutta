@@ -12,7 +12,7 @@ import {
   feedbackLog,
   weeklyStrategies,
 } from "@/lib/db/schema";
-import { computeDayBrief, type PlanEngineInput } from "@/lib/plan-engine";
+import { computeDayBrief, resolveActivityType, type PlanEngineInput } from "@/lib/plan-engine";
 import { buildDayPlanPrompt, type SingleDayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
 import type { ProtocolFile } from "@/lib/protocol";
 
@@ -243,15 +243,24 @@ export async function POST(req: NextRequest) {
   const yesterdayMeals   = (yesterdayPlan?.meals as { name: string }[] | null)
     ?.map((m) => m.name) ?? [];
   const previousGlycogen = yesterdayPlan?.glycogenBattery ?? null;
-  const previousDayHadTraining = yesterdayEventRows.some(
-    (e) => e.eventType === "ride" || e.eventType === "race"
-  );
+  const previousDayHadTraining = yesterdayEventRows.some((e) => e.eventType !== "rest");
 
   const foodProfile = profile.foodProfile as {
     positive?: string[];
     negative?: string[];
     gutTriggers?: string[];
   } | null;
+
+  // Resolve primary events and activity types
+  const todayPrimaryRow = todayEventRows.length > 0
+    ? todayEventRows.reduce((a, b) => (b.durationMinutes ?? 0) > (a.durationMinutes ?? 0) ? b : a)
+    : null;
+  const tomorrowPrimaryRow = tomorrowEventRows.length > 0
+    ? tomorrowEventRows.reduce((a, b) => (b.durationMinutes ?? 0) > (a.durationMinutes ?? 0) ? b : a)
+    : null;
+
+  const todayActivityType    = todayPrimaryRow    ? resolveActivityType(protocol, todayPrimaryRow.eventType)    : null;
+  const tomorrowActivityType = tomorrowPrimaryRow ? resolveActivityType(protocol, tomorrowPrimaryRow.eventType) : null;
 
   const input: PlanEngineInput = {
     currentWeightKg:        Number(profile.currentWeightKg ?? 75),
@@ -263,20 +272,18 @@ export async function POST(req: NextRequest) {
     gutSensitivity:         profile.gutSensitivity ?? null,
     foodProfile,
     protocol,
-    todayEvents: todayEventRows.map((e) => ({
-      id:              e.id,
-      title:           e.title,
-      eventType:       e.eventType,
-      scheduledAt:     e.scheduledAt.toISOString(),
-      durationMinutes: e.durationMinutes,
-      intensity:       e.intensity,
-    })),
-    tomorrowEvents: tomorrowEventRows.map((e) => ({
-      eventType:       e.eventType,
-      durationMinutes: e.durationMinutes,
-      intensity:       e.intensity,
-      scheduledAt:     e.scheduledAt.toISOString(),
-    })),
+    todayActivityType,
+    tomorrowActivityType,
+    todayEvent: todayPrimaryRow ? {
+      id:              todayPrimaryRow.id,
+      title:           todayPrimaryRow.title,
+      scheduledAt:     todayPrimaryRow.scheduledAt.toISOString(),
+      durationMinutes: todayPrimaryRow.durationMinutes,
+    } : null,
+    tomorrowEvent: tomorrowPrimaryRow ? {
+      durationMinutes: tomorrowPrimaryRow.durationMinutes,
+      scheduledAt:     tomorrowPrimaryRow.scheduledAt.toISOString(),
+    } : null,
     yesterdayMeals,
     ingredientPool:         (strategyRows[0]?.ingredientPool as string[] | null) ?? null,
     recentFeedback,

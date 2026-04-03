@@ -8,6 +8,7 @@ import CheckInSheet, { type ExistingCheckIn } from "./CheckInSheet";
 import WeighInSheet from "./WeighInSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
+import type { ActivityTypeOption } from "@/app/plan/AddEventSheet";
 
 // ─── exported types (used by page.tsx) ───────────────────────────────────────
 
@@ -29,7 +30,6 @@ export interface TodayEvent {
   eventType:       string;
   scheduledAt:     string;
   durationMinutes: number | null;
-  intensity:       string | null;
   notes:           string | null;
 }
 
@@ -268,18 +268,11 @@ function GlyBattery({
 
 // ─── session hero ─────────────────────────────────────────────────────────────
 
-const INTENSITY_LABEL: Record<string, string> = {
-  easy:     "Easy",
-  moderate: "Moderate",
-  hard:     "Hard",
-  race:     "Race pace",
-};
-
-const EVENT_TYPE_COLOUR: Record<string, string> = {
-  ride: "border-lime-400/40 bg-lime-400/5",
-  race: "border-orange-400/40 bg-orange-400/5",
-  rest: "border-zinc-700 bg-zinc-900",
-};
+function getEventTypeColour(eventType: string): string {
+  if (eventType === "rest") return "border-zinc-700 bg-zinc-900";
+  if (eventType.toLowerCase().includes("race")) return "border-orange-400/40 bg-orange-400/5";
+  return "border-lime-400/40 bg-lime-400/5";
+}
 
 function SessionHero({
   event,
@@ -290,7 +283,7 @@ function SessionHero({
   fuelling: NonNullable<TodayPlan["onBikeFuelling"]> | null;
   onEdit:   () => void;
 }) {
-  const colour = EVENT_TYPE_COLOUR[event.eventType] ?? "border-zinc-700 bg-zinc-900";
+  const colour = getEventTypeColour(event.eventType);
 
   return (
     <div className={`rounded-2xl border px-4 py-4 space-y-4 ${colour}`}>
@@ -314,9 +307,6 @@ function SessionHero({
         <div className="flex gap-3 mt-1 text-xs text-zinc-500">
           {event.durationMinutes && (
             <span>{fmtDuration(event.durationMinutes)}</span>
-          )}
-          {event.intensity && (
-            <span>{INTENSITY_LABEL[event.intensity] ?? event.intensity}</span>
           )}
         </div>
         {event.notes && (
@@ -474,7 +464,7 @@ function NoPlan({
             key={e.id}
             type="button"
             onClick={() => onEdit(e)}
-            className={`w-full text-left rounded-2xl border px-4 py-4 hover:brightness-110 transition-all ${EVENT_TYPE_COLOUR[e.eventType] ?? "border-zinc-700 bg-zinc-900"}`}
+            className={`w-full text-left rounded-2xl border px-4 py-4 hover:brightness-110 transition-all ${getEventTypeColour(e.eventType)}`}
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-white font-semibold">{e.title}</p>
@@ -483,7 +473,6 @@ function NoPlan({
             <div className="flex gap-3 mt-1 text-xs text-zinc-500">
               <span>{fmtTime(e.scheduledAt)}</span>
               {e.durationMinutes && <span>{fmtDuration(e.durationMinutes)}</span>}
-              {e.intensity && <span>{INTENSITY_LABEL[e.intensity] ?? e.intensity}</span>}
             </div>
           </button>
         ))}
@@ -561,6 +550,7 @@ export default function DailyDashboard({
   trackStoolHealth = false,
   unitSystem = "metric",
   timezone = "Europe/London",
+  activityTypes = [],
 }: {
   todayStr:           string;
   todayPlan:          TodayPlan | null;
@@ -572,6 +562,7 @@ export default function DailyDashboard({
   trackStoolHealth?:  boolean;
   unitSystem?:        UnitSystem;
   timezone?:          string;
+  activityTypes?:     ActivityTypeOption[];
 }) {
   const [weighInOpen,    setWeighInOpen]    = useState(false);
   const [checkInOpen,    setCheckInOpen]    = useState(false);
@@ -582,9 +573,7 @@ export default function DailyDashboard({
   const [events,         setEvents]         = useState<TodayEvent[]>(todayEvents);
   const [editingEvent,   setEditingEvent]   = useState<EditableEvent | null>(null);
 
-  const trainingEvent = events.find(
-    (e) => e.eventType === "ride" || e.eventType === "race"
-  ) ?? null;
+  const trainingEvent = events.find((e) => e.eventType !== "rest") ?? null;
 
   const isTrainingDay = !!trainingEvent;
 
@@ -808,6 +797,7 @@ export default function DailyDashboard({
       {editingEvent && (
         <EditEventSheet
           event={editingEvent}
+          activityTypes={activityTypes}
           onClose={() => setEditingEvent(null)}
           onUpdated={(updated) => {
             setEditingEvent(null);
@@ -820,7 +810,6 @@ export default function DailyDashboard({
                       eventType:       updated.eventType,
                       scheduledAt:     updated.scheduledAt,
                       durationMinutes: updated.durationMinutes,
-                      intensity:       updated.intensity,
                       notes:           updated.notes,
                     }
                   : e

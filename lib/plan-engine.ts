@@ -2,63 +2,36 @@
 // Pure deterministic module — no AI calls, no DB calls, no side effects.
 // Takes user data + protocol and produces a complete DayBrief for one day.
 
-import type { ProtocolFile, MacroRange } from './protocol';
+import type { ProtocolFile, MacroRange, ActivityType } from './protocol';
 
-// ─── Phase 6A compatibility shim ─────────────────────────────────────────────
-// plan-engine.ts uses a flat "training_day / pre_ride / on_bike / post_ride"
-// model.  Phase 6B will rewrite it to use activity_types natively.  For now,
-// buildLegacyCompat() maps the first non-race ActivityType to the old shapes.
+// ─── resolveActivityType ─────────────────────────────────────────────────────
+// Maps a calendar event's eventType string to an ActivityType from the protocol.
+// Handles both new-style names ("Hard ride") and old-style values ("ride","race").
 
-interface DayMacrosLike {
-  calorie_offset:    number;
-  add_training_burn: boolean;
-  carbs_g_per_kg:    MacroRange;
-  protein_g_per_kg:  MacroRange;
-  fat_g_per_kg:      MacroRange;
-}
+export function resolveActivityType(
+  protocol: ProtocolFile,
+  eventTypeName: string,
+): ActivityType | null {
+  if (eventTypeName === 'rest') return null;
 
-interface LegacyCompat {
-  rest_day:     DayMacrosLike;
-  training_day: DayMacrosLike;
-  pre_ride:  { timing_hours_before: number; focus: string };
-  on_bike:   { under_90min_carbs_per_hour: number; over_90min_carbs_per_hour: MacroRange; over_3hrs_carbs_per_hour: MacroRange };
-  post_ride: { timing_minutes_after: number; focus: string; protein_g_per_kg: number; carbs_g_per_kg: number };
-}
+  // Exact match first
+  const exact = protocol.activity_types.find(at => at.name === eventTypeName);
+  if (exact) return exact;
 
-function buildLegacyCompat(protocol: ProtocolFile): LegacyCompat {
-  const fallback = protocol.activity_types.find(a => !a.is_race) ?? protocol.activity_types[0];
-  const c = fallback.during_activity?.carbs_per_hour ?? 0;
-  return {
-    rest_day: {
-      calorie_offset:    protocol.rest_day.calorie_offset,
-      add_training_burn: false,
-      carbs_g_per_kg:    protocol.rest_day.carbs_g_per_kg,
-      protein_g_per_kg:  protocol.rest_day.protein_g_per_kg,
-      fat_g_per_kg:      protocol.rest_day.fat_g_per_kg,
-    },
-    training_day: {
-      calorie_offset:    fallback.calorie_offset,
-      add_training_burn: fallback.add_training_burn,
-      carbs_g_per_kg:    fallback.carbs_g_per_kg,
-      protein_g_per_kg:  fallback.protein_g_per_kg,
-      fat_g_per_kg:      fallback.fat_g_per_kg,
-    },
-    pre_ride: {
-      timing_hours_before: fallback.pre_activity.timing_hours_before,
-      focus:               fallback.pre_activity.focus,
-    },
-    on_bike: {
-      under_90min_carbs_per_hour: c,
-      over_90min_carbs_per_hour:  { min: c, max: c },
-      over_3hrs_carbs_per_hour:   { min: c, max: c },
-    },
-    post_ride: {
-      timing_minutes_after: fallback.post_activity.timing_minutes_after,
-      focus:                fallback.post_activity.focus,
-      protein_g_per_kg:     fallback.post_activity.protein_g_per_kg,
-      carbs_g_per_kg:       fallback.post_activity.carbs_g_per_kg,
-    },
-  };
+  // Fallback for old event type values
+  const lower = eventTypeName.toLowerCase();
+  if (lower === 'race') {
+    return protocol.activity_types.find(at => at.is_race)
+      ?? protocol.activity_types[0];
+  }
+  if (lower === 'ride') {
+    return protocol.activity_types.find(at => at.name.toLowerCase().includes('easy') && !at.is_race)
+      ?? protocol.activity_types.find(at => !at.is_race)
+      ?? protocol.activity_types[0];
+  }
+
+  // Any other unrecognised type → first non-race
+  return protocol.activity_types.find(at => !at.is_race) ?? protocol.activity_types[0];
 }
 
 // ─── Input types ─────────────────────────────────────────────────────────────
@@ -78,26 +51,28 @@ export interface PlanEngineInput {
     gutTriggers?: string[];
   } | null;
 
-  // Protocol (new numeric format)
+  // Protocol
   protocol: ProtocolFile;
 
-  // Today's calendar events
-  todayEvents: {
+  // Resolved activity type for today (null = rest day)
+  todayActivityType: ActivityType | null;
+
+  // Resolved activity type for tomorrow (for carb loading check)
+  tomorrowActivityType: ActivityType | null;
+
+  // Today's scheduled event
+  todayEvent: {
     id: number;
     title: string;
-    eventType: string; // ride | race | rest | other
-    scheduledAt: string; // ISO datetime
-    durationMinutes: number | null;
-    intensity: string | null; // easy | moderate | hard | race
-  }[];
-
-  // Tomorrow's calendar events (for carb loading logic)
-  tomorrowEvents: {
-    eventType: string;
-    durationMinutes: number | null;
-    intensity: string | null;
     scheduledAt: string;
-  }[];
+    durationMinutes: number | null;
+  } | null;
+
+  // Tomorrow's event (for carb loading)
+  tomorrowEvent: {
+    durationMinutes: number | null;
+    scheduledAt: string;
+  } | null;
 
   // Yesterday's plan meals (for variety)
   yesterdayMeals: string[];
@@ -163,7 +138,7 @@ export interface DayBrief {
     title: string;
     scheduledAt: string;
     durationMinutes: number;
-    intensity: string;
+    activityTypeName: string;
   } | null;
 
   totalCalories: number;
@@ -197,7 +172,32 @@ export interface DayBrief {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-type EventEntry = PlanEngineInput['todayEvents'][0];
+interface DayMacroRules {
+  calorie_offset: number;
+  add_training_burn: boolean;
+  carbs_g_per_kg: MacroRange;
+  protein_g_per_kg: MacroRange;
+  fat_g_per_kg: MacroRange;
+}
+
+function getDayMacroRules(protocol: ProtocolFile, activityType: ActivityType | null): DayMacroRules {
+  if (activityType === null) {
+    return {
+      calorie_offset:    protocol.rest_day.calorie_offset,
+      add_training_burn: false,
+      carbs_g_per_kg:    protocol.rest_day.carbs_g_per_kg,
+      protein_g_per_kg:  protocol.rest_day.protein_g_per_kg,
+      fat_g_per_kg:      protocol.rest_day.fat_g_per_kg,
+    };
+  }
+  return {
+    calorie_offset:    activityType.calorie_offset,
+    add_training_burn: activityType.add_training_burn,
+    carbs_g_per_kg:    activityType.carbs_g_per_kg,
+    protein_g_per_kg:  activityType.protein_g_per_kg,
+    fat_g_per_kg:      activityType.fat_g_per_kg,
+  };
+}
 
 function midpoint(range: MacroRange): number {
   return (range.min + range.max) / 2;
@@ -224,49 +224,11 @@ function appetiteHas(profile: string | null, keyword: string): boolean {
   return profile.toLowerCase().includes(keyword.toLowerCase());
 }
 
-function getDefaultDuration(intensity: string | null): number {
-  if (intensity === 'easy') return 60;
-  if (intensity === 'hard') return 90;
-  if (intensity === 'race') return 120;
-  return 75; // moderate / default
-}
+// ─── B. Training burn ─────────────────────────────────────────────────────────
 
-// ─── A. Determine day type ────────────────────────────────────────────────────
-
-function determineDayType(events: PlanEngineInput['todayEvents']): {
-  dayType: 'rest' | 'training' | 'race';
-  primaryEvent: EventEntry | null;
-} {
-  const active = events.filter(e => e.eventType === 'ride' || e.eventType === 'race');
-  if (active.length === 0) return { dayType: 'rest', primaryEvent: null };
-
-  const races = active.filter(e => e.eventType === 'race');
-  const pool = races.length > 0 ? races : active;
-
-  // Prefer longest duration; ties broken by first in array
-  const primary = pool.reduce((a, b) =>
-    (b.durationMinutes ?? 0) > (a.durationMinutes ?? 0) ? b : a
-  );
-
-  return {
-    dayType: races.length > 0 ? 'race' : 'training',
-    primaryEvent: primary,
-  };
-}
-
-// ─── B. Estimate training burn ────────────────────────────────────────────────
-
-function estimateTrainingBurn(event: EventEntry | null): number {
-  if (!event) return 0;
-
-  const intensity = event.intensity ?? (event.eventType === 'race' ? 'race' : 'moderate');
-  const kcalPerMin = intensity === 'easy' ? 5
-    : intensity === 'hard' ? 11
-    : (intensity === 'race' || event.eventType === 'race') ? 12
-    : 8; // moderate / default
-
-  const duration = event.durationMinutes ?? getDefaultDuration(intensity);
-  return kcalPerMin * duration;
+function estimateTrainingBurn(activityType: ActivityType | null, durationMinutes: number): number {
+  if (!activityType) return 0;
+  return Math.round(activityType.burn_rate_kcal_per_min * durationMinutes);
 }
 
 // ─── D. Guardrail adjustments ─────────────────────────────────────────────────
@@ -279,7 +241,7 @@ function computeGuardrails(feedback: PlanEngineInput['recentFeedback']): Guardra
       type: 'hunger',
       description: 'High hunger — adding 200 kcal',
       calorieAdjustment: 200,
-      carbAdjustment: 50, // 200 kcal / 4 kcal per g
+      carbAdjustment: 50,
     });
   }
 
@@ -288,7 +250,7 @@ function computeGuardrails(feedback: PlanEngineInput['recentFeedback']): Guardra
       type: 'energy',
       description: 'Low energy — adding 150 kcal to reduce deficit',
       calorieAdjustment: 150,
-      carbAdjustment: 38, // 150 / 4 rounded
+      carbAdjustment: 38,
     });
   }
 
@@ -326,7 +288,7 @@ function computeGuardrails(feedback: PlanEngineInput['recentFeedback']): Guardra
 
 function computeMacros(
   weightKg: number,
-  dayRules: DayMacrosLike,
+  dayRules: DayMacroRules,
   isTrainingDay: boolean,
   guardrailCarbsG: number,
   totalCalories: number,
@@ -352,56 +314,53 @@ function computeMacros(
 
 // ─── F. Carb loading check ────────────────────────────────────────────────────
 
-function checkCarbLoading(tomorrowEvents: PlanEngineInput['tomorrowEvents']): string | null {
-  const event = tomorrowEvents.find(e => {
-    if (e.eventType !== 'ride' && e.eventType !== 'race') return false;
-    const isLong = (e.durationMinutes ?? 0) >= 90;
-    const isHard = e.intensity === 'hard' || e.intensity === 'race' || e.eventType === 'race';
-    return isLong || isHard;
-  });
-  if (!event) return null;
+function checkCarbLoading(
+  tomorrowActivityType: ActivityType | null,
+  tomorrowDurationMinutes: number | null,
+): string | null {
+  if (!tomorrowActivityType) return null;
 
-  const dur = event.durationMinutes ? `${event.durationMinutes}min` : '';
-  const int = event.intensity ?? '';
-  const parts = [int, dur].filter(Boolean).join(' ');
-  return `Carb loading for tomorrow's ${parts ? parts + ' ' : ''}${event.eventType}`;
+  const dur = tomorrowDurationMinutes ?? tomorrowActivityType.default_duration_minutes;
+  const isHeavy = tomorrowActivityType.is_race
+    || tomorrowActivityType.burn_rate_kcal_per_min >= 8
+    || dur >= 90;
+
+  if (!isHeavy) return null;
+  return `Carb loading for tomorrow's ${tomorrowActivityType.name}`;
 }
 
 // ─── G. On-bike fuelling ──────────────────────────────────────────────────────
 
 function computeOnBikeFuelling(
-  event: EventEntry,
-  compat: LegacyCompat,
+  event: NonNullable<PlanEngineInput['todayEvent']>,
+  activityType: ActivityType,
   weightKg: number,
-): OnBikeBrief {
-  const duration = event.durationMinutes ?? getDefaultDuration(event.intensity);
+): OnBikeBrief | null {
+  const during = activityType.during_activity;
+  if (!during) return null; // no during-activity fuelling (e.g. gym, short S&C)
 
-  const carbsPerHour = duration < 90
-    ? compat.on_bike.under_90min_carbs_per_hour
-    : duration <= 180
-      ? midpoint(compat.on_bike.over_90min_carbs_per_hour)
-      : midpoint(compat.on_bike.over_3hrs_carbs_per_hour);
-
+  const duration = event.durationMinutes ?? activityType.default_duration_minutes;
+  const carbsPerHour = during.carbs_per_hour;
   const totalOnBikeCarbsG = Math.round(carbsPerHour * duration / 60);
 
-  const rideStart = new Date(event.scheduledAt);
-  const preRideTime = subtractHours(rideStart, compat.pre_ride.timing_hours_before);
-  const rideEnd = addMinutes(rideStart, duration);
-  const postRideTime = addMinutes(rideEnd, compat.post_ride.timing_minutes_after);
+  const actStart = new Date(event.scheduledAt);
+  const preTime  = subtractHours(actStart, activityType.pre_activity.timing_hours_before);
+  const actEnd   = addMinutes(actStart, duration);
+  const postTime = addMinutes(actEnd, activityType.post_activity.timing_minutes_after);
 
   return {
-    carbsPerHour: Math.round(carbsPerHour),
+    carbsPerHour,
     durationMinutes: duration,
     totalOnBikeCarbsG,
     preRide: {
-      timing: `${formatTime(preRideTime)} — ${compat.pre_ride.timing_hours_before}hrs before ride`,
-      focus: compat.pre_ride.focus,
+      timing: `${formatTime(preTime)} — ${activityType.pre_activity.timing_hours_before}hrs before`,
+      focus:  activityType.pre_activity.focus,
     },
     postRide: {
-      timing: `${formatTime(postRideTime)} — within ${compat.post_ride.timing_minutes_after}min of finishing`,
-      proteinG: Math.round(compat.post_ride.protein_g_per_kg * weightKg),
-      carbsG: Math.round(compat.post_ride.carbs_g_per_kg * weightKg),
-      focus: compat.post_ride.focus,
+      timing:   `${formatTime(postTime)} — within ${activityType.post_activity.timing_minutes_after}min of finishing`,
+      proteinG: Math.round(activityType.post_activity.protein_g_per_kg * weightKg),
+      carbsG:   Math.round(activityType.post_activity.carbs_g_per_kg * weightKg),
+      focus:    activityType.post_activity.focus,
     },
   };
 }
@@ -439,10 +398,9 @@ function applyCarbLoading(slots: MealSlot[]): MealSlot[] {
   const extra = Math.round(dinner.carbsG * 0.3);
   if (extra === 0) return slots;
 
-  // Donor slots: everything except dinner and post-ride recovery
   const donorIdxs = slots
     .map((_, i) => i)
-    .filter(i => i !== dinnerIdx && !slots[i].name.startsWith('Post-ride'));
+    .filter(i => i !== dinnerIdx && !slots[i].name.startsWith('Post-'));
 
   const totalDonorCarbs = donorIdxs.reduce((s, i) => s + slots[i].carbsG, 0);
   if (totalDonorCarbs === 0) return slots;
@@ -454,7 +412,6 @@ function applyCarbLoading(slots: MealSlot[]): MealSlot[] {
     calorieTarget: (dinner.carbsG + extra) * 4 + dinner.proteinG * 4 + dinner.fatG * 9,
   };
 
-  // Reduce donors proportionally, last absorbs rounding
   let transferred = 0;
   donorIdxs.forEach((idx, pos) => {
     const s = result[idx];
@@ -481,18 +438,17 @@ function buildRestDaySlots(
   appetiteProfile: string | null,
   carbLoadContext: string | null,
 ): MealSlot[] {
-  const noSnacking = appetiteHas(appetiteProfile, 'no snack')
+  const noSnacking  = appetiteHas(appetiteProfile, 'no snack')
     || appetiteHas(appetiteProfile, '3 big meals')
     || appetiteHas(appetiteProfile, 'no snacking');
-  const doneBy7 = appetiteHas(appetiteProfile, 'done eating by 7')
+  const doneBy7     = appetiteHas(appetiteProfile, 'done eating by 7')
     || appetiteHas(appetiteProfile, 'done by 7pm')
     || appetiteHas(appetiteProfile, '7pm');
-  const grazing = appetiteHas(appetiteProfile, 'little and often')
+  const grazing     = appetiteHas(appetiteProfile, 'little and often')
     || appetiteHas(appetiteProfile, 'grazing');
   const bigBreakfast = appetiteHas(appetiteProfile, 'big breakfast');
   const lightMorning = appetiteHas(appetiteProfile, 'light morning');
 
-  // Grazing: 5 smaller meals
   if (grazing) {
     const dinnerTime = doneBy7 ? '18:00' : '19:00';
     const s = [
@@ -505,7 +461,6 @@ function buildRestDaySlots(
     return carbLoadContext ? applyCarbLoading(s) : s;
   }
 
-  // Standard 3-meal distribution with optional evening snack
   let bfFrac = 0.25, lunchFrac = 0.35, dinnerFrac = 0.35, snackFrac = 0.05;
 
   if (bigBreakfast) {
@@ -537,120 +492,108 @@ function buildRestDaySlots(
 }
 
 function buildTrainingDaySlots(
-  event: EventEntry,
-  compat: LegacyCompat,
+  event: NonNullable<PlanEngineInput['todayEvent']>,
+  activityType: ActivityType,
   totalCarbsG: number,
   totalProteinG: number,
   totalFatG: number,
   weightKg: number,
   carbLoadContext: string | null,
 ): MealSlot[] {
-  const duration = event.durationMinutes ?? getDefaultDuration(event.intensity);
-  const rideStart = new Date(event.scheduledAt);
-  const rideHour = rideStart.getHours();
-  const rideEnd = addMinutes(rideStart, duration);
-  const preRideTime = subtractHours(rideStart, compat.pre_ride.timing_hours_before);
-  const postRideTime = addMinutes(rideEnd, compat.post_ride.timing_minutes_after);
+  const duration      = event.durationMinutes ?? activityType.default_duration_minutes;
+  const actStart      = new Date(event.scheduledAt);
+  const actHour       = actStart.getHours();
+  const actEnd        = addMinutes(actStart, duration);
+  const preTime       = subtractHours(actStart, activityType.pre_activity.timing_hours_before);
+  const postTime      = addMinutes(actEnd, activityType.post_activity.timing_minutes_after);
 
-  // Post-ride: fixed amounts from compat
-  const postRideCarbsG   = Math.round(compat.post_ride.carbs_g_per_kg * weightKg);
-  const postRideProteinG = Math.round(compat.post_ride.protein_g_per_kg * weightKg);
+  const postRideCarbsG   = Math.round(activityType.post_activity.carbs_g_per_kg * weightKg);
+  const postRideProteinG = Math.round(activityType.post_activity.protein_g_per_kg * weightKg);
   const postRideFatG     = Math.round(totalFatG * 0.10);
 
-  const isMorningRide = rideHour < 12;
+  const isMorningSession = actHour < 12;
   let slots: MealSlot[];
 
-  if (isMorningRide) {
-    // Pre-ride: light high-carb (20% carbs, 10% protein, 5% fat)
+  if (isMorningSession) {
     const preRideCarbsG   = Math.round(totalCarbsG * 0.20);
     const preRideProteinG = Math.round(totalProteinG * 0.10);
     const preRideFatG     = Math.round(totalFatG * 0.05);
 
-    // Remaining for the rest of the day
     const remCarbsG   = Math.max(0, totalCarbsG   - preRideCarbsG   - postRideCarbsG);
     const remProteinG = Math.max(0, totalProteinG - preRideProteinG - postRideProteinG);
     const remFatG     = Math.max(0, totalFatG     - preRideFatG     - postRideFatG);
 
-    // If post-ride is around lunchtime (11:00–14:00) it doubles as lunch
-    const postRideHour = postRideTime.getHours();
+    const postRideHour    = postTime.getHours();
     const postRideIsLunch = postRideHour >= 11 && postRideHour <= 14;
 
     if (postRideIsLunch) {
       slots = [
-        makeMealSlot('Pre-ride',      formatTime(preRideTime),  'Pre-ride fuel', preRideCarbsG,  preRideProteinG,  preRideFatG),
-        makeMealSlot('Post-ride meal', formatTime(postRideTime), 'Recovery',     postRideCarbsG, postRideProteinG, postRideFatG),
-        makeMealSlot('Dinner',        '18:30',                  'Main meal',     remCarbsG,      remProteinG,      remFatG),
+        makeMealSlot('Pre-activity',       formatTime(preTime),  'Pre-activity fuel', preRideCarbsG,  preRideProteinG,  preRideFatG),
+        makeMealSlot('Post-activity meal', formatTime(postTime), 'Recovery',          postRideCarbsG, postRideProteinG, postRideFatG),
+        makeMealSlot('Dinner',             '18:30',              'Main meal',         remCarbsG,      remProteinG,      remFatG),
       ];
     } else {
-      // Separate lunch and dinner from remaining macros (40% lunch, 60% dinner)
-      const lunchCarbsG    = Math.round(remCarbsG   * 0.40);
-      const lunchProteinG  = Math.round(remProteinG * 0.40);
-      const lunchFatG      = Math.round(remFatG     * 0.40);
-      const dinnerCarbsG   = remCarbsG   - lunchCarbsG;
-      const dinnerProteinG = remProteinG - lunchProteinG;
-      const dinnerFatG     = remFatG     - lunchFatG;
+      const lunchCarbsG   = Math.round(remCarbsG   * 0.40);
+      const lunchProteinG = Math.round(remProteinG * 0.40);
+      const lunchFatG     = Math.round(remFatG     * 0.40);
+      const dinnerCarbsG  = remCarbsG   - lunchCarbsG;
+      const dinnerProtein = remProteinG - lunchProteinG;
+      const dinnerFatG    = remFatG     - lunchFatG;
 
       slots = [
-        makeMealSlot('Pre-ride',       formatTime(preRideTime),  'Pre-ride fuel', preRideCarbsG,  preRideProteinG,  preRideFatG),
-        makeMealSlot('Post-ride meal', formatTime(postRideTime), 'Recovery',      postRideCarbsG, postRideProteinG, postRideFatG),
-        makeMealSlot('Lunch',          '12:30',                  'Main meal',     lunchCarbsG,    lunchProteinG,    lunchFatG),
-        makeMealSlot('Dinner',         '18:30',                  'Main meal',     dinnerCarbsG,   dinnerProteinG,   dinnerFatG),
+        makeMealSlot('Pre-activity',       formatTime(preTime),  'Pre-activity fuel', preRideCarbsG, preRideProteinG, preRideFatG),
+        makeMealSlot('Post-activity meal', formatTime(postTime), 'Recovery',          postRideCarbsG, postRideProteinG, postRideFatG),
+        makeMealSlot('Lunch',              '12:30',              'Main meal',         lunchCarbsG,    lunchProteinG,   lunchFatG),
+        makeMealSlot('Dinner',             '18:30',              'Main meal',         dinnerCarbsG,   dinnerProtein,   dinnerFatG),
       ];
     }
   } else {
-    // Afternoon / evening ride (12:00+)
+    // Afternoon / evening session
     const bfCarbsG   = Math.round(totalCarbsG   * 0.25);
     const bfProteinG = Math.round(totalProteinG * 0.25);
     const bfFatG     = Math.round(totalFatG     * 0.25);
 
-    // Pre-ride snack: lighter than morning pre-ride (15% carbs)
     const preRideCarbsG   = Math.round(totalCarbsG   * 0.15);
     const preRideProteinG = Math.round(totalProteinG * 0.10);
     const preRideFatG     = Math.round(totalFatG     * 0.05);
 
-    // Remaining after breakfast, pre-ride, post-ride
     const remCarbsG   = Math.max(0, totalCarbsG   - bfCarbsG   - preRideCarbsG   - postRideCarbsG);
     const remProteinG = Math.max(0, totalProteinG - bfProteinG - preRideProteinG - postRideProteinG);
     const remFatG     = Math.max(0, totalFatG     - bfFatG     - preRideFatG     - postRideFatG);
 
-    // Dinner time: later of 19:30 and 30min after post-ride meal
-    const earliestDinner = new Date(rideStart);
+    const earliestDinner = new Date(actStart);
     earliestDinner.setHours(19, 30, 0, 0);
-    const dinnerDate = postRideTime > earliestDinner
-      ? addMinutes(postRideTime, 30)
-      : earliestDinner;
+    const dinnerDate = postTime > earliestDinner ? addMinutes(postTime, 30) : earliestDinner;
     const dinnerTime = formatTime(dinnerDate);
 
-    if (rideHour >= 14) {
-      // Enough gap for a proper lunch at 12:00 before the ride
-      const lunchCarbsG    = Math.round(remCarbsG   * 0.55);
-      const lunchProteinG  = Math.round(remProteinG * 0.55);
-      const lunchFatG      = Math.round(remFatG     * 0.55);
-      const dinnerCarbsG   = remCarbsG   - lunchCarbsG;
-      const dinnerProteinG = remProteinG - lunchProteinG;
-      const dinnerFatG     = remFatG     - lunchFatG;
+    if (actHour >= 14) {
+      const lunchCarbsG  = Math.round(remCarbsG   * 0.55);
+      const lunchProtein = Math.round(remProteinG * 0.55);
+      const lunchFatG    = Math.round(remFatG     * 0.55);
+      const dinCarbsG    = remCarbsG   - lunchCarbsG;
+      const dinProtein   = remProteinG - lunchProtein;
+      const dinFatG      = remFatG     - lunchFatG;
 
       slots = [
-        makeMealSlot('Breakfast',      '07:30',                   'Main meal',     bfCarbsG,       bfProteinG,       bfFatG),
-        makeMealSlot('Lunch',          '12:00',                   'Main meal',     lunchCarbsG,    lunchProteinG,    lunchFatG),
-        makeMealSlot('Pre-ride snack', formatTime(preRideTime),   'Pre-ride fuel', preRideCarbsG,  preRideProteinG,  preRideFatG),
-        makeMealSlot('Post-ride meal', formatTime(postRideTime),  'Recovery',      postRideCarbsG, postRideProteinG, postRideFatG),
-        makeMealSlot('Dinner',         dinnerTime,                'Main meal',     dinnerCarbsG,   dinnerProteinG,   dinnerFatG),
+        makeMealSlot('Breakfast',           '07:30',              'Main meal',         bfCarbsG,      bfProteinG,      bfFatG),
+        makeMealSlot('Lunch',               '12:00',              'Main meal',         lunchCarbsG,   lunchProtein,    lunchFatG),
+        makeMealSlot('Pre-activity snack',  formatTime(preTime),  'Pre-activity fuel', preRideCarbsG, preRideProteinG, preRideFatG),
+        makeMealSlot('Post-activity meal',  formatTime(postTime), 'Recovery',          postRideCarbsG, postRideProteinG, postRideFatG),
+        makeMealSlot('Dinner',              dinnerTime,           'Main meal',         dinCarbsG,     dinProtein,      dinFatG),
       ];
     } else {
-      // Ride 12:00–14:00: combine lunch and pre-ride into one pre-ride meal
-      const combinedCarbsG   = preRideCarbsG   + Math.round(remCarbsG   * 0.50);
-      const combinedProteinG = preRideProteinG + Math.round(remProteinG * 0.50);
-      const combinedFatG     = preRideFatG     + Math.round(remFatG     * 0.50);
-      const dinnerCarbsG     = Math.max(0, remCarbsG   - Math.round(remCarbsG   * 0.50));
-      const dinnerProteinG   = Math.max(0, remProteinG - Math.round(remProteinG * 0.50));
-      const dinnerFatG       = Math.max(0, remFatG     - Math.round(remFatG     * 0.50));
+      const combinedCarbsG  = preRideCarbsG   + Math.round(remCarbsG   * 0.50);
+      const combinedProtein = preRideProteinG + Math.round(remProteinG * 0.50);
+      const combinedFatG    = preRideFatG     + Math.round(remFatG     * 0.50);
+      const dinCarbsG       = Math.max(0, remCarbsG   - Math.round(remCarbsG   * 0.50));
+      const dinProtein      = Math.max(0, remProteinG - Math.round(remProteinG * 0.50));
+      const dinFatG         = Math.max(0, remFatG     - Math.round(remFatG     * 0.50));
 
       slots = [
-        makeMealSlot('Breakfast',        '07:30',                  'Main meal',     bfCarbsG,       bfProteinG,       bfFatG),
-        makeMealSlot('Lunch / Pre-ride', formatTime(preRideTime),  'Pre-ride fuel', combinedCarbsG, combinedProteinG, combinedFatG),
-        makeMealSlot('Post-ride meal',   formatTime(postRideTime), 'Recovery',      postRideCarbsG, postRideProteinG, postRideFatG),
-        makeMealSlot('Dinner',           dinnerTime,               'Main meal',     dinnerCarbsG,   dinnerProteinG,   dinnerFatG),
+        makeMealSlot('Breakfast',               '07:30',              'Main meal',         bfCarbsG,       bfProteinG,    bfFatG),
+        makeMealSlot('Lunch / Pre-activity',    formatTime(preTime),  'Pre-activity fuel', combinedCarbsG, combinedProtein, combinedFatG),
+        makeMealSlot('Post-activity meal',      formatTime(postTime), 'Recovery',          postRideCarbsG, postRideProteinG, postRideFatG),
+        makeMealSlot('Dinner',                  dinnerTime,           'Main meal',         dinCarbsG,      dinProtein,    dinFatG),
       ];
     }
   }
@@ -679,28 +622,27 @@ function estimateGlycogen(
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief {
+  const { todayActivityType, todayEvent, tomorrowActivityType, tomorrowEvent } = input;
+
   // A. Day type
-  const { dayType, primaryEvent } = determineDayType(input.todayEvents);
+  const dayType: 'rest' | 'training' | 'race' =
+    todayActivityType === null ? 'rest' :
+    todayActivityType.is_race  ? 'race' : 'training';
 
   // B. Training burn
-  const trainingBurn = estimateTrainingBurn(primaryEvent);
-
-  // Phase 6A shim — map new activity_types format to legacy flat shape
-  const compat = buildLegacyCompat(input.protocol);
+  const eventDuration = todayEvent?.durationMinutes ?? todayActivityType?.default_duration_minutes ?? 60;
+  const trainingBurn  = estimateTrainingBurn(todayActivityType, eventDuration);
 
   // C. Calorie target
-  const dayRules: DayMacrosLike = dayType === 'rest'
-    ? compat.rest_day
-    : compat.training_day;
-
+  const dayRules = getDayMacroRules(input.protocol, todayActivityType);
   let baseCalories = input.maintenanceCalories + dayRules.calorie_offset;
   if (dayRules.add_training_burn) baseCalories += trainingBurn;
 
   // D. Guardrails
-  const guardrails = computeGuardrails(input.recentFeedback);
+  const guardrails       = computeGuardrails(input.recentFeedback);
   const guardrailCalAdj  = guardrails.reduce((s, g) => s + g.calorieAdjustment, 0);
   const guardrailCarbAdj = guardrails.reduce((s, g) => s + g.carbAdjustment, 0);
-  const totalCalories = Math.round(baseCalories + guardrailCalAdj);
+  const totalCalories    = Math.round(baseCalories + guardrailCalAdj);
 
   // E. Macros
   const { carbsG, proteinG, fatG } = computeMacros(
@@ -712,18 +654,21 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
   );
 
   // F. Carb loading
-  const carbLoadContext = checkCarbLoading(input.tomorrowEvents);
+  const carbLoadContext = checkCarbLoading(
+    tomorrowActivityType,
+    tomorrowEvent?.durationMinutes ?? null,
+  );
 
-  // G. On-bike fuelling
-  const onBikeFuelling = primaryEvent
-    ? computeOnBikeFuelling(primaryEvent, compat, input.currentWeightKg)
+  // G. On-bike / during-activity fuelling
+  const onBikeFuelling = todayEvent && todayActivityType
+    ? computeOnBikeFuelling(todayEvent, todayActivityType, input.currentWeightKg)
     : null;
 
   // H. Meal slots
-  const mealSlots = dayType === 'rest' || !primaryEvent
+  const mealSlots = dayType === 'rest' || !todayEvent || !todayActivityType
     ? buildRestDaySlots(carbsG, proteinG, fatG, input.appetiteProfile, carbLoadContext)
     : buildTrainingDaySlots(
-        primaryEvent, compat,
+        todayEvent, todayActivityType,
         carbsG, proteinG, fatG, input.currentWeightKg,
         carbLoadContext,
       );
@@ -739,17 +684,17 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
   return {
     date,
     dayType,
-    trainingEvent: primaryEvent ? {
-      id:              primaryEvent.id,
-      title:           primaryEvent.title,
-      scheduledAt:     primaryEvent.scheduledAt,
-      durationMinutes: primaryEvent.durationMinutes ?? getDefaultDuration(primaryEvent.intensity),
-      intensity:       primaryEvent.intensity ?? 'moderate',
+    trainingEvent: todayEvent && todayActivityType ? {
+      id:               todayEvent.id,
+      title:            todayEvent.title,
+      scheduledAt:      todayEvent.scheduledAt,
+      durationMinutes:  eventDuration,
+      activityTypeName: todayActivityType.name,
     } : null,
     totalCalories,
-    totalCarbsG:  carbsG,
+    totalCarbsG:   carbsG,
     totalProteinG: proteinG,
-    totalFatG:    fatG,
+    totalFatG:     fatG,
     calorieBreakdown: {
       maintenance:         input.maintenanceCalories,
       trainingBurn,
@@ -762,13 +707,13 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
     carbLoadContext,
     glycogenBattery,
     guardrails,
-    yesterdayMeals:   input.yesterdayMeals,
-    ingredientPool:   input.ingredientPool,
-    foodExclusions:   input.foodExclusions,
+    yesterdayMeals:     input.yesterdayMeals,
+    ingredientPool:     input.ingredientPool,
+    foodExclusions:     input.foodExclusions,
     currentSupplements: input.currentSupplements,
-    appetiteProfile:  input.appetiteProfile,
-    gutSensitivity:   input.gutSensitivity,
-    foodPreferences:  input.foodProfile?.positive ?? [],
-    gutTriggers:      input.foodProfile?.gutTriggers ?? [],
+    appetiteProfile:    input.appetiteProfile,
+    gutSensitivity:     input.gutSensitivity,
+    foodPreferences:    input.foodProfile?.positive   ?? [],
+    gutTriggers:        input.foodProfile?.gutTriggers ?? [],
   };
 }

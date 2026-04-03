@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ActivityTypeOption } from "@/app/plan/AddEventSheet";
 
 export interface EditableEvent {
   id:              number;
@@ -8,15 +9,15 @@ export interface EditableEvent {
   eventType:       string;
   scheduledAt:     string;
   durationMinutes: number | null;
-  intensity:       string | null;
   notes:           string | null;
 }
 
 interface Props {
-  event:     EditableEvent;
-  onClose:   () => void;
-  onUpdated: (event: EditableEvent) => void;
-  onDeleted: (id: number) => void;
+  event:         EditableEvent;
+  activityTypes: ActivityTypeOption[];
+  onClose:       () => void;
+  onUpdated:     (event: EditableEvent) => void;
+  onDeleted:     (id: number) => void;
 }
 
 function toDatetimeLocal(iso: string): string {
@@ -25,26 +26,11 @@ function toDatetimeLocal(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const EVENT_TYPES = [
-  { value: "ride",  label: "Ride"  },
-  { value: "race",  label: "Race"  },
-  { value: "rest",  label: "Rest"  },
-  { value: "other", label: "Other" },
-];
-
-const INTENSITIES = [
-  { value: "easy",     label: "Easy" },
-  { value: "moderate", label: "Mod"  },
-  { value: "hard",     label: "Hard" },
-  { value: "race",     label: "Race" },
-];
-
-export default function EditEventSheet({ event, onClose, onUpdated, onDeleted }: Props) {
+export default function EditEventSheet({ event, activityTypes, onClose, onUpdated, onDeleted }: Props) {
   const [title,         setTitle]         = useState(event.title);
   const [eventType,     setEventType]     = useState(event.eventType);
   const [datetime,      setDatetime]      = useState(toDatetimeLocal(event.scheduledAt));
   const [duration,      setDuration]      = useState(event.durationMinutes ? String(event.durationMinutes) : "");
-  const [intensity,     setIntensity]     = useState(event.intensity ?? "moderate");
   const [notes,         setNotes]         = useState(event.notes ?? "");
   const [saving,        setSaving]        = useState(false);
   const [deleting,      setDeleting]      = useState(false);
@@ -67,7 +53,6 @@ export default function EditEventSheet({ event, onClose, onUpdated, onDeleted }:
         eventType,
         scheduledAt:     new Date(datetime).toISOString(),
         durationMinutes: duration ? parseInt(duration, 10) : null,
-        intensity:       eventType !== "rest" ? intensity : null,
         notes:           notes.trim() || null,
       }),
     });
@@ -107,6 +92,11 @@ export default function EditEventSheet({ event, onClose, onUpdated, onDeleted }:
     onDeleted(event.id);
   }
 
+  const allTypes: { name: string; isRest?: boolean }[] = [
+    ...activityTypes.map(a => ({ name: a.name })),
+    { name: "rest", isRest: true },
+  ];
+
   return (
     <>
       <div className="fixed inset-0 bg-black/70 z-40" onClick={onClose} />
@@ -130,14 +120,21 @@ export default function EditEventSheet({ event, onClose, onUpdated, onDeleted }:
 
           <div>
             <p className="text-xs text-zinc-500 mb-2">Type</p>
-            <div className="grid grid-cols-4 gap-2">
-              {EVENT_TYPES.map((t) => (
-                <button key={t.value} type="button" onClick={() => setEventType(t.value)}
-                  className={`py-2 rounded-lg text-sm font-medium transition-colors ${
-                    eventType === t.value ? "bg-lime-400 text-black" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+            <div className="flex flex-wrap gap-2">
+              {allTypes.map((t) => (
+                <button
+                  key={t.name}
+                  type="button"
+                  onClick={() => setEventType(t.name)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    eventType === t.name
+                      ? t.isRest
+                        ? "bg-zinc-600 text-white"
+                        : "bg-lime-400 text-black"
+                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
                   }`}
                 >
-                  {t.label}
+                  {t.isRest ? "Rest" : t.name}
                 </button>
               ))}
             </div>
@@ -153,33 +150,18 @@ export default function EditEventSheet({ event, onClose, onUpdated, onDeleted }:
             />
           </div>
 
-          <div>
-            <p className="text-xs text-zinc-500 mb-2">Duration (minutes)</p>
-            <input
-              type="number"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="e.g. 90"
-              min="1"
-              max="600"
-              className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
-            />
-          </div>
-
           {eventType !== "rest" && (
             <div>
-              <p className="text-xs text-zinc-500 mb-2">Intensity</p>
-              <div className="grid grid-cols-4 gap-2">
-                {INTENSITIES.map((i) => (
-                  <button key={i.value} type="button" onClick={() => setIntensity(i.value)}
-                    className={`py-2 rounded-lg text-sm font-medium transition-colors ${
-                      intensity === i.value ? "bg-lime-400 text-black" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                    }`}
-                  >
-                    {i.label}
-                  </button>
-                ))}
-              </div>
+              <p className="text-xs text-zinc-500 mb-2">Duration (minutes)</p>
+              <input
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                placeholder="e.g. 90"
+                min="1"
+                max="600"
+                className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
+              />
             </div>
           )}
 

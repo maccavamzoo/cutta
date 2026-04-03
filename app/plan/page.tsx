@@ -11,6 +11,7 @@ import {
   weeklyStrategies,
 } from "@/lib/db/schema";
 import PlanView, { type StoredPlan, type PlanCalendarEvent } from "./PlanView";
+import type { ActivityTypeOption } from "./AddEventSheet";
 import BottomNav from "@/components/BottomNav";
 import { arrivalDate } from "@/lib/weight-projection";
 import { kgToDisplay, weightLabel } from "@/lib/units";
@@ -163,9 +164,20 @@ export default async function PlanPage() {
     scheduledDate:   e.scheduledAt.toISOString().split("T")[0],
     scheduledAt:     e.scheduledAt.toISOString(),
     durationMinutes: e.durationMinutes,
-    intensity:       e.intensity,
     notes:           e.notes,
   }));
+
+  const activityTypes: ActivityTypeOption[] = (() => {
+    const content = protocolRow?.content as Record<string, unknown> | null ?? null;
+    if (!content || !Array.isArray(content.activity_types)) return [];
+    return (content.activity_types as Array<Record<string, unknown>>)
+      .filter((at) => typeof at.name === "string")
+      .map((at) => ({
+        name:                     at.name as string,
+        description:              (at.description as string) ?? "",
+        default_duration_minutes: (at.default_duration_minutes as number) ?? 60,
+      }));
+  })();
 
   return (
     <>
@@ -193,6 +205,7 @@ export default async function PlanPage() {
           hasActiveProtocol={hasActiveProtocol}
           hasWeeklyStrategy={hasWeeklyStrategy}
           dataLastChangedAt={dataLastChangedAt}
+          activityTypes={activityTypes}
         />
       </main>
       <BottomNav active="plan" />

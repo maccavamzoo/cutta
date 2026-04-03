@@ -3,19 +3,25 @@
 import { useState } from "react";
 
 export interface CalendarEvent {
-  id: number;
-  title: string;
-  eventType: string;
-  scheduledAt: string;
+  id:              number;
+  title:           string;
+  eventType:       string;
+  scheduledAt:     string;
   durationMinutes: number | null;
-  intensity: string | null;
-  notes: string | null;
+  notes:           string | null;
+}
+
+export interface ActivityTypeOption {
+  name:                     string;
+  description:              string;
+  default_duration_minutes: number;
 }
 
 interface Props {
-  defaultDate: Date;
-  onClose: () => void;
-  onAdded: (event: CalendarEvent) => void;
+  defaultDate:   Date;
+  activityTypes: ActivityTypeOption[];
+  onClose:       () => void;
+  onAdded:       (event: CalendarEvent) => void;
 }
 
 function toDatetimeLocal(d: Date): string {
@@ -23,29 +29,28 @@ function toDatetimeLocal(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const EVENT_TYPES = [
-  { value: "ride",  label: "Ride"  },
-  { value: "race",  label: "Race"  },
-  { value: "rest",  label: "Rest"  },
-  { value: "other", label: "Other" },
-];
+export default function AddEventSheet({ defaultDate, activityTypes, onClose, onAdded }: Props) {
+  const firstType = activityTypes[0]?.name ?? "rest";
 
-const INTENSITIES = [
-  { value: "easy",     label: "Easy" },
-  { value: "moderate", label: "Mod"  },
-  { value: "hard",     label: "Hard" },
-  { value: "race",     label: "Race" },
-];
-
-export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) {
   const [title,     setTitle]     = useState("");
-  const [eventType, setEventType] = useState("ride");
+  const [eventType, setEventType] = useState(firstType);
   const [datetime,  setDatetime]  = useState(toDatetimeLocal(defaultDate));
-  const [duration,  setDuration]  = useState("");
-  const [intensity, setIntensity] = useState("moderate");
-  const [notes,     setNotes]     = useState("");
-  const [saving,    setSaving]    = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const [duration,  setDuration]  = useState(
+    activityTypes[0] ? String(activityTypes[0].default_duration_minutes) : ""
+  );
+  const [notes,  setNotes]  = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState<string | null>(null);
+
+  function handleTypeSelect(name: string) {
+    setEventType(name);
+    if (name === "rest") {
+      setDuration("");
+    } else {
+      const at = activityTypes.find(a => a.name === name);
+      if (at) setDuration(String(at.default_duration_minutes));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,7 +67,6 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
         eventType,
         scheduledAt:     new Date(datetime).toISOString(),
         durationMinutes: duration ? parseInt(duration, 10) : undefined,
-        intensity:       eventType !== "rest" ? intensity : undefined,
         notes:           notes.trim() || undefined,
       }),
     });
@@ -82,10 +86,15 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
     });
   }
 
+  const allTypes: { name: string; isRest?: boolean }[] = [
+    ...activityTypes.map(a => ({ name: a.name })),
+    { name: "rest", isRest: true },
+  ];
+
   return (
     <>
       <div className="fixed inset-0 bg-black/70 z-40" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900 rounded-t-2xl px-4 pt-3 pb-10 max-w-lg mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900 rounded-t-2xl px-4 pt-3 pb-10 max-w-lg mx-auto overflow-y-auto max-h-[90dvh]">
         <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-semibold">Add session</h2>
@@ -106,14 +115,21 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
 
           <div>
             <p className="text-xs text-zinc-500 mb-2">Type</p>
-            <div className="grid grid-cols-4 gap-2">
-              {EVENT_TYPES.map((t) => (
-                <button key={t.value} type="button" onClick={() => setEventType(t.value)}
-                  className={`py-2 rounded-lg text-sm font-medium transition-colors ${
-                    eventType === t.value ? "bg-lime-400 text-black" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+            <div className="flex flex-wrap gap-2">
+              {allTypes.map((t) => (
+                <button
+                  key={t.name}
+                  type="button"
+                  onClick={() => handleTypeSelect(t.name)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    eventType === t.name
+                      ? t.isRest
+                        ? "bg-zinc-600 text-white"
+                        : "bg-lime-400 text-black"
+                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
                   }`}
                 >
-                  {t.label}
+                  {t.isRest ? "Rest" : t.name}
                 </button>
               ))}
             </div>
@@ -129,33 +145,18 @@ export default function AddEventSheet({ defaultDate, onClose, onAdded }: Props) 
             />
           </div>
 
-          <div>
-            <p className="text-xs text-zinc-500 mb-2">Duration (minutes)</p>
-            <input
-              type="number"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="e.g. 90"
-              min="1"
-              max="600"
-              className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
-            />
-          </div>
-
           {eventType !== "rest" && (
             <div>
-              <p className="text-xs text-zinc-500 mb-2">Intensity</p>
-              <div className="grid grid-cols-4 gap-2">
-                {INTENSITIES.map((i) => (
-                  <button key={i.value} type="button" onClick={() => setIntensity(i.value)}
-                    className={`py-2 rounded-lg text-sm font-medium transition-colors ${
-                      intensity === i.value ? "bg-lime-400 text-black" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                    }`}
-                  >
-                    {i.label}
-                  </button>
-                ))}
-              </div>
+              <p className="text-xs text-zinc-500 mb-2">Duration (minutes)</p>
+              <input
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                placeholder="e.g. 90"
+                min="1"
+                max="600"
+                className="w-full bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
+              />
             </div>
           )}
 
