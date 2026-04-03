@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
     const c = protocolRow.content as Record<string, unknown>;
     const restDay = c.rest_day as Record<string, unknown> | undefined;
     if (typeof restDay?.calorie_offset === "number" && Array.isArray(c.activity_types)) {
-      typedProtocol = protocolRow as typeof typedProtocol;
+      typedProtocol = { name: protocolRow.name, content: protocolRow.content as ProtocolFile };
     }
   }
 
