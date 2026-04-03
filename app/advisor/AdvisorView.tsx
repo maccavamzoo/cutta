@@ -202,20 +202,17 @@ export default function AdvisorView() {
 
   return (
     <>
-      {/* Full-height flex column */}
-      <div className="flex flex-col bg-black" style={{ height: "calc(100dvh - 52px)" }}>
-
-        {/* Header */}
-        <div className="px-4 pt-5 pb-3 border-b border-zinc-800 shrink-0">
-          <div className="max-w-lg mx-auto">
-            <h1 className="text-xl font-bold tracking-tight text-white">Cutta AI</h1>
-            <p className="text-zinc-500 text-sm mt-0.5">Nutrition, training &amp; protocol advice</p>
-          </div>
+      {/* Header — sticky so it stays visible while messages scroll */}
+      <div className="sticky top-0 z-30 bg-black px-4 pt-5 pb-3 border-b border-zinc-800">
+        <div className="max-w-lg mx-auto">
+          <h1 className="text-xl font-bold tracking-tight text-white">Cutta AI</h1>
+          <p className="text-zinc-500 text-sm mt-0.5">Nutrition, training &amp; protocol advice</p>
         </div>
+      </div>
 
-        {/* Messages — scrollable */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="max-w-lg mx-auto space-y-3">
+      {/* Messages — scrollable, padded so last message clears input bar + nav */}
+      <div ref={scrollRef} className="px-4 py-4 pb-[130px]">
+        <div className="max-w-lg mx-auto space-y-3">
 
             {messages.length === 0 && (
               <div className="py-12 text-center space-y-2">
@@ -320,9 +317,9 @@ export default function AdvisorView() {
           </div>
         </div>
 
-        {/* Input bar — sticks to bottom of flex column */}
-        <div className="border-t border-zinc-800 px-4 py-3 bg-black shrink-0">
-          <div className="max-w-lg mx-auto flex gap-2">
+      {/* Input bar — fixed above BottomNav */}
+      <div className="fixed bottom-[52px] left-0 right-0 border-t border-zinc-800 px-4 py-3 bg-black z-30">
+        <div className="max-w-lg mx-auto flex gap-2">
             <input
               ref={inputRef}
               type="text"
@@ -342,7 +339,6 @@ export default function AdvisorView() {
             </button>
           </div>
         </div>
-      </div>
 
       <BottomNav active="ai" onNavigate={handleNavigate} />
 
