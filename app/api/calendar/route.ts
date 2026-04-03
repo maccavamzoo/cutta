@@ -148,12 +148,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const validTypes = ["ride", "race", "rest", "other"];
-  if (!validTypes.includes(body.eventType)) {
-    return NextResponse.json(
-      { error: "eventType must be ride, race, rest, or other." },
-      { status: 422 }
-    );
+  if (!body.eventType || typeof body.eventType !== "string" || body.eventType.trim().length === 0) {
+    return NextResponse.json({ error: "eventType is required." }, { status: 422 });
   }
 
   const [created] = await db
@@ -161,10 +157,9 @@ export async function POST(req: NextRequest) {
     .values({
       clerkUserId: userId,
       title: body.title.trim(),
-      eventType: body.eventType,
+      eventType: body.eventType.trim(),
       scheduledAt: new Date(body.scheduledAt),
       durationMinutes: body.durationMinutes ?? null,
-      intensity: body.intensity ?? null,
       notes: body.notes?.trim() || null,
     })
     .returning();

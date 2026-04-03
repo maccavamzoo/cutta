@@ -9,6 +9,7 @@ import {
   complianceLog,
   feedbackLog,
   weightLog,
+  protocols,
 } from "@/lib/db/schema";
 import DailyDashboard, {
   type TodayPlan,
@@ -16,6 +17,7 @@ import DailyDashboard, {
   type ProfileSnapshot,
 } from "./DailyDashboard";
 import type { ExistingCheckIn } from "./CheckInSheet";
+import type { ActivityTypeOption } from "@/app/plan/AddEventSheet";
 import { getUserToday } from "@/lib/dates";
 
 export default async function DashboardPage() {
@@ -33,7 +35,7 @@ export default async function DashboardPage() {
 
   const { todayStr, todayStart, todayEnd } = getUserToday(timezoneRow?.timezone ?? null);
 
-  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weighInRows] = await Promise.all([
+  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weighInRows, protocolRows] = await Promise.all([
     currentUser(),
     db
       .select()
@@ -106,6 +108,12 @@ export default async function DashboardPage() {
         )
       )
       .limit(1),
+
+    db
+      .select({ content: protocols.content })
+      .from(protocols)
+      .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
+      .limit(1),
   ]);
 
   const planRow = planRows[0] ?? null;
@@ -130,9 +138,20 @@ export default async function DashboardPage() {
     eventType:       e.eventType,
     scheduledAt:     e.scheduledAt.toISOString(),
     durationMinutes: e.durationMinutes,
-    intensity:       e.intensity,
     notes:           e.notes,
   }));
+
+  const activityTypes: ActivityTypeOption[] = (() => {
+    const content = protocolRows[0]?.content as Record<string, unknown> | null ?? null;
+    if (!content || !Array.isArray(content.activity_types)) return [];
+    return (content.activity_types as Array<Record<string, unknown>>)
+      .filter((at) => typeof at.name === "string")
+      .map((at) => ({
+        name:                     at.name as string,
+        description:              (at.description as string) ?? "",
+        default_duration_minutes: (at.default_duration_minutes as number) ?? 60,
+      }));
+  })();
 
   const profileRow = profileRows[0] ?? null;
   const profile: ProfileSnapshot | null = profileRow
@@ -182,6 +201,7 @@ export default async function DashboardPage() {
       trackStoolHealth={trackStoolHealth}
       unitSystem={unitSystem}
       timezone={timezone}
+      activityTypes={activityTypes}
     />
   );
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
-import AddEventSheet, { type CalendarEvent } from "./AddEventSheet";
+import AddEventSheet, { type CalendarEvent, type ActivityTypeOption } from "./AddEventSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import type { UnitSystem } from "@/lib/units";
 
@@ -33,7 +33,6 @@ export interface PlanCalendarEvent {
   scheduledDate: string; // YYYY-MM-DD
   scheduledAt: string;   // ISO
   durationMinutes: number | null;
-  intensity: string | null;
   notes: string | null;
 }
 
@@ -61,19 +60,11 @@ function calorieBorder(cal: number | null): string {
   return "border-orange-400/40";
 }
 
-const INTENSITY_LABEL: Record<string, string> = {
-  easy:     "Easy",
-  moderate: "Moderate",
-  hard:     "Hard",
-  race:     "Race pace",
-};
-
-const EVENT_TYPE_BADGE: Record<string, string> = {
-  ride:  "bg-lime-400/10 text-lime-400 border border-lime-400/30",
-  race:  "bg-orange-400/10 text-orange-400 border border-orange-400/30",
-  rest:  "bg-zinc-800 text-zinc-500 border border-zinc-700",
-  other: "bg-zinc-800 text-zinc-500 border border-zinc-700",
-};
+function getEventBadgeClass(eventType: string): string {
+  if (eventType === "rest") return "bg-zinc-800 text-zinc-500 border border-zinc-700";
+  if (eventType.toLowerCase().includes("race")) return "bg-orange-400/10 text-orange-400 border border-orange-400/30";
+  return "bg-lime-400/10 text-lime-400 border border-lime-400/30";
+}
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
@@ -177,6 +168,7 @@ interface DayCardProps {
   isStale:          boolean;
   hasActiveProtocol: boolean;
   unitSystem:       UnitSystem;
+  activityTypes:    ActivityTypeOption[];
   onGenerate:       () => void;
   onEventAdded:     (event: CalendarEvent) => void;
   onEventUpdated:   (event: EditableEvent) => void;
@@ -191,6 +183,7 @@ function DayCard({
   isGenerating,
   isStale,
   hasActiveProtocol,
+  activityTypes,
   onGenerate,
   onEventAdded,
   onEventUpdated,
@@ -231,11 +224,10 @@ function DayCard({
                 {hasEvents
                   ? events.map((ev) => {
                       const time  = new Date(ev.scheduledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-                      const label = ev.eventType.charAt(0).toUpperCase() + ev.eventType.slice(1);
-                      const parts = [label, ev.title, ev.durationMinutes ? `${ev.durationMinutes}m` : null, time]
+                      const parts = [ev.eventType, ev.title, ev.durationMinutes ? `${ev.durationMinutes}m` : null, time]
                         .filter(Boolean).join(" · ");
                       return (
-                        <span key={ev.id} className={`text-xs px-2 py-0.5 rounded-full self-start ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
+                        <span key={ev.id} className={`text-xs px-2 py-0.5 rounded-full self-start ${getEventBadgeClass(ev.eventType)}`}>
                           {parts}
                         </span>
                       );
@@ -305,7 +297,7 @@ function DayCard({
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-white text-sm font-medium">{ev.title}</span>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${EVENT_TYPE_BADGE[ev.eventType] ?? EVENT_TYPE_BADGE.other}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getEventBadgeClass(ev.eventType)}`}>
                           {ev.eventType}
                         </span>
                         <span className="text-zinc-600 text-xs">Edit →</span>
@@ -313,7 +305,6 @@ function DayCard({
                     </div>
                     <div className="flex gap-3 text-xs text-zinc-500 flex-wrap">
                       {ev.durationMinutes && <span>{ev.durationMinutes} min</span>}
-                      {ev.intensity && <span>{INTENSITY_LABEL[ev.intensity] ?? ev.intensity}</span>}
                     </div>
                     {ev.notes && <p className="text-zinc-600 text-xs mt-1 italic">{ev.notes}</p>}
                   </button>
@@ -372,6 +363,7 @@ function DayCard({
       {sheetOpen && (
         <AddEventSheet
           defaultDate={new Date(dateStr + "T09:00:00")}
+          activityTypes={activityTypes}
           onClose={() => setSheetOpen(false)}
           onAdded={(event) => { setSheetOpen(false); onEventAdded(event); }}
         />
@@ -380,6 +372,7 @@ function DayCard({
       {editingEvent && (
         <EditEventSheet
           event={editingEvent}
+          activityTypes={activityTypes}
           onClose={() => setEditingEvent(null)}
           onUpdated={(updated) => { setEditingEvent(null); onEventUpdated(updated); }}
           onDeleted={(id) => { setEditingEvent(null); onEventDeleted(id); }}
@@ -399,6 +392,7 @@ export default function PlanView({
   hasActiveProtocol,
   hasWeeklyStrategy,
   dataLastChangedAt,
+  activityTypes,
 }: {
   initialPlans:      StoredPlan[];
   calendarEvents:    PlanCalendarEvent[];
@@ -407,6 +401,7 @@ export default function PlanView({
   hasActiveProtocol: boolean;
   hasWeeklyStrategy: boolean;
   dataLastChangedAt: string | null;
+  activityTypes:     ActivityTypeOption[];
 }) {
   const router = useRouter();
 
@@ -460,7 +455,6 @@ export default function PlanView({
         scheduledDate:   dateStr,
         scheduledAt:     event.scheduledAt,
         durationMinutes: event.durationMinutes,
-        intensity:       event.intensity,
         notes:           event.notes,
       },
     ]);
@@ -474,7 +468,7 @@ export default function PlanView({
         e.id === updated.id
           ? { ...e, title: updated.title, eventType: updated.eventType, scheduledDate: dateStr,
               scheduledAt: updated.scheduledAt, durationMinutes: updated.durationMinutes,
-              intensity: updated.intensity, notes: updated.notes }
+              notes: updated.notes }
           : e
       )
     );
@@ -544,6 +538,7 @@ export default function PlanView({
             isStale={plan !== null && isStale(plan)}
             hasActiveProtocol={hasActiveProtocol}
             unitSystem={unitSystem}
+            activityTypes={activityTypes}
             onGenerate={() => handleGenerate(dateStr)}
             onEventAdded={handleEventAdded}
             onEventUpdated={handleEventUpdated}

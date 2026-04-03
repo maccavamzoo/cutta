@@ -10,8 +10,7 @@ import ProtocolReadable from "./ProtocolReadable";
 function isNewFormatProtocol(content: unknown): content is ProtocolFile {
   if (typeof content !== "object" || content === null) return false;
   const c = content as Record<string, unknown>;
-  const restDay = c.rest_day as Record<string, unknown> | undefined;
-  return typeof restDay?.calorie_offset === "number";
+  return Array.isArray(c.activity_types) && (c.activity_types as unknown[]).length > 0;
 }
 
 export default async function ProtocolSettingsPage() {

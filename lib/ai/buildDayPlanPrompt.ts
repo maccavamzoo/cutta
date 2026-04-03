@@ -40,11 +40,11 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
   lines.push('');
 
   // ── Today section ──────────────────────────────────────────────────────────
-  lines.push(`## TODAY: ${brief.date} (${brief.dayType} day)`);
+  lines.push(`## TODAY: ${brief.date} (${brief.dayType} day${brief.trainingEvent ? ` — ${brief.trainingEvent.activityTypeName}` : ''})`);
   if (brief.trainingEvent) {
     const ev = brief.trainingEvent;
     const time = new Date(ev.scheduledAt).toISOString().substring(11, 16);
-    lines.push(`Training: ${ev.title} at ${time} — ${ev.durationMinutes}min, ${ev.intensity}`);
+    lines.push(`Training: ${ev.title} at ${time} — ${ev.durationMinutes}min, ${ev.activityTypeName}`);
   } else {
     lines.push('Rest day — no training');
   }
