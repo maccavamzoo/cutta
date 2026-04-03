@@ -27,7 +27,7 @@ export default async function TrainingUploadPage() {
       </p>
 
       <UploadFlow />
-      <BottomNav active="more" />
+      <BottomNav active="settings" />
     </main>
   );
 }
