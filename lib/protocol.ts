@@ -1,68 +1,93 @@
 // Protocol file type and validation.
-// Strict numeric structure — all fields required for plan computation.
+// Phase 6A: activity_types array replaces single training_day/pre_ride/on_bike/post_ride.
 
 export interface MacroRange {
   min: number;
   max: number;
 }
 
-export interface DayMacros {
-  /** Calorie rule relative to maintenance, e.g. -400 means "maintenance - 400" */
+// ─── Activity-level fuelling rules ──────────────────────────────────────────
+
+export interface DuringActivityRules {
+  /** Carbs per hour. 0 means water/electrolytes only */
+  carbs_per_hour: number;
+  /** Description shown in readable view */
+  description: string;
+}
+
+export interface ActivityPreRules {
+  timing_hours_before: number;
+  focus: string;
+}
+
+export interface ActivityPostRules {
+  timing_minutes_after: number;
+  focus: string;
+  protein_g_per_kg: number;
+  carbs_g_per_kg: number;
+}
+
+// ─── Activity type ──────────────────────────────────────────────────────────
+
+export interface ActivityType {
+  /** Display name, e.g. "Hard ride", "Easy ride", "S&C / Gym", "Run" */
+  name: string;
+  /** Short description for the UI */
+  description: string;
+  /** Calorie offset from maintenance (e.g. -200) */
   calorie_offset: number;
-  /** Whether to add training burn on top of the offset */
+  /** Whether to add estimated training burn to daily calories */
   add_training_burn: boolean;
-  /** Grams per kg of body weight */
+  /** Estimated kcal burned per minute for this activity */
+  burn_rate_kcal_per_min: number;
+  /** Day macro targets (g per kg body weight) */
+  carbs_g_per_kg: MacroRange;
+  protein_g_per_kg: MacroRange;
+  fat_g_per_kg: MacroRange;
+  /** Pre-activity nutrition */
+  pre_activity: ActivityPreRules;
+  /** During-activity fuelling. Null for activities with no during-fuelling */
+  during_activity: DuringActivityRules | null;
+  /** Post-activity recovery */
+  post_activity: ActivityPostRules;
+  /** Default duration in minutes (used when user doesn't specify) */
+  default_duration_minutes: number;
+  /** Whether this is a race-type activity */
+  is_race: boolean;
+}
+
+// ─── Rest day (always present) ──────────────────────────────────────────────
+
+export interface RestDayRules {
+  calorie_offset: number;
   carbs_g_per_kg: MacroRange;
   protein_g_per_kg: MacroRange;
   fat_g_per_kg: MacroRange;
 }
 
-export interface PreRideRules {
-  timing_hours_before: number;
-  focus: string;
-}
-
-export interface OnBikeRules {
-  /** Carbs per hour for rides under 90min */
-  under_90min_carbs_per_hour: number;
-  /** Carbs per hour for rides 90min-3hrs */
-  over_90min_carbs_per_hour: MacroRange;
-  /** Carbs per hour for rides over 3hrs */
-  over_3hrs_carbs_per_hour: MacroRange;
-}
-
-export interface PostRideRules {
-  timing_minutes_after: number;
-  focus: string;
-  /** Protein grams per kg within recovery window */
-  protein_g_per_kg: number;
-  /** Carb grams per kg within recovery window */
-  carbs_g_per_kg: number;
-}
+// ─── Race week prep ─────────────────────────────────────────────────────────
 
 export interface RaceWeekRules {
-  /** How many days before race to start carb loading */
   carb_load_days_before: number;
-  /** Carb target during loading phase, g/kg */
   carb_load_g_per_kg: MacroRange;
-  /** Race morning carbs, g/kg */
   race_morning_carbs_g_per_kg: number;
   race_morning_hours_before: number;
   strategy_notes: string;
 }
 
+// ─── The full protocol ──────────────────────────────────────────────────────
+
 export interface ProtocolFile {
   protocol_name: string;
   description: string;
-  rest_day: DayMacros;
-  training_day: DayMacros;
-  pre_ride: PreRideRules;
-  on_bike: OnBikeRules;
-  post_ride: PostRideRules;
+  rest_day: RestDayRules;
+  activity_types: ActivityType[];
   race_week: RaceWeekRules;
 }
 
-type ValidationOk = { valid: true; data: ProtocolFile };
+// ─── Validation ──────────────────────────────────────────────────────────────
+
+type ValidationOk   = { valid: true;  data: ProtocolFile };
 type ValidationFail = { valid: false; error: string };
 export type ValidationResult = ValidationOk | ValidationFail;
 
@@ -75,26 +100,108 @@ function isMacroRange(v: unknown): v is MacroRange {
   );
 }
 
-function isDayMacros(v: unknown, field: string): ValidationResult | null {
+function validateRestDay(v: unknown): ValidationResult | null {
   if (typeof v !== "object" || v === null) {
-    return { valid: false, error: `"${field}" must be an object.` };
+    return { valid: false, error: '"rest_day" must be an object.' };
   }
   const obj = v as Record<string, unknown>;
   if (typeof obj.calorie_offset !== "number") {
-    return { valid: false, error: `"${field}.calorie_offset" must be a number.` };
-  }
-  if (typeof obj.add_training_burn !== "boolean") {
-    return { valid: false, error: `"${field}.add_training_burn" must be a boolean.` };
+    return { valid: false, error: '"rest_day.calorie_offset" must be a number.' };
   }
   if (!isMacroRange(obj.carbs_g_per_kg)) {
-    return { valid: false, error: `"${field}.carbs_g_per_kg" must be an object with numeric min and max.` };
+    return { valid: false, error: '"rest_day.carbs_g_per_kg" must be an object with numeric min and max.' };
   }
   if (!isMacroRange(obj.protein_g_per_kg)) {
-    return { valid: false, error: `"${field}.protein_g_per_kg" must be an object with numeric min and max.` };
+    return { valid: false, error: '"rest_day.protein_g_per_kg" must be an object with numeric min and max.' };
   }
   if (!isMacroRange(obj.fat_g_per_kg)) {
-    return { valid: false, error: `"${field}.fat_g_per_kg" must be an object with numeric min and max.` };
+    return { valid: false, error: '"rest_day.fat_g_per_kg" must be an object with numeric min and max.' };
   }
+  return null;
+}
+
+function validateActivityType(v: unknown, index: number): ValidationResult | null {
+  if (typeof v !== "object" || v === null) {
+    return { valid: false, error: `activity_types[${index}] must be an object.` };
+  }
+  const a = v as Record<string, unknown>;
+
+  if (typeof a.name !== "string" || a.name.trim().length === 0) {
+    return { valid: false, error: `activity_types[${index}].name must be a non-empty string.` };
+  }
+  if (typeof a.description !== "string") {
+    return { valid: false, error: `activity_types[${index}].description must be a string.` };
+  }
+  if (typeof a.calorie_offset !== "number") {
+    return { valid: false, error: `activity_types[${index}].calorie_offset must be a number.` };
+  }
+  if (typeof a.add_training_burn !== "boolean") {
+    return { valid: false, error: `activity_types[${index}].add_training_burn must be a boolean.` };
+  }
+  if (typeof a.burn_rate_kcal_per_min !== "number") {
+    return { valid: false, error: `activity_types[${index}].burn_rate_kcal_per_min must be a number.` };
+  }
+  if (!isMacroRange(a.carbs_g_per_kg)) {
+    return { valid: false, error: `activity_types[${index}].carbs_g_per_kg must be an object with numeric min and max.` };
+  }
+  if (!isMacroRange(a.protein_g_per_kg)) {
+    return { valid: false, error: `activity_types[${index}].protein_g_per_kg must be an object with numeric min and max.` };
+  }
+  if (!isMacroRange(a.fat_g_per_kg)) {
+    return { valid: false, error: `activity_types[${index}].fat_g_per_kg must be an object with numeric min and max.` };
+  }
+
+  // pre_activity
+  if (typeof a.pre_activity !== "object" || a.pre_activity === null) {
+    return { valid: false, error: `activity_types[${index}].pre_activity must be an object.` };
+  }
+  const pre = a.pre_activity as Record<string, unknown>;
+  if (typeof pre.timing_hours_before !== "number") {
+    return { valid: false, error: `activity_types[${index}].pre_activity.timing_hours_before must be a number.` };
+  }
+  if (typeof pre.focus !== "string") {
+    return { valid: false, error: `activity_types[${index}].pre_activity.focus must be a string.` };
+  }
+
+  // during_activity (nullable)
+  if (a.during_activity !== null && a.during_activity !== undefined) {
+    if (typeof a.during_activity !== "object") {
+      return { valid: false, error: `activity_types[${index}].during_activity must be an object or null.` };
+    }
+    const dur = a.during_activity as Record<string, unknown>;
+    if (typeof dur.carbs_per_hour !== "number") {
+      return { valid: false, error: `activity_types[${index}].during_activity.carbs_per_hour must be a number.` };
+    }
+    if (typeof dur.description !== "string") {
+      return { valid: false, error: `activity_types[${index}].during_activity.description must be a string.` };
+    }
+  }
+
+  // post_activity
+  if (typeof a.post_activity !== "object" || a.post_activity === null) {
+    return { valid: false, error: `activity_types[${index}].post_activity must be an object.` };
+  }
+  const post = a.post_activity as Record<string, unknown>;
+  if (typeof post.timing_minutes_after !== "number") {
+    return { valid: false, error: `activity_types[${index}].post_activity.timing_minutes_after must be a number.` };
+  }
+  if (typeof post.focus !== "string") {
+    return { valid: false, error: `activity_types[${index}].post_activity.focus must be a string.` };
+  }
+  if (typeof post.protein_g_per_kg !== "number") {
+    return { valid: false, error: `activity_types[${index}].post_activity.protein_g_per_kg must be a number.` };
+  }
+  if (typeof post.carbs_g_per_kg !== "number") {
+    return { valid: false, error: `activity_types[${index}].post_activity.carbs_g_per_kg must be a number.` };
+  }
+
+  if (typeof a.default_duration_minutes !== "number") {
+    return { valid: false, error: `activity_types[${index}].default_duration_minutes must be a number.` };
+  }
+  if (typeof a.is_race !== "boolean") {
+    return { valid: false, error: `activity_types[${index}].is_race must be a boolean.` };
+  }
+
   return null;
 }
 
@@ -115,58 +222,17 @@ export function validateProtocol(raw: unknown): ValidationResult {
     return { valid: false, error: '"description" must be a string.' };
   }
 
-  const restErr = isDayMacros(obj.rest_day, "rest_day");
+  const restErr = validateRestDay(obj.rest_day);
   if (restErr) return restErr;
 
-  const trainErr = isDayMacros(obj.training_day, "training_day");
-  if (trainErr) return trainErr;
-
-  // pre_ride
-  if (typeof obj.pre_ride !== "object" || obj.pre_ride === null) {
-    return { valid: false, error: '"pre_ride" must be an object.' };
+  if (!Array.isArray(obj.activity_types) || obj.activity_types.length === 0) {
+    return { valid: false, error: '"activity_types" must be an array with at least one entry.' };
   }
-  const pr = obj.pre_ride as Record<string, unknown>;
-  if (typeof pr.timing_hours_before !== "number") {
-    return { valid: false, error: '"pre_ride.timing_hours_before" must be a number.' };
-  }
-  if (typeof pr.focus !== "string") {
-    return { valid: false, error: '"pre_ride.focus" must be a string.' };
+  for (let i = 0; i < obj.activity_types.length; i++) {
+    const err = validateActivityType(obj.activity_types[i] as unknown, i);
+    if (err) return err;
   }
 
-  // on_bike
-  if (typeof obj.on_bike !== "object" || obj.on_bike === null) {
-    return { valid: false, error: '"on_bike" must be an object.' };
-  }
-  const ob = obj.on_bike as Record<string, unknown>;
-  if (typeof ob.under_90min_carbs_per_hour !== "number") {
-    return { valid: false, error: '"on_bike.under_90min_carbs_per_hour" must be a number.' };
-  }
-  if (!isMacroRange(ob.over_90min_carbs_per_hour)) {
-    return { valid: false, error: '"on_bike.over_90min_carbs_per_hour" must be an object with numeric min and max.' };
-  }
-  if (!isMacroRange(ob.over_3hrs_carbs_per_hour)) {
-    return { valid: false, error: '"on_bike.over_3hrs_carbs_per_hour" must be an object with numeric min and max.' };
-  }
-
-  // post_ride
-  if (typeof obj.post_ride !== "object" || obj.post_ride === null) {
-    return { valid: false, error: '"post_ride" must be an object.' };
-  }
-  const por = obj.post_ride as Record<string, unknown>;
-  if (typeof por.timing_minutes_after !== "number") {
-    return { valid: false, error: '"post_ride.timing_minutes_after" must be a number.' };
-  }
-  if (typeof por.focus !== "string") {
-    return { valid: false, error: '"post_ride.focus" must be a string.' };
-  }
-  if (typeof por.protein_g_per_kg !== "number") {
-    return { valid: false, error: '"post_ride.protein_g_per_kg" must be a number.' };
-  }
-  if (typeof por.carbs_g_per_kg !== "number") {
-    return { valid: false, error: '"post_ride.carbs_g_per_kg" must be a number.' };
-  }
-
-  // race_week
   if (typeof obj.race_week !== "object" || obj.race_week === null) {
     return { valid: false, error: '"race_week" must be an object.' };
   }

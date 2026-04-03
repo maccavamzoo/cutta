@@ -2,7 +2,64 @@
 // Pure deterministic module — no AI calls, no DB calls, no side effects.
 // Takes user data + protocol and produces a complete DayBrief for one day.
 
-import type { ProtocolFile, MacroRange, DayMacros } from './protocol';
+import type { ProtocolFile, MacroRange } from './protocol';
+
+// ─── Phase 6A compatibility shim ─────────────────────────────────────────────
+// plan-engine.ts uses a flat "training_day / pre_ride / on_bike / post_ride"
+// model.  Phase 6B will rewrite it to use activity_types natively.  For now,
+// buildLegacyCompat() maps the first non-race ActivityType to the old shapes.
+
+interface DayMacrosLike {
+  calorie_offset:    number;
+  add_training_burn: boolean;
+  carbs_g_per_kg:    MacroRange;
+  protein_g_per_kg:  MacroRange;
+  fat_g_per_kg:      MacroRange;
+}
+
+interface LegacyCompat {
+  rest_day:     DayMacrosLike;
+  training_day: DayMacrosLike;
+  pre_ride:  { timing_hours_before: number; focus: string };
+  on_bike:   { under_90min_carbs_per_hour: number; over_90min_carbs_per_hour: MacroRange; over_3hrs_carbs_per_hour: MacroRange };
+  post_ride: { timing_minutes_after: number; focus: string; protein_g_per_kg: number; carbs_g_per_kg: number };
+}
+
+function buildLegacyCompat(protocol: ProtocolFile): LegacyCompat {
+  const fallback = protocol.activity_types.find(a => !a.is_race) ?? protocol.activity_types[0];
+  const c = fallback.during_activity?.carbs_per_hour ?? 0;
+  return {
+    rest_day: {
+      calorie_offset:    protocol.rest_day.calorie_offset,
+      add_training_burn: false,
+      carbs_g_per_kg:    protocol.rest_day.carbs_g_per_kg,
+      protein_g_per_kg:  protocol.rest_day.protein_g_per_kg,
+      fat_g_per_kg:      protocol.rest_day.fat_g_per_kg,
+    },
+    training_day: {
+      calorie_offset:    fallback.calorie_offset,
+      add_training_burn: fallback.add_training_burn,
+      carbs_g_per_kg:    fallback.carbs_g_per_kg,
+      protein_g_per_kg:  fallback.protein_g_per_kg,
+      fat_g_per_kg:      fallback.fat_g_per_kg,
+    },
+    pre_ride: {
+      timing_hours_before: fallback.pre_activity.timing_hours_before,
+      focus:               fallback.pre_activity.focus,
+    },
+    on_bike: {
+      under_90min_carbs_per_hour: c,
+      over_90min_carbs_per_hour:  { min: c, max: c },
+      over_3hrs_carbs_per_hour:   { min: c, max: c },
+    },
+    post_ride: {
+      timing_minutes_after: fallback.post_activity.timing_minutes_after,
+      focus:                fallback.post_activity.focus,
+      protein_g_per_kg:     fallback.post_activity.protein_g_per_kg,
+      carbs_g_per_kg:       fallback.post_activity.carbs_g_per_kg,
+    },
+  };
+}
 
 // ─── Input types ─────────────────────────────────────────────────────────────
 
@@ -269,7 +326,7 @@ function computeGuardrails(feedback: PlanEngineInput['recentFeedback']): Guardra
 
 function computeMacros(
   weightKg: number,
-  dayRules: DayMacros,
+  dayRules: DayMacrosLike,
   isTrainingDay: boolean,
   guardrailCarbsG: number,
   totalCalories: number,
@@ -314,37 +371,37 @@ function checkCarbLoading(tomorrowEvents: PlanEngineInput['tomorrowEvents']): st
 
 function computeOnBikeFuelling(
   event: EventEntry,
-  protocol: ProtocolFile,
+  compat: LegacyCompat,
   weightKg: number,
 ): OnBikeBrief {
   const duration = event.durationMinutes ?? getDefaultDuration(event.intensity);
 
   const carbsPerHour = duration < 90
-    ? protocol.on_bike.under_90min_carbs_per_hour
+    ? compat.on_bike.under_90min_carbs_per_hour
     : duration <= 180
-      ? midpoint(protocol.on_bike.over_90min_carbs_per_hour)
-      : midpoint(protocol.on_bike.over_3hrs_carbs_per_hour);
+      ? midpoint(compat.on_bike.over_90min_carbs_per_hour)
+      : midpoint(compat.on_bike.over_3hrs_carbs_per_hour);
 
   const totalOnBikeCarbsG = Math.round(carbsPerHour * duration / 60);
 
   const rideStart = new Date(event.scheduledAt);
-  const preRideTime = subtractHours(rideStart, protocol.pre_ride.timing_hours_before);
+  const preRideTime = subtractHours(rideStart, compat.pre_ride.timing_hours_before);
   const rideEnd = addMinutes(rideStart, duration);
-  const postRideTime = addMinutes(rideEnd, protocol.post_ride.timing_minutes_after);
+  const postRideTime = addMinutes(rideEnd, compat.post_ride.timing_minutes_after);
 
   return {
     carbsPerHour: Math.round(carbsPerHour),
     durationMinutes: duration,
     totalOnBikeCarbsG,
     preRide: {
-      timing: `${formatTime(preRideTime)} — ${protocol.pre_ride.timing_hours_before}hrs before ride`,
-      focus: protocol.pre_ride.focus,
+      timing: `${formatTime(preRideTime)} — ${compat.pre_ride.timing_hours_before}hrs before ride`,
+      focus: compat.pre_ride.focus,
     },
     postRide: {
-      timing: `${formatTime(postRideTime)} — within ${protocol.post_ride.timing_minutes_after}min of finishing`,
-      proteinG: Math.round(protocol.post_ride.protein_g_per_kg * weightKg),
-      carbsG: Math.round(protocol.post_ride.carbs_g_per_kg * weightKg),
-      focus: protocol.post_ride.focus,
+      timing: `${formatTime(postRideTime)} — within ${compat.post_ride.timing_minutes_after}min of finishing`,
+      proteinG: Math.round(compat.post_ride.protein_g_per_kg * weightKg),
+      carbsG: Math.round(compat.post_ride.carbs_g_per_kg * weightKg),
+      focus: compat.post_ride.focus,
     },
   };
 }
@@ -481,7 +538,7 @@ function buildRestDaySlots(
 
 function buildTrainingDaySlots(
   event: EventEntry,
-  protocol: ProtocolFile,
+  compat: LegacyCompat,
   totalCarbsG: number,
   totalProteinG: number,
   totalFatG: number,
@@ -492,12 +549,12 @@ function buildTrainingDaySlots(
   const rideStart = new Date(event.scheduledAt);
   const rideHour = rideStart.getHours();
   const rideEnd = addMinutes(rideStart, duration);
-  const preRideTime = subtractHours(rideStart, protocol.pre_ride.timing_hours_before);
-  const postRideTime = addMinutes(rideEnd, protocol.post_ride.timing_minutes_after);
+  const preRideTime = subtractHours(rideStart, compat.pre_ride.timing_hours_before);
+  const postRideTime = addMinutes(rideEnd, compat.post_ride.timing_minutes_after);
 
-  // Post-ride: fixed amounts from protocol
-  const postRideCarbsG   = Math.round(protocol.post_ride.carbs_g_per_kg * weightKg);
-  const postRideProteinG = Math.round(protocol.post_ride.protein_g_per_kg * weightKg);
+  // Post-ride: fixed amounts from compat
+  const postRideCarbsG   = Math.round(compat.post_ride.carbs_g_per_kg * weightKg);
+  const postRideProteinG = Math.round(compat.post_ride.protein_g_per_kg * weightKg);
   const postRideFatG     = Math.round(totalFatG * 0.10);
 
   const isMorningRide = rideHour < 12;
@@ -628,10 +685,13 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
   // B. Training burn
   const trainingBurn = estimateTrainingBurn(primaryEvent);
 
+  // Phase 6A shim — map new activity_types format to legacy flat shape
+  const compat = buildLegacyCompat(input.protocol);
+
   // C. Calorie target
-  const dayRules: DayMacros = dayType === 'rest'
-    ? input.protocol.rest_day
-    : input.protocol.training_day;
+  const dayRules: DayMacrosLike = dayType === 'rest'
+    ? compat.rest_day
+    : compat.training_day;
 
   let baseCalories = input.maintenanceCalories + dayRules.calorie_offset;
   if (dayRules.add_training_burn) baseCalories += trainingBurn;
@@ -656,14 +716,14 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
 
   // G. On-bike fuelling
   const onBikeFuelling = primaryEvent
-    ? computeOnBikeFuelling(primaryEvent, input.protocol, input.currentWeightKg)
+    ? computeOnBikeFuelling(primaryEvent, compat, input.currentWeightKg)
     : null;
 
   // H. Meal slots
   const mealSlots = dayType === 'rest' || !primaryEvent
     ? buildRestDaySlots(carbsG, proteinG, fatG, input.appetiteProfile, carbLoadContext)
     : buildTrainingDaySlots(
-        primaryEvent, input.protocol,
+        primaryEvent, compat,
         carbsG, proteinG, fatG, input.currentWeightKg,
         carbLoadContext,
       );

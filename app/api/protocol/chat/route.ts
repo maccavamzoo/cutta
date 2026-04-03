@@ -21,30 +21,44 @@ interface ChatRequest {
 const PROTOCOL_SCHEMA = `
 interface MacroRange { min: number; max: number; }
 
-interface DayMacros {
-  calorie_offset: number;       // e.g. -400 means maintenance - 400 kcal
-  add_training_burn: boolean;   // add training burn on top of offset
+interface DuringActivityRules {
+  carbs_per_hour: number;   // 0 means water/electrolytes only
+  description: string;      // e.g. "60g carbs per hour — gels, bars, or drink mix"
+}
+
+interface ActivityPreRules {
+  timing_hours_before: number;
+  focus: string;  // e.g. "High carb, low fibre, moderate protein"
+}
+
+interface ActivityPostRules {
+  timing_minutes_after: number;
+  focus: string;
+  protein_g_per_kg: number;  // grams per kg body weight
+  carbs_g_per_kg: number;    // grams per kg body weight
+}
+
+interface ActivityType {
+  name: string;                   // e.g. "Hard ride", "Easy ride", "Long ride", "Race", "S&C / Gym", "Run"
+  description: string;            // short UI description
+  calorie_offset: number;         // offset from maintenance, e.g. -200
+  add_training_burn: boolean;     // add estimated training burn on top of offset
+  burn_rate_kcal_per_min: number; // estimated kcal per minute for this activity
   carbs_g_per_kg: MacroRange;
   protein_g_per_kg: MacroRange;
   fat_g_per_kg: MacroRange;
+  pre_activity: ActivityPreRules;
+  during_activity: DuringActivityRules | null;  // null for gym/short activities
+  post_activity: ActivityPostRules;
+  default_duration_minutes: number;
+  is_race: boolean;
 }
 
-interface PreRideRules {
-  timing_hours_before: number;
-  focus: string;
-}
-
-interface OnBikeRules {
-  under_90min_carbs_per_hour: number;   // 0 means no carbs needed
-  over_90min_carbs_per_hour: MacroRange;
-  over_3hrs_carbs_per_hour: MacroRange;
-}
-
-interface PostRideRules {
-  timing_minutes_after: number;
-  focus: string;
-  protein_g_per_kg: number;
-  carbs_g_per_kg: number;
+interface RestDayRules {
+  calorie_offset: number;
+  carbs_g_per_kg: MacroRange;
+  protein_g_per_kg: MacroRange;
+  fat_g_per_kg: MacroRange;
 }
 
 interface RaceWeekRules {
@@ -58,11 +72,8 @@ interface RaceWeekRules {
 interface ProtocolFile {
   protocol_name: string;
   description: string;
-  rest_day: DayMacros;
-  training_day: DayMacros;
-  pre_ride: PreRideRules;
-  on_bike: OnBikeRules;
-  post_ride: PostRideRules;
+  rest_day: RestDayRules;
+  activity_types: ActivityType[];   // at least 1 entry required
   race_week: RaceWeekRules;
 }
 `;
@@ -107,11 +118,15 @@ The protocol follows this exact TypeScript schema:
 ${PROTOCOL_SCHEMA}
 
 Key field explanations:
-- calorie_offset: calories relative to maintenance (e.g. -400 = maintenance minus 400). Use 0 for maintenance.
-- add_training_burn: if true, training calories are added on top of the offset
+- activity_types: array of activity types — each is a complete nutrition profile for that kind of session
+- Standard activity type names (keep consistent): "Hard ride", "Easy ride", "Long ride", "Race", "S&C / Gym", "Run"
+- calorie_offset: offset from maintenance (e.g. -200 = maintenance minus 200 kcal). Use 0 for no deficit.
+- add_training_burn: if true, estimated training calories are added on top of the offset
+- burn_rate_kcal_per_min: estimated kcal per minute — used to calculate training burn
 - MacroRange: { min, max } in g/kg body weight. Use same value for min and max when there's no range.
-- under_90min_carbs_per_hour: use 0 to mean "water/electrolytes only"
-- post_ride protein_g_per_kg and carbs_g_per_kg: grams per kg to consume within the recovery window
+- during_activity: null for activities with no on-the-go fuelling (gym, short runs). Set carbs_per_hour: 0 for "water only".
+- post_activity protein_g_per_kg and carbs_g_per_kg: grams per kg to consume within the recovery window
+- rest_day has no add_training_burn field (it's always false for rest)
 - race_week.strategy_notes: plain English strategy description
 
 Current active protocol:
@@ -120,6 +135,9 @@ ${JSON.stringify(protocolContent, null, 2)}
 You can:
 1. Answer questions about what the protocol contains and what it means for their nutrition
 2. Suggest changes when asked — explain what you'd change and why
+3. Add new activity types ("add a turbo session type")
+4. Modify existing ones ("make my hard rides 70g carbs per hour")
+5. Remove activity types ("I don't run, remove it")
 
 When the user asks you to make a change:
 - Respond with a brief explanation of the change
@@ -127,7 +145,7 @@ When the user asks you to make a change:
 <protocol_update>
 {"protocol_name": "...", ...complete JSON...}
 </protocol_update>
-- The JSON inside the tag must be the FULL protocol with the change applied, not a partial diff
+- The JSON inside the tag must be the FULL protocol with ALL activity_types included, not a partial diff
 - The JSON must exactly match the ProtocolFile schema — do not add or rename fields
 - Only include the <protocol_update> tag when actually making changes, not when just answering questions
 

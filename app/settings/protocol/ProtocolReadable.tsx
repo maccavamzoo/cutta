@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import type { ProtocolFile, MacroRange } from "@/lib/protocol";
+import type { ProtocolFile, MacroRange, ActivityType } from "@/lib/protocol";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,69 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+// ─── ActivityCard ────────────────────────────────────────────────────────────
+
+function ActivityCard({ activity }: { activity: ActivityType }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+      <button
+        type="button"
+        className="w-full px-4 py-3 text-left flex items-start justify-between gap-3"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-white text-sm font-medium">{activity.name}</p>
+            {activity.is_race && (
+              <span className="text-xs px-1.5 py-0.5 bg-orange-400/10 text-orange-400 border border-orange-400/30 rounded-full">
+                Race
+              </span>
+            )}
+          </div>
+          <p className="text-zinc-500 text-xs mt-0.5">{activity.description}</p>
+        </div>
+        <span className="text-zinc-600 text-sm shrink-0 pt-0.5">{open ? "▼" : "▲"}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-3 border-t border-zinc-800">
+          <Row
+            label="Calories"
+            value={formatCalorieRule(activity.calorie_offset, activity.add_training_burn)}
+          />
+          <Row label="Burn rate"  value={`${activity.burn_rate_kcal_per_min} kcal/min`} />
+          <Row label="Carbs"      value={formatRange(activity.carbs_g_per_kg, "g/kg")} />
+          <Row label="Protein"    value={formatRange(activity.protein_g_per_kg, "g/kg")} />
+          <Row label="Fat"        value={formatRange(activity.fat_g_per_kg, "g/kg")} />
+          <Row
+            label="Pre-activity"
+            value={`${activity.pre_activity.timing_hours_before} hrs before — ${activity.pre_activity.focus}`}
+          />
+          <Row
+            label="During"
+            value={
+              activity.during_activity
+                ? `${activity.during_activity.carbs_per_hour}g carbs/hr — ${activity.during_activity.description}`
+                : "No during-activity fuelling"
+            }
+          />
+          <Row
+            label="Post-activity"
+            value={
+              `Within ${activity.post_activity.timing_minutes_after} min — ` +
+              `${activity.post_activity.protein_g_per_kg}g/kg protein, ` +
+              `${activity.post_activity.carbs_g_per_kg}g/kg carbs — ` +
+              activity.post_activity.focus
+            }
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── component ──────────────────────────────────────────────────────────────
 
 export default function ProtocolReadable({
@@ -60,7 +123,7 @@ export default function ProtocolReadable({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [savedTemplate,  setSavedTemplate]  = useState(false);
 
-  const { rest_day, training_day, pre_ride, on_bike, post_ride, race_week } = protocol;
+  const { rest_day, activity_types, race_week } = protocol;
 
   async function handleSaveAsTemplate() {
     setSavingTemplate(true);
@@ -77,6 +140,7 @@ export default function ProtocolReadable({
 
   return (
     <div className="space-y-3">
+
       {/* Overview */}
       <Section title="Overview">
         {protocol.description && (
@@ -85,56 +149,30 @@ export default function ProtocolReadable({
         <Row
           label="Activated"
           value={activatedAt.toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
+            day: "numeric", month: "short", year: "numeric",
           })}
         />
       </Section>
 
       {/* Rest day */}
       <Section title="Rest day">
-        <Row label="Calories"  value={formatCalorieRule(rest_day.calorie_offset, rest_day.add_training_burn)} />
-        <Row label="Carbs"     value={formatRange(rest_day.carbs_g_per_kg, "g/kg")} />
-        <Row label="Protein"   value={formatRange(rest_day.protein_g_per_kg, "g/kg")} />
-        <Row label="Fat"       value={formatRange(rest_day.fat_g_per_kg, "g/kg")} />
+        <Row label="Calories" value={formatCalorieRule(rest_day.calorie_offset, false)} />
+        <Row label="Carbs"    value={formatRange(rest_day.carbs_g_per_kg, "g/kg")} />
+        <Row label="Protein"  value={formatRange(rest_day.protein_g_per_kg, "g/kg")} />
+        <Row label="Fat"      value={formatRange(rest_day.fat_g_per_kg, "g/kg")} />
       </Section>
 
-      {/* Training day */}
-      <Section title="Training day">
-        <Row label="Calories"  value={formatCalorieRule(training_day.calorie_offset, training_day.add_training_burn)} />
-        <Row label="Carbs"     value={formatRange(training_day.carbs_g_per_kg, "g/kg")} />
-        <Row label="Protein"   value={formatRange(training_day.protein_g_per_kg, "g/kg")} />
-        <Row label="Fat"       value={formatRange(training_day.fat_g_per_kg, "g/kg")} />
-      </Section>
-
-      {/* Pre-ride */}
-      <Section title="Pre-ride">
-        <Row label="Timing" value={`${pre_ride.timing_hours_before} hrs before`} />
-        <Row label="Focus"  value={pre_ride.focus} />
-      </Section>
-
-      {/* On-bike fuelling */}
-      <Section title="On-bike fuelling">
-        <Row
-          label="Under 90 min"
-          value={
-            on_bike.under_90min_carbs_per_hour === 0
-              ? "Water and electrolytes only"
-              : `${on_bike.under_90min_carbs_per_hour} g carbs/hr`
-          }
-        />
-        <Row label="90 min – 3 hrs" value={formatRange(on_bike.over_90min_carbs_per_hour, "g carbs/hr")} />
-        <Row label="Over 3 hrs"     value={formatRange(on_bike.over_3hrs_carbs_per_hour, "g carbs/hr")} />
-      </Section>
-
-      {/* Post-ride */}
-      <Section title="Post-ride">
-        <Row label="Timing"   value={`Within ${post_ride.timing_minutes_after} min`} />
-        <Row label="Protein"  value={`${post_ride.protein_g_per_kg} g/kg`} />
-        <Row label="Carbs"    value={`${post_ride.carbs_g_per_kg} g/kg`} />
-        <Row label="Focus"    value={post_ride.focus} />
-      </Section>
+      {/* Activity types */}
+      <div>
+        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
+          Activity types
+        </p>
+        <div className="space-y-2">
+          {activity_types.map((at, i) => (
+            <ActivityCard key={i} activity={at} />
+          ))}
+        </div>
+      </div>
 
       {/* Race week */}
       <Section title="Race week">

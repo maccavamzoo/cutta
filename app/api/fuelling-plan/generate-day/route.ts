@@ -31,8 +31,8 @@ function logError(tag: string, msg: string, err: unknown) {
 
 function isNewFormatProtocol(content: unknown): content is ProtocolFile {
   if (typeof content !== "object" || content === null) return false;
-  const restDay = (content as Record<string, unknown>).rest_day as Record<string, unknown> | undefined;
-  return typeof restDay?.calorie_offset === "number";
+  const c = content as Record<string, unknown>;
+  return Array.isArray(c.activity_types) && (c.activity_types as unknown[]).length > 0;
 }
 
 // ── route handler ─────────────────────────────────────────────────────────────
