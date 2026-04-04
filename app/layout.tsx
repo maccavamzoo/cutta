@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ClerkProvider } from "@clerk/nextjs";
+import SwUpdateReloader from "./SwUpdateReloader";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -50,6 +51,7 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
         >
+          <SwUpdateReloader />
           {children}
         </body>
       </html>
