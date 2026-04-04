@@ -70,10 +70,11 @@ function fmtLongDate(dateStr: string): string {
   });
 }
 
-function fmtTime(iso: string): string {
+function fmtTime(iso: string, timezone: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", {
-    hour:   "2-digit",
-    minute: "2-digit",
+    hour:     "2-digit",
+    minute:   "2-digit",
+    timeZone: timezone,
   });
 }
 
@@ -293,7 +294,7 @@ function SessionHero({
           <p className="text-white font-semibold text-base">{event.title}</p>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-zinc-500 text-xs pt-0.5">
-              {fmtTime(event.scheduledAt)}
+              {fmtTime(event.scheduledAt, timezone)}
             </span>
             <button
               type="button"
@@ -471,7 +472,7 @@ function NoPlan({
               <span className="text-zinc-500 text-xs shrink-0 mt-0.5">Edit →</span>
             </div>
             <div className="flex gap-3 mt-1 text-xs text-zinc-500">
-              <span>{fmtTime(e.scheduledAt)}</span>
+              <span>{fmtTime(e.scheduledAt, timezone)}</span>
               {e.durationMinutes && <span>{fmtDuration(e.durationMinutes)}</span>}
             </div>
           </button>

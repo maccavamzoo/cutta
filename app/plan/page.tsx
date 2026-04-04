@@ -14,6 +14,7 @@ import PlanView, { type StoredPlan, type PlanCalendarEvent } from "./PlanView";
 import type { ActivityTypeOption } from "./AddEventSheet";
 import BottomNav from "@/components/BottomNav";
 import { arrivalDate } from "@/lib/weight-projection";
+import { getUserToday } from "@/lib/dates";
 
 function isNewFormatProtocol(content: unknown): boolean {
   if (typeof content !== "object" || content === null) return false;
@@ -25,9 +26,15 @@ export default async function PlanPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  // Fetch timezone first so todayStr is correct in the user's local timezone
+  const [tzRow] = await db
+    .select({ timezone: userProfiles.timezone })
+    .from(userProfiles)
+    .where(eq(userProfiles.clerkUserId, userId))
+    .limit(1);
+
+  const timezone = tzRow?.timezone ?? "Europe/London";
+  const { todayStr, todayStart: today } = getUserToday(timezone);
 
   // 7-day window for meal plans: today through today+6
   const day6    = new Date(today.getTime() + 6 * 86_400_000);
@@ -195,6 +202,7 @@ export default async function PlanPage() {
             protocolName={protocolName}
             targetWeightKg={targetWeightKg}
             arrivalStr={arrivalStr}
+            timezone={timezone}
           />
         </div>
       </main>
