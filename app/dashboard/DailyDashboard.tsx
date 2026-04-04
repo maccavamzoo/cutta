@@ -278,10 +278,12 @@ function getEventTypeColour(eventType: string): string {
 function SessionHero({
   event,
   fuelling,
+  timezone,
   onEdit,
 }: {
   event:    TodayEvent;
   fuelling: NonNullable<TodayPlan["onBikeFuelling"]> | null;
+  timezone: string;
   onEdit:   () => void;
 }) {
   const colour = getEventTypeColour(event.eventType);
@@ -450,10 +452,12 @@ function MealCard({
 
 function NoPlan({
   events,
+  timezone,
   onEdit,
 }: {
-  events: TodayEvent[];
-  onEdit: (event: TodayEvent) => void;
+  events:   TodayEvent[];
+  timezone: string;
+  onEdit:   (event: TodayEvent) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -716,6 +720,7 @@ export default function DailyDashboard({
                   <SessionHero
                     event={trainingEvent}
                     fuelling={todayPlan.onBikeFuelling}
+                    timezone={timezone}
                     onEdit={() => setEditingEvent(trainingEvent)}
                   />
                 </div>
@@ -762,7 +767,7 @@ export default function DailyDashboard({
               )}
             </>
           ) : (
-            <NoPlan events={events} onEdit={setEditingEvent} />
+            <NoPlan events={events} timezone={timezone} onEdit={setEditingEvent} />
           )}
         </div>
       </main>
