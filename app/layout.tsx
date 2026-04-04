@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { ClerkProvider, UserButton } from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -50,9 +50,6 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
         >
-          <header className="flex items-center justify-end px-4 py-3">
-            <UserButton />
-          </header>
           {children}
         </body>
       </html>
