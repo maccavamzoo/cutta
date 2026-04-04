@@ -66,6 +66,9 @@ export const userProfiles = pgTable(
     // Onboarding complete flag
     onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
 
+    // Advisor chat history — array of { role: "user"|"assistant", content: string }
+    advisorChatHistory: jsonb("advisor_chat_history"),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

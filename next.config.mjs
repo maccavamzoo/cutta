@@ -18,5 +18,11 @@ export default withPWA({
   workboxOptions: {
     disableDevLogs: true,
     skipWaiting: true,
+    runtimeCaching: [
+      {
+        urlPattern: ({ request }) => request.mode === "navigate",
+        handler: "NetworkOnly",
+      },
+    ],
   },
 })(nextConfig);

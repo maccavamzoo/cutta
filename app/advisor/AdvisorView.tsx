@@ -36,10 +36,10 @@ function LoadingDots() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function AdvisorView() {
+export default function AdvisorView({ initialChatHistory = [] }: { initialChatHistory?: Message[] }) {
   const router = useRouter();
 
-  const [messages,  setMessages]  = useState<Message[]>([]);
+  const [messages,  setMessages]  = useState<Message[]>(initialChatHistory);
   const [input,     setInput]     = useState("");
   const [loading,   setLoading]   = useState(false);
 
@@ -65,9 +65,23 @@ export default function AdvisorView() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading, pendingProtocol, pendingStrategy, showNamingCard]);
 
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  // ── History persistence ─────────────────────────────────────────────────
+
+  async function saveHistory(history: Message[]) {
+    await fetch("/api/advisor/history", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ chatHistory: history }),
+    });
+  }
+
+  async function handleClearChat() {
+    setMessages([]);
+    setPendingProtocol(null);
+    setPendingStrategy(null);
+    setShowNamingCard(false);
+    await saveHistory([]);
+  }
 
   // ── Send message ────────────────────────────────────────────────────────
 
@@ -96,7 +110,9 @@ export default function AdvisorView() {
         return;
       }
 
-      setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      const updatedMessages: Message[] = [...messages, { role: "user", content: text }, { role: "assistant", content: data.reply }];
+      setMessages(updatedMessages);
+      void saveHistory(updatedMessages);
 
       if (data.proposedProtocolUpdate) {
         setPendingProtocol(data.proposedProtocolUpdate);
@@ -202,20 +218,27 @@ export default function AdvisorView() {
 
   return (
     <>
-      {/* Full-height flex column */}
-      <div className="flex flex-col bg-black" style={{ height: "calc(100dvh - 52px)" }}>
-
-        {/* Header */}
-        <div className="px-4 pt-5 pb-3 border-b border-zinc-800 shrink-0">
-          <div className="max-w-lg mx-auto">
+      {/* Header — sticky so it stays visible while messages scroll */}
+      <div className="sticky top-0 z-30 bg-black px-4 pt-5 pb-3 border-b border-zinc-800">
+        <div className="max-w-lg mx-auto flex items-start justify-between">
+          <div>
             <h1 className="text-xl font-bold tracking-tight text-white">Cutta AI</h1>
             <p className="text-zinc-500 text-sm mt-0.5">Nutrition, training &amp; protocol advice</p>
           </div>
+          {messages.length > 0 && (
+            <button
+              onClick={handleClearChat}
+              className="text-zinc-600 hover:text-zinc-400 text-xs transition-colors mt-1"
+            >
+              Clear chat
+            </button>
+          )}
         </div>
+      </div>
 
-        {/* Messages — scrollable */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="max-w-lg mx-auto space-y-3">
+      {/* Messages — scrollable, padded so last message clears input bar + nav */}
+      <div ref={scrollRef} className="px-4 py-4 pb-[130px]">
+        <div className="max-w-lg mx-auto space-y-3">
 
             {messages.length === 0 && (
               <div className="py-12 text-center space-y-2">
@@ -320,27 +343,26 @@ export default function AdvisorView() {
           </div>
         </div>
 
-        {/* Input bar — sticks to bottom of flex column */}
-        <div className="border-t border-zinc-800 px-4 py-3 bg-black shrink-0">
-          <div className="max-w-lg mx-auto flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              disabled={loading}
-              placeholder="Ask anything…"
-              className="flex-1 bg-zinc-900 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-zinc-700 disabled:opacity-50"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || loading}
-              className="px-4 py-2.5 rounded-xl bg-lime-400 text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity shrink-0"
-            >
-              Send
-            </button>
-          </div>
+      {/* Input bar — fixed above BottomNav */}
+      <div className="fixed bottom-[52px] left-0 right-0 border-t border-zinc-800 bg-black z-30">
+        <div className="max-w-lg mx-auto flex gap-2 px-4 py-3">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            disabled={loading}
+            placeholder="Ask anything…"
+            className="flex-1 bg-zinc-900 rounded-xl px-3.5 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-zinc-700 disabled:opacity-50"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || loading}
+            className="px-4 py-3 rounded-xl bg-lime-400 text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity shrink-0"
+          >
+            Send
+          </button>
         </div>
       </div>
 

@@ -80,16 +80,26 @@ function validateStrategyUpdate(obj: unknown): { valid: true; data: { ingredient
 
 // ── System prompt builder ────────────────────────────────────────────────────
 
+function fmtDateInTz(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    weekday: "long",
+    day:     "numeric",
+    month:   "long",
+  }).format(date);
+}
+
 function buildSystemPrompt(ctx: {
   profile: Record<string, unknown> | null;
   latestWeightKg: number | null;
+  timezone: string;
   protocolRow: { name: string; content: ProtocolFile } | null;
   strategyRow: { name: string; ingredientPool: unknown; shoppingItems: unknown } | null;
   upcomingEvents: { scheduledAt: Date; title: string; eventType: string; durationMinutes: number | null }[];
   recentCompliance: { logDate: string; compliance: string }[];
   recentFeedback: { feedbackType: string; rating: number | null; planDate: string }[];
 }): string {
-  const { profile, latestWeightKg, protocolRow, strategyRow, upcomingEvents, recentCompliance, recentFeedback } = ctx;
+  const { profile, latestWeightKg, timezone, protocolRow, strategyRow, upcomingEvents, recentCompliance, recentFeedback } = ctx;
 
   // ── Profile ───────────────────────────────────────────────────────────────
   const foodProfileRaw = profile?.foodProfile as Record<string, unknown> | null ?? null;
@@ -164,7 +174,7 @@ ${items}`;
   let calendarSection: string;
   if (upcomingEvents.length > 0) {
     const lines = upcomingEvents.map((e) => {
-      const dateStr = e.scheduledAt.toISOString().split("T")[0];
+      const dateStr = fmtDateInTz(e.scheduledAt, timezone);
       const dur = e.durationMinutes ? `, ${e.durationMinutes}min` : "";
       return `  - ${dateStr}: ${e.title} (${e.eventType}${dur})`;
     }).join("\n");
@@ -312,9 +322,12 @@ export async function POST(req: NextRequest) {
 
   const latestWeightKg = weightRows[0]?.weightKg ? Number(weightRows[0].weightKg) : null;
 
+  const timezone = (profile?.timezone as string | null) ?? "Europe/London";
+
   const systemPrompt = buildSystemPrompt({
     profile: profile as Record<string, unknown> | null,
     latestWeightKg,
+    timezone,
     protocolRow: typedProtocol,
     strategyRow,
     upcomingEvents: eventRows,
