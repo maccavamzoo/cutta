@@ -7,6 +7,7 @@ import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
 import AddEventSheet, { type CalendarEvent, type ActivityTypeOption } from "./AddEventSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import type { UnitSystem } from "@/lib/units";
+import { kgToDisplay, weightLabel } from "@/lib/units";
 
 // ─── exported types ───────────────────────────────────────────────────────────
 
@@ -399,6 +400,9 @@ export default function PlanView({
   hasWeeklyStrategy,
   dataLastChangedAt,
   activityTypes,
+  protocolName,
+  targetWeightKg,
+  arrivalStr,
 }: {
   initialPlans:      StoredPlan[];
   calendarEvents:    PlanCalendarEvent[];
@@ -408,6 +412,9 @@ export default function PlanView({
   hasWeeklyStrategy: boolean;
   dataLastChangedAt: string | null;
   activityTypes:     ActivityTypeOption[];
+  protocolName:      string | null;
+  targetWeightKg:    number | null;
+  arrivalStr:        string | null;
 }) {
   const router = useRouter();
 
@@ -504,6 +511,23 @@ export default function PlanView({
 
   return (
     <div className="space-y-3">
+
+      {/* Page header */}
+      <div className="mb-5">
+        <h1 className="text-xl font-bold tracking-tight text-white">Plan</h1>
+        {targetWeightKg != null && arrivalStr && (
+          <p className="text-zinc-500 text-sm mt-1">
+            Target {kgToDisplay(targetWeightKg, unitSystem).toFixed(1)}{weightLabel(unitSystem)} · est. arrival {arrivalStr}
+          </p>
+        )}
+        {hasActiveProtocol && protocolName && (
+          <p className="text-zinc-600 text-xs mt-1">
+            <span className="inline-block px-2 py-0.5 bg-zinc-900 border border-zinc-800 rounded-full">
+              {protocolName}
+            </span>
+          </p>
+        )}
+      </div>
 
       {/* No active protocol — full empty state, no day cards */}
       {!hasActiveProtocol && (

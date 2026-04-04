@@ -14,7 +14,6 @@ import PlanView, { type StoredPlan, type PlanCalendarEvent } from "./PlanView";
 import type { ActivityTypeOption } from "./AddEventSheet";
 import BottomNav from "@/components/BottomNav";
 import { arrivalDate } from "@/lib/weight-projection";
-import { kgToDisplay, weightLabel } from "@/lib/units";
 
 function isNewFormatProtocol(content: unknown): boolean {
   if (typeof content !== "object" || content === null) return false;
@@ -182,32 +181,22 @@ export default async function PlanPage() {
 
   return (
     <>
-      <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 pb-32 max-w-lg mx-auto">
-        <div className="mb-5">
-          <h1 className="text-xl font-bold tracking-tight text-white">Plan</h1>
-          {targetWeightKg != null && arrivalStr && (
-            <p className="text-zinc-500 text-sm mt-1">
-              Target {kgToDisplay(targetWeightKg, unitSystem).toFixed(1)}{weightLabel(unitSystem)} · est. arrival {arrivalStr}
-            </p>
-          )}
-          {hasActiveProtocol && protocolName && (
-            <p className="text-zinc-600 text-xs mt-1">
-              <span className="inline-block px-2 py-0.5 bg-zinc-900 border border-zinc-800 rounded-full">
-                {protocolName}
-              </span>
-            </p>
-          )}
+      <main className="min-h-[calc(100dvh-52px)] bg-black pb-24">
+        <div className="max-w-lg mx-auto px-4 pt-6">
+          <PlanView
+            initialPlans={initialPlans}
+            calendarEvents={planCalendarEvents}
+            todayStr={todayStr}
+            unitSystem={unitSystem}
+            hasActiveProtocol={hasActiveProtocol}
+            hasWeeklyStrategy={hasWeeklyStrategy}
+            dataLastChangedAt={dataLastChangedAt}
+            activityTypes={activityTypes}
+            protocolName={protocolName}
+            targetWeightKg={targetWeightKg}
+            arrivalStr={arrivalStr}
+          />
         </div>
-        <PlanView
-          initialPlans={initialPlans}
-          calendarEvents={planCalendarEvents}
-          todayStr={todayStr}
-          unitSystem={unitSystem}
-          hasActiveProtocol={hasActiveProtocol}
-          hasWeeklyStrategy={hasWeeklyStrategy}
-          dataLastChangedAt={dataLastChangedAt}
-          activityTypes={activityTypes}
-        />
       </main>
       <BottomNav active="plan" />
     </>
