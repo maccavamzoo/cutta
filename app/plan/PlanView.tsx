@@ -170,6 +170,7 @@ interface DayCardProps {
   hasActiveProtocol: boolean;
   unitSystem:       UnitSystem;
   activityTypes:    ActivityTypeOption[];
+  timezone:         string;
   onGenerate:       () => void;
   onEventAdded:     (event: CalendarEvent) => void;
   onEventUpdated:   (event: EditableEvent) => void;
@@ -185,6 +186,7 @@ function DayCard({
   isStale,
   hasActiveProtocol,
   activityTypes,
+  timezone,
   onGenerate,
   onEventAdded,
   onEventUpdated,
@@ -224,7 +226,7 @@ function DayCard({
               <div className="mt-1.5 flex flex-col gap-1">
                 {hasEvents
                   ? events.map((ev) => {
-                      const time  = new Date(ev.scheduledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                      const time  = new Date(ev.scheduledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone });
                       const parts = [ev.eventType, ev.title, ev.durationMinutes ? `${ev.durationMinutes}m` : null, time]
                         .filter(Boolean).join(" · ");
                       return (
@@ -403,6 +405,7 @@ export default function PlanView({
   protocolName,
   targetWeightKg,
   arrivalStr,
+  timezone,
 }: {
   initialPlans:      StoredPlan[];
   calendarEvents:    PlanCalendarEvent[];
@@ -415,6 +418,7 @@ export default function PlanView({
   protocolName:      string | null;
   targetWeightKg:    number | null;
   arrivalStr:        string | null;
+  timezone:          string;
 }) {
   const router = useRouter();
 
@@ -573,6 +577,7 @@ export default function PlanView({
                 hasActiveProtocol={hasActiveProtocol}
                 unitSystem={unitSystem}
                 activityTypes={activityTypes}
+                timezone={timezone}
                 onGenerate={() => handleGenerate(dateStr)}
                 onEventAdded={handleEventAdded}
                 onEventUpdated={handleEventUpdated}
