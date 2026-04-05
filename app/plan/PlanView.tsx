@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
@@ -201,7 +201,7 @@ function DayCard({
   const hasEvents = events.length > 0;
 
   return (
-    <div>
+    <>
       <div data-date={dateStr} className={`rounded-xl border transition-all ${isGenerating ? "border-lime-400/30 bg-zinc-900 shadow-[0_0_20px_rgba(163,230,53,0.08)]" : `${calorieBorder(plan?.totalCalories ?? null)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}`}>
 
         {/* Header row — tap to expand/collapse */}
@@ -388,7 +388,7 @@ function DayCard({
           onDeleted={(id) => { setEditingEvent(null); onEventDeleted(id); }}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -431,45 +431,6 @@ export default function PlanView({
   const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
-
-  // ── DOM audit (remove once root cause confirmed) ─────────────────────────
-  useEffect(() => {
-    const allDateCards = document.querySelectorAll('[data-date]');
-    console.group('[PlanView] DOM AUDIT');
-    console.log(`Total [data-date] elements in DOM: ${allDateCards.length}`);
-
-    allDateCards.forEach((el, i) => {
-      const date = el.getAttribute('data-date');
-
-      // Walk up the ancestor chain
-      const ancestors: string[] = [];
-      let node: HTMLElement | null = el as HTMLElement;
-      for (let depth = 0; depth < 8 && node; depth++) {
-        ancestors.push(node.tagName + (node.className ? `.${node.className.split(' ').slice(0, 2).join('.')}` : ''));
-        node = node.parentElement;
-      }
-
-      const rect = el.getBoundingClientRect();
-      console.log(`  [${i}] date=${date}, left=${rect.left.toFixed(0)}, top=${rect.top.toFixed(0)}, width=${rect.width.toFixed(0)}`);
-      console.log(`        ancestors: ${ancestors.join(' > ')}`);
-    });
-
-    console.groupEnd();
-  }, []);
-
-  // ── Hydration debug (remove once root cause confirmed) ──────────────────
-  useEffect(() => {
-    console.group("[PlanView] client mount");
-    console.log("todayStr:", todayStr);
-    console.log("timezone:", timezone);
-    console.log("dates:", dates);
-    dates.forEach((d) => console.log(`  fmtDay(${d}) =`, fmtDay(d)));
-    console.log("plan keys:", Array.from(plans.keys()));
-    console.log("hasActiveProtocol:", hasActiveProtocol);
-    console.log("hasWeeklyStrategy:", hasWeeklyStrategy);
-    console.groupEnd();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // ── Per-day generation ───────────────────────────────────────────────────
 
@@ -552,8 +513,6 @@ export default function PlanView({
     arr.push(e);
     eventsByDate.set(e.scheduledDate, arr);
   }
-
-  console.log('[PlanView] render — dates:', dates, 'plans keys:', Array.from(plans.keys()));
 
   return (
     <div className="space-y-3">
