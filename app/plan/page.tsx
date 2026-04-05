@@ -10,7 +10,10 @@ import {
   weightLog,
   weeklyStrategies,
 } from "@/lib/db/schema";
-import PlanView, { type StoredPlan, type PlanCalendarEvent } from "./PlanView";
+import dynamic from "next/dynamic";
+import type { StoredPlan, PlanCalendarEvent } from "./PlanView";
+
+const PlanView = dynamic(() => import("./PlanView"), { ssr: false });
 import type { ActivityTypeOption } from "./AddEventSheet";
 import BottomNav from "@/components/BottomNav";
 import { arrivalDate } from "@/lib/weight-projection";
