@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
@@ -45,12 +45,13 @@ function addDays(dateStr: string, n: number): string {
   return d.toISOString().split("T")[0];
 }
 
+// Hardcoded arrays — immune to ICU version differences between Node.js and Chrome
+const DAYS   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function fmtDay(dateStr: string): string {
-  return new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-GB", {
-    weekday: "short",
-    day:     "numeric",
-    month:   "short",
-  });
+  const d = new Date(dateStr + "T12:00:00Z");
+  return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
 function calorieBorder(cal: number | null): string {
@@ -201,7 +202,7 @@ function DayCard({
 
   return (
     <>
-      <div className={`rounded-xl border transition-all ${isGenerating ? "border-lime-400/30 bg-zinc-900 shadow-[0_0_20px_rgba(163,230,53,0.08)]" : `${calorieBorder(plan?.totalCalories ?? null)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}`}>
+      <div data-date={dateStr} className={`rounded-xl border transition-all ${isGenerating ? "border-lime-400/30 bg-zinc-900 shadow-[0_0_20px_rgba(163,230,53,0.08)]" : `${calorieBorder(plan?.totalCalories ?? null)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}`}>
 
         {/* Header row — tap to expand/collapse */}
         <button className="w-full px-4 py-3 text-left" onClick={() => setExpanded((x) => !x)}>
@@ -430,6 +431,20 @@ export default function PlanView({
   const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
+
+  // ── Hydration debug (remove once root cause confirmed) ──────────────────
+  useEffect(() => {
+    console.group("[PlanView] client mount");
+    console.log("todayStr:", todayStr);
+    console.log("timezone:", timezone);
+    console.log("dates:", dates);
+    dates.forEach((d) => console.log(`  fmtDay(${d}) =`, fmtDay(d)));
+    console.log("plan keys:", Array.from(plans.keys()));
+    console.log("hasActiveProtocol:", hasActiveProtocol);
+    console.log("hasWeeklyStrategy:", hasWeeklyStrategy);
+    console.groupEnd();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Per-day generation ───────────────────────────────────────────────────
 
