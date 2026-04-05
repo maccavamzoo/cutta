@@ -432,6 +432,31 @@ export default function PlanView({
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
 
+  // ── DOM audit (remove once root cause confirmed) ─────────────────────────
+  useEffect(() => {
+    const allDateCards = document.querySelectorAll('[data-date]');
+    console.group('[PlanView] DOM AUDIT');
+    console.log(`Total [data-date] elements in DOM: ${allDateCards.length}`);
+
+    allDateCards.forEach((el, i) => {
+      const date = el.getAttribute('data-date');
+
+      // Walk up the ancestor chain
+      const ancestors: string[] = [];
+      let node: HTMLElement | null = el as HTMLElement;
+      for (let depth = 0; depth < 8 && node; depth++) {
+        ancestors.push(node.tagName + (node.className ? `.${node.className.split(' ').slice(0, 2).join('.')}` : ''));
+        node = node.parentElement;
+      }
+
+      const rect = el.getBoundingClientRect();
+      console.log(`  [${i}] date=${date}, left=${rect.left.toFixed(0)}, top=${rect.top.toFixed(0)}, width=${rect.width.toFixed(0)}`);
+      console.log(`        ancestors: ${ancestors.join(' > ')}`);
+    });
+
+    console.groupEnd();
+  }, []);
+
   // ── Hydration debug (remove once root cause confirmed) ──────────────────
   useEffect(() => {
     console.group("[PlanView] client mount");
@@ -527,6 +552,8 @@ export default function PlanView({
     arr.push(e);
     eventsByDate.set(e.scheduledDate, arr);
   }
+
+  console.log('[PlanView] render — dates:', dates, 'plans keys:', Array.from(plans.keys()));
 
   return (
     <div className="space-y-3">
