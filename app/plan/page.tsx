@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { eq, and, gte, lte, lt, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   fuellingPlans,
@@ -44,11 +44,6 @@ export default async function PlanPage() {
   const day6Str = day6.toISOString().split("T")[0];
   // 10-day window for calendar events
   const day10 = new Date(today.getTime() + 10 * 86_400_000);
-
-  // ── Clean up past plan rows (before today only) ───────────────────────────
-  await db.delete(fuellingPlans).where(
-    and(eq(fuellingPlans.clerkUserId, userId), lt(fuellingPlans.planDate, todayStr))
-  );
 
   // ── Fetch all data ─────────────────────────────────────────────────────────
   const [planRows, eventRows, profileRows, protocolRows, latestWeightRows, strategyRows] =

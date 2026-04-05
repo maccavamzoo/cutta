@@ -532,6 +532,13 @@ export default function PlanView({
             </span>
           </p>
         )}
+        <button
+          type="button"
+          onClick={() => router.push("/calendar")}
+          className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors mt-1"
+        >
+          Monthly view →
+        </button>
       </div>
 
       {/* No active protocol — full empty state, no day cards */}

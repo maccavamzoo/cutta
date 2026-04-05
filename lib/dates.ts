@@ -31,3 +31,42 @@ export function getUserToday(timezone: string | null): {
 
   return { todayStr, todayStart, todayEnd };
 }
+
+// Shared helper: given a YYYY-MM-DD string, return the UTC instant that is
+// midnight on that date in the given timezone.
+function midnightUtc(dateStr: string, tz: string): Date {
+  const refUtc = new Date(dateStr + "T00:00:00Z");
+  const asUtc  = new Date(refUtc.toLocaleString("en-US", { timeZone: "UTC" }));
+  const asTz   = new Date(refUtc.toLocaleString("en-US", { timeZone: tz }));
+  const offsetMs = asUtc.getTime() - asTz.getTime();
+  return new Date(refUtc.getTime() + offsetMs);
+}
+
+export function getMonthBounds(timezone: string | null, monthStr: string): {
+  monthStart: Date;
+  monthEnd:   Date;
+} {
+  const tz = timezone ?? "Europe/London";
+
+  // First day of the given month
+  const monthStart = midnightUtc(`${monthStr}-01`, tz);
+
+  // First day of the next month — parse year/month and increment
+  const [year, month] = monthStr.split("-").map(Number);
+  const nextYear  = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextMonthStr = `${nextYear}-${String(nextMonth).padStart(2, "0")}`;
+  const monthEnd = midnightUtc(`${nextMonthStr}-01`, tz);
+
+  return { monthStart, monthEnd };
+}
+
+export function getDayBounds(timezone: string | null, dateStr: string): {
+  dayStart: Date;
+  dayEnd:   Date;
+} {
+  const tz       = timezone ?? "Europe/London";
+  const dayStart = midnightUtc(dateStr, tz);
+  const dayEnd   = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  return { dayStart, dayEnd };
+}
