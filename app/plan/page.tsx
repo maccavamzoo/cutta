@@ -186,8 +186,6 @@ export default async function PlanPage() {
       }));
   })();
 
-  console.log('[PlanPage server] todayStr:', todayStr, 'timezone:', timezone, 'plan count:', initialPlans.length, 'event count:', planCalendarEvents.length);
-
   return (
     <>
       <main className="min-h-[calc(100dvh-52px)] bg-black pb-24">
