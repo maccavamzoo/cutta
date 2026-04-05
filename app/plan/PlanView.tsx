@@ -201,7 +201,7 @@ function DayCard({
   const hasEvents = events.length > 0;
 
   return (
-    <>
+    <div>
       <div data-date={dateStr} className={`rounded-xl border transition-all ${isGenerating ? "border-lime-400/30 bg-zinc-900 shadow-[0_0_20px_rgba(163,230,53,0.08)]" : `${calorieBorder(plan?.totalCalories ?? null)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}`}>
 
         {/* Header row — tap to expand/collapse */}
@@ -388,7 +388,7 @@ function DayCard({
           onDeleted={(id) => { setEditingEvent(null); onEventDeleted(id); }}
         />
       )}
-    </>
+    </div>
   );
 }
 
