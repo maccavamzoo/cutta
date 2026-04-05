@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { ActivityTypeOption, CalendarEvent } from "@/app/plan/AddEventSheet";
+import type { ActivityTypeOption } from "@/app/plan/AddEventSheet";
 import AddEventSheet from "@/app/plan/AddEventSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
@@ -217,7 +217,7 @@ export default function DayDetailSheet({
                   )}
                 </div>
                 {detail.plan.aiReasoning && (
-                  <p className="text-zinc-600 text-xs italic mb-2">"{detail.plan.aiReasoning}"</p>
+                  <p className="text-zinc-600 text-xs italic mb-2">&ldquo;{detail.plan.aiReasoning}&rdquo;</p>
                 )}
                 {detail.plan.meals.length > 0 && (
                   <div className="space-y-1">
@@ -301,7 +301,7 @@ export default function DayDetailSheet({
           defaultDate={addEventDefault}
           activityTypes={activityTypes}
           onClose={() => setAddingEvent(false)}
-          onAdded={(_event: CalendarEvent) => { setAddingEvent(false); refetch(); }}
+          onAdded={() => { setAddingEvent(false); refetch(); }}
         />
       )}
     </>
