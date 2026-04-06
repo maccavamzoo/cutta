@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     gutSensitivity:   body.gutSensitivity || null,
     trackStoolHealth: body.trackStoolHealth === true,
     foodExclusions:   (body.foodExclusions as string[]) ?? [],
+    preferredFoods:   (body.preferredFoods as string[]) ?? [],
     // Appetite & timing — appetiteProfile is submitted as comma-joined string
     appetiteProfile: body.appetiteProfile || null,
     // Supplements
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
         gutSensitivity:   values.gutSensitivity,
         trackStoolHealth: values.trackStoolHealth,
         foodExclusions:   values.foodExclusions,
+        preferredFoods:   values.preferredFoods,
         appetiteProfile: values.appetiteProfile,
         currentSupplements: values.currentSupplements,
         onboardingComplete: true,

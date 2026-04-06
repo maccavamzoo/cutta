@@ -270,7 +270,11 @@ export async function POST(req: NextRequest) {
     currentSupplements:     (profile.currentSupplements as string[] | null) ?? [],
     appetiteProfile:        profile.appetiteProfile ?? null,
     gutSensitivity:         profile.gutSensitivity ?? null,
-    foodProfile,
+    foodProfile: {
+      positive:    (profile.preferredFoods as string[] | null) ?? foodProfile?.positive ?? [],
+      negative:    [],
+      gutTriggers: [],
+    },
     protocol,
     todayActivityType,
     tomorrowActivityType,
