@@ -33,6 +33,7 @@ export default async function OnboardingPage() {
     gutSensitivity:               null,
     trackStoolHealth:             false,
     foodExclusions:               [],
+    preferredFoods:               [],
     currentSupplements:           [],
     appetiteProfile:              null,
     estimatedMaintenanceCalories: null,
