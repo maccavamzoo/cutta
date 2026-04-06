@@ -19,6 +19,7 @@ export interface ProfileData {
   gutSensitivity:               string | null;
   trackStoolHealth:             boolean;
   foodExclusions:               string[] | null;
+  preferredFoods:               string[] | null;
   currentSupplements:           string[] | null;
   appetiteProfile:              string | null;
   estimatedMaintenanceCalories: number | null;
@@ -173,6 +174,7 @@ export default function ProfileEditView({
   const [gutSensitivity,   setGutSensitivity]   = useState(initial.gutSensitivity ?? "");
   const [trackStoolHealth, setTrackStoolHealth] = useState(initial.trackStoolHealth);
   const [foodExclusions,   setFoodExclusions]   = useState<string[]>(initial.foodExclusions ?? []);
+  const [preferredFoods,   setPreferredFoods]   = useState<string[]>(initial.preferredFoods ?? []);
   const [supplements,    setSupplements]    = useState<string[]>(initial.currentSupplements ?? []);
 
   // ── eating style (merged appetite + meal timing) ─────────────────────────
@@ -215,6 +217,7 @@ export default function ProfileEditView({
     const initFasted         = initial.fastedTraining === true ? "yes" : initial.fastedTraining === false ? "no" : "sometimes";
     const initGutSensitivity = initial.gutSensitivity ?? "";
     const initFoodExclusions = initial.foodExclusions ?? [];
+    const initPreferredFoods = initial.preferredFoods  ?? [];
     const initSupplements    = initial.currentSupplements ?? [];
     const initAppetite       = (initial.appetiteProfile ?? "").split(", ").filter((p) => EATING_STYLE_OPTS.includes(p));
     const initOverrideCals   = initial.estimatedMaintenanceCalories != null ? String(initial.estimatedMaintenanceCalories) : "";
@@ -229,14 +232,15 @@ export default function ProfileEditView({
     if (gutSensitivity   !== initGutSensitivity) return true;
     if (trackStoolHealth !== initial.trackStoolHealth) return true;
     if (JSON.stringify(foodExclusions)  !== JSON.stringify(initFoodExclusions)) return true;
+    if (JSON.stringify(preferredFoods)  !== JSON.stringify(initPreferredFoods)) return true;
     if (JSON.stringify(supplements)     !== JSON.stringify(initSupplements))    return true;
     if (JSON.stringify([...appetiteSelections].sort()) !== JSON.stringify([...initAppetite].sort())) return true;
     if (overrideActive && overrideCalsStr !== initOverrideCals)  return true;
     if (!overrideActive && initOverrideCals !== "" && overrideCalsStr !== initOverrideCals) return true;
     return false;
   }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, weightLossRate,
-      fastedTraining, gutSensitivity, trackStoolHealth, foodExclusions, supplements,
-      appetiteSelections, overrideActive, overrideCalsStr, initial, unitSystem]);
+      fastedTraining, gutSensitivity, trackStoolHealth, foodExclusions, preferredFoods,
+      supplements, appetiteSelections, overrideActive, overrideCalsStr, initial, unitSystem]);
 
   const FASTED_OPTS = [
     { v: "yes",       l: "Yes"       },
@@ -291,6 +295,7 @@ export default function ProfileEditView({
       gutSensitivity:               gutSensitivity    || null,
       trackStoolHealth,
       foodExclusions,
+      preferredFoods,
       currentSupplements:           supplements,
       appetiteProfile:              appetiteSelections.length ? appetiteSelections.join(", ") : null,
       estimatedMaintenanceCalories,
@@ -557,8 +562,8 @@ export default function ProfileEditView({
 
       <div className="border-t border-zinc-800" />
 
-      {/* 4 — Gut health & food */}
-      <Section title="Gut health & food">
+      {/* 4 — Gut health & food preferences */}
+      <Section title="Gut health & food preferences">
         <Field label="Gut sensitivity">
           <div className="space-y-2">
             {GUT_OPTS.map(({ v, l }) => (
@@ -597,9 +602,14 @@ export default function ProfileEditView({
           </button>
         </div>
 
-        <Field label="Food exclusions">
-          <TagInput tags={foodExclusions} onChange={setFoodExclusions} placeholder="e.g. Gluten, Dairy, Eggs…" />
+        <Field label="Foods to avoid">
+          <TagInput tags={foodExclusions} onChange={setFoodExclusions} placeholder="e.g. Gluten, Dairy, Pasta..." />
         </Field>
+        <div className="space-y-2">
+          <label className="block text-white text-sm font-medium">Preferred foods</label>
+          <p className="text-zinc-500 text-xs -mt-1">Foods that work well for you. The AI will favour these in your plans.</p>
+          <TagInput tags={preferredFoods} onChange={setPreferredFoods} placeholder="e.g. Rice, Chicken, Banana..." />
+        </div>
         <Field label="Current supplements">
           <TagInput tags={supplements} onChange={setSupplements} placeholder="e.g. Creatine, Vitamin D…" />
         </Field>

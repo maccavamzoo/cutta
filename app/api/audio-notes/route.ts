@@ -108,7 +108,7 @@ ${transcript}
       .set({ processedData, processingStatus: "done" })
       .where(eq(audioNotes.id, inserted.id));
 
-    // ── Merge profile updates into user_profiles.food_profile ────────────────
+    // ── Merge profile updates into flat columns ───────────────────────────────
     let profileChanges: string | null = null;
     const updates = processedData.profile_updates;
 
@@ -119,17 +119,10 @@ ${transcript}
        updates.positive_add?.length)
     ) {
       const [profileRow] = await db
-        .select({ foodProfile: userProfiles.foodProfile })
+        .select({ foodExclusions: userProfiles.foodExclusions, preferredFoods: userProfiles.preferredFoods })
         .from(userProfiles)
         .where(eq(userProfiles.clerkUserId, userId))
         .limit(1);
-
-      const existing = (profileRow?.foodProfile as {
-        positive?:    string[];
-        negative?:    string[];
-        gutTriggers?: string[];
-        supplementReactions?: Record<string, string>;
-      } | null) ?? {};
 
       const mergeUnique = (current: string[] = [], toAdd: string[] = []): string[] => {
         const lower = new Set(current.map((s) => s.toLowerCase()));
@@ -137,16 +130,31 @@ ${transcript}
         return [...current, ...additions];
       };
 
-      const merged = {
-        ...existing,
-        positive:    mergeUnique(existing.positive,    updates.positive_add),
-        negative:    mergeUnique(existing.negative,    updates.negative_add),
-        gutTriggers: mergeUnique(existing.gutTriggers, updates.gut_triggers_add),
-      };
+      const profileUpdate: Record<string, unknown> = { updatedAt: new Date() };
+
+      // negative_add + gut_triggers_add → food_exclusions
+      const avoidAdditions = [
+        ...(updates.negative_add    ?? []),
+        ...(updates.gut_triggers_add ?? []),
+      ];
+      if (avoidAdditions.length) {
+        profileUpdate.foodExclusions = mergeUnique(
+          (profileRow?.foodExclusions as string[] | null) ?? [],
+          avoidAdditions,
+        );
+      }
+
+      // positive_add → preferred_foods
+      if (updates.positive_add?.length) {
+        profileUpdate.preferredFoods = mergeUnique(
+          (profileRow?.preferredFoods as string[] | null) ?? [],
+          updates.positive_add,
+        );
+      }
 
       await db
         .update(userProfiles)
-        .set({ foodProfile: merged, updatedAt: new Date() })
+        .set(profileUpdate)
         .where(eq(userProfiles.clerkUserId, userId));
 
       profileChanges = updates.change_summary ?? "Profile updated from voice note";
