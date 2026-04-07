@@ -96,7 +96,8 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   // Mic / speech recognition
   const [hasSpeech,  setHasSpeech]  = useState(false);
   const [listening,  setListening]  = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef   = useRef<SpeechRecognition | null>(null);
+  const preRecordTextRef = useRef<string>("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
@@ -123,24 +124,24 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
 
+    // Snapshot whatever is already in the input so we can prepend it
+    preRecordTextRef.current = input;
+
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+
     const recognition = new SR();
-    recognition.continuous     = true;
+    recognition.continuous     = !isMobile; // single utterance on mobile, continuous on desktop
     recognition.interimResults = true;
     recognition.lang           = "en-GB";
 
-    let finalTranscript = "";
-
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += t;
-        } else {
-          interim = t;
-        }
+      // Rebuild full transcript from ALL results on every event — no delta accumulation
+      let full = "";
+      for (let i = 0; i < event.results.length; i++) {
+        full += event.results[i][0].transcript;
       }
-      setInput(finalTranscript + interim);
+      const prefix = preRecordTextRef.current;
+      setInput(prefix ? prefix + " " + full : full);
     };
 
     recognition.onerror = () => setListening(false);
