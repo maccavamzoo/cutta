@@ -27,12 +27,15 @@
 ## Auth
 
 - Clerk v6. Single user app right now (Ben), but built to support multiple users via `clerkUserId` on every table.
+- Clerk v6 gotcha: `afterSignOutUrl` is the correct prop name. Older prop names cause build failures. Always verify Clerk component APIs against the installed version before using them.
+- JSX curly-quote escaping in Clerk components can cause build failures — watch for this.
 
 ## Timezone handling
 
 - `user_profiles` has a `timezone` column (varchar). Used server-side to calculate "today" for each user.
 - Falls back to `"Europe/London"` when null.
-- A `getUserToday(timezone)` utility in `lib/dates.ts` returns `{ todayStr, todayStart, todayEnd }`.
+- `getUserToday(timezone)` utility in `lib/dates.ts` returns `{ todayStr, todayStart, todayEnd }`.
+- `getMonthBounds(timezone, monthStr)` and `getDayBounds(timezone, dateStr)` also in `lib/dates.ts` for calendar queries.
 - The Today page shows the time before the greeting to confirm the timezone is correct.
 
 ## Weight & targets
@@ -44,28 +47,43 @@
 
 ## Plan generation
 
-- AI plans are generated 3 days at a time via Claude Sonnet.
+- AI plans are generated one day at a time via Claude Sonnet.
 - Requires an active protocol (JSON) — generation fails silently if none exists.
 - Daily calorie target = Mifflin-St Jeor BMR × 1.2 (sedentary) + training burn − deficit from `weightLossRate`.
 - `typicalWeeklyHours` was removed — activity burn comes from calendar events, not a static guess.
 - Glycogen battery value comes from the AI plan, not pure math. It only shows when a plan exists for today. When no plan exists, a dimmed empty-state battery is shown.
+- **Past fuelling plans are kept as history** — they are no longer deleted on plan page load. The calendar view uses them to show what you ate on past days.
+- PlanView is loaded with `dynamic(() => import("./PlanView"), { ssr: false })` to avoid a hydration bug that orphaned day card nodes. This is intentional — don't re-enable SSR for PlanView.
+
+## Hydration & loading.tsx
+
+- `loading.tsx` Suspense skeletons must match the actual page's outer DOM structure exactly (same `<main>` wrapper, same container divs). Mismatched structure causes Next.js streaming to orphan DOM nodes outside the React tree.
+- When this is hard to achieve, use `dynamic(() => import("./Component"), { ssr: false })` to skip server-rendering the complex client component entirely. The loading skeleton covers the gap.
 
 ## Protocol system
 
 - Protocols are JSON objects stored in the `protocols` table.
 - 4 built-in templates in `lib/protocol-templates.ts` (Endurance Base, Race Week, Weight Loss, General Health).
 - Users can save custom templates (`is_template` boolean on the protocols table).
-- Protocol page has two tabs: "Protocol" (templates + readable view) and "✨ Tweak with AI" (chat).
-- The AI chat can propose protocol edits via `<protocol_update>` tags — user must confirm before saving.
+- Protocol page has a template picker and a readable view of the active protocol.
+- The AI advisor chat can propose protocol edits via `<protocol_update>` tags — user must confirm before saving.
 - When saving a modified protocol, user names it and it's saved as both active + template.
 - Deleting all custom templates auto-activates "General Health".
+
+## Food preferences & profile
+
+- **`food_exclusions`** (text array) is the single source of truth for foods to avoid. This column now contains what was previously split across `food_exclusions`, `foodProfile.negative`, and `foodProfile.gutTriggers`.
+- **`preferred_foods`** (text array) is the single source of truth for foods the user likes. Previously hidden inside `foodProfile.positive`.
+- **`food_profile`** (JSONB) is deprecated for the above fields. It may still contain `supplementReactions` data. Don't write `gutTriggers`, `negative`, or `positive` to it — use the flat columns instead.
+- Audio notes processing writes food reactions directly to `food_exclusions` and `preferred_foods` columns, not to `food_profile`.
+- The `food_exclusions` and `preferred_foods` are edited on a standalone settings page at `/settings/food`, not on the profile edit page.
 
 ## Audio notes
 
 - Uses browser SpeechRecognition API (Chrome/Safari only).
 - Transcripts are processed by Claude Sonnet to extract structured data.
-- Food reactions automatically update `food_profile` on `user_profiles` (positive, negative, gutTriggers).
-- `food_profile` feeds into plan generation prompt — this is how voice notes influence future plans.
+- Food reactions are written to `food_exclusions` (negative/gut triggers) and `preferred_foods` (positive) on `user_profiles`.
+- These feed into plan generation — this is how voice notes influence future plans.
 
 ## Eating style
 
@@ -75,16 +93,10 @@
 ## Unsaved changes guards
 
 - Edit profile page has a save/discard/cancel modal that intercepts BottomNav navigation and the back link.
+- Food preferences page (`/settings/food`) has the same pattern.
 - Protocol page has the same pattern for pending AI-proposed changes.
 - `beforeunload` was **removed** from edit profile — it fought with the custom modal. Don't add it back.
 - For post-save navigation that needs fresh data, use `window.location.href` not `router.push`.
-
-## Navigation
-
-- BottomNav has 5 items: Today, Plan, Progress, Settings, More.
-- Settings → hub for Edit profile, Protocol.
-- More → Shopping list, Log training, Record note.
-- BottomNav accepts an `onNavigate` prop for pages that need to intercept navigation (dirty check).
 
 ## Known rough edges
 
