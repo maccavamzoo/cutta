@@ -56,47 +56,6 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-function TagInput({
-  tags,
-  onChange,
-  placeholder,
-}: {
-  tags: string[];
-  onChange: (tags: string[]) => void;
-  placeholder?: string;
-}) {
-  const [input, setInput] = useState("");
-
-  const addTag = () => {
-    const trimmed = input.trim().replace(/,$/, "");
-    if (trimmed && !tags.includes(trimmed)) onChange([...tags, trimmed]);
-    setInput("");
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        {tags.map((tag) => (
-          <span key={tag} className="flex items-center gap-1 px-3 py-1.5 bg-zinc-800 text-zinc-200 text-sm rounded-lg">
-            {tag}
-            <button type="button" onClick={() => onChange(tags.filter((t) => t !== tag))} className="text-zinc-500 hover:text-white ml-1">×</button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(); } }}
-          placeholder={placeholder}
-          className="flex-1 bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
-        />
-        <button type="button" onClick={addTag} className="px-4 py-2.5 bg-zinc-700 text-white rounded-xl text-sm hover:bg-zinc-600 transition-colors">Add</button>
-      </div>
-    </div>
-  );
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
