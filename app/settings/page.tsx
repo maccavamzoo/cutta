@@ -1,3 +1,4 @@
+import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -98,6 +99,14 @@ export default async function SettingsPage() {
               <span className="text-zinc-500 text-sm">→</span>
             </Link>
           ))}
+        </div>
+        {/* Account */}
+        <div className="space-y-2">
+          <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Account</p>
+          <div className="flex items-center gap-3 px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800">
+            <UserButton />
+            <p className="text-zinc-400 text-sm">Manage account &amp; sign out</p>
+          </div>
         </div>
       </main>
 
