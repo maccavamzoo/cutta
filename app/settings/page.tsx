@@ -82,23 +82,16 @@ export default async function SettingsPage() {
         {/* Quick actions */}
         <div className="space-y-2">
           <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Quick actions</p>
-          {[
-            { href: "/shopping",        label: "Shopping",      sub: "Weekly ingredient pool and shopping list" },
-            { href: "/training/upload", label: "Log training",  sub: "Upload a screenshot or enter manually" },
-            { href: "/audio",           label: "Record note",   sub: "Voice note — food reactions, observations" },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
-            >
-              <div>
-                <p className="text-white text-sm font-medium">{item.label}</p>
-                <p className="text-zinc-600 text-xs mt-0.5">{item.sub}</p>
-              </div>
-              <span className="text-zinc-500 text-sm">→</span>
-            </Link>
-          ))}
+          <Link
+            href="/shopping"
+            className="flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
+          >
+            <div>
+              <p className="text-white text-sm font-medium">Shopping</p>
+              <p className="text-zinc-600 text-xs mt-0.5">Weekly ingredient pool and shopping list</p>
+            </div>
+            <span className="text-zinc-500 text-sm">→</span>
+          </Link>
         </div>
         {/* Account */}
         <div className="space-y-2">

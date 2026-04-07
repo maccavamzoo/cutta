@@ -5,6 +5,41 @@ import { useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 import type { ProtocolFile } from "@/lib/protocol";
 
+// SpeechRecognition types (not guaranteed in lib.dom.d.ts)
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+interface SpeechRecognitionResult {
+  readonly isFinal: boolean;
+  readonly length:  number;
+  [index: number]:  SpeechRecognitionAlternative;
+}
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+interface SpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results:     SpeechRecognitionResultList;
+}
+interface SpeechRecognition extends EventTarget {
+  continuous:     boolean;
+  interimResults: boolean;
+  lang:           string;
+  start():        void;
+  stop():         void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror:  ((event: Event) => void) | null;
+  onend:    (() => void) | null;
+}
+declare global {
+  interface Window {
+    SpeechRecognition:       new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Message {
@@ -58,12 +93,63 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
   const hasPending = pendingProtocol !== null || pendingStrategy !== null;
 
+  // Mic / speech recognition
+  const [hasSpeech,  setHasSpeech]  = useState(false);
+  const [listening,  setListening]  = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setHasSpeech(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
+  }, []);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading, pendingProtocol, pendingStrategy, showNamingCard]);
+
+  useEffect(() => {
+    return () => { recognitionRef.current?.stop(); };
+  }, []);
+
+  function toggleListening() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+
+    const recognition = new SR();
+    recognition.continuous     = true;
+    recognition.interimResults = true;
+    recognition.lang           = "en-GB";
+
+    let finalTranscript = "";
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += t;
+        } else {
+          interim = t;
+        }
+      }
+      setInput(finalTranscript + interim);
+    };
+
+    recognition.onerror = () => setListening(false);
+    recognition.onend   = () => setListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  }
 
   // ── History persistence ─────────────────────────────────────────────────
 
@@ -345,7 +431,45 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
       {/* Input bar — fixed above BottomNav */}
       <div className="fixed bottom-[52px] left-0 right-0 border-t border-zinc-800 bg-black z-30">
-        <div className="max-w-lg mx-auto flex gap-2 px-4 py-3">
+        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 py-3">
+
+          {/* Mic button */}
+          {hasSpeech && (
+            <button
+              type="button"
+              onClick={toggleListening}
+              className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${
+                listening
+                  ? "bg-red-500/20 text-red-400 animate-pulse"
+                  : "text-zinc-600 hover:text-zinc-300"
+              }`}
+              aria-label={listening ? "Stop recording" : "Voice input"}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="6" y="1" width="6" height="10" rx="3" />
+                <path d="M3 8a6 6 0 0 0 12 0" />
+                <path d="M9 14v3" />
+              </svg>
+            </button>
+          )}
+
+          {/* Log training button */}
+          <button
+            type="button"
+            onClick={() => router.push("/training/upload")}
+            className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl text-zinc-600 hover:text-zinc-300 transition-colors"
+            aria-label="Log training"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="2" width="14" height="14" rx="2" />
+              <path d="M6 2v14" />
+              <path d="M2 9h14" />
+              <circle cx="12" cy="5.5" r="1" fill="currentColor" stroke="none" />
+              <circle cx="12" cy="12.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+
+          {/* Text input */}
           <input
             ref={inputRef}
             type="text"
@@ -356,6 +480,8 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
             placeholder="Ask anything…"
             className="flex-1 bg-zinc-900 rounded-xl px-3.5 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-zinc-700 disabled:opacity-50"
           />
+
+          {/* Send button */}
           <button
             onClick={handleSend}
             disabled={!input.trim() || loading}
