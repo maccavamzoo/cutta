@@ -5,11 +5,38 @@ import { useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 import type { ProtocolFile } from "@/lib/protocol";
 
-// SpeechRecognition types (not in lib.dom.d.ts for all envs)
+// SpeechRecognition types (not guaranteed in lib.dom.d.ts)
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+interface SpeechRecognitionResult {
+  readonly isFinal: boolean;
+  readonly length:  number;
+  [index: number]:  SpeechRecognitionAlternative;
+}
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+interface SpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results:     SpeechRecognitionResultList;
+}
+interface SpeechRecognition extends EventTarget {
+  continuous:     boolean;
+  interimResults: boolean;
+  lang:           string;
+  start():        void;
+  stop():         void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror:  ((event: Event) => void) | null;
+  onend:    (() => void) | null;
+}
 declare global {
   interface Window {
-    SpeechRecognition:       typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
+    SpeechRecognition:       new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
   }
 }
 
