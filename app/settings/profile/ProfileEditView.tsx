@@ -16,11 +16,6 @@ export interface ProfileData {
   weightLossRate:               string | null;
   targetSetAt:                  string | null;
   fastedTraining:               boolean | null;
-  gutSensitivity:               string | null;
-  trackStoolHealth:             boolean;
-  foodExclusions:               string[] | null;
-  preferredFoods:               string[] | null;
-  currentSupplements:           string[] | null;
   appetiteProfile:              string | null;
   estimatedMaintenanceCalories: number | null;
 }
@@ -61,47 +56,6 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-function TagInput({
-  tags,
-  onChange,
-  placeholder,
-}: {
-  tags: string[];
-  onChange: (tags: string[]) => void;
-  placeholder?: string;
-}) {
-  const [input, setInput] = useState("");
-
-  const addTag = () => {
-    const trimmed = input.trim().replace(/,$/, "");
-    if (trimmed && !tags.includes(trimmed)) onChange([...tags, trimmed]);
-    setInput("");
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        {tags.map((tag) => (
-          <span key={tag} className="flex items-center gap-1 px-3 py-1.5 bg-zinc-800 text-zinc-200 text-sm rounded-lg">
-            {tag}
-            <button type="button" onClick={() => onChange(tags.filter((t) => t !== tag))} className="text-zinc-500 hover:text-white ml-1">×</button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(); } }}
-          placeholder={placeholder}
-          className="flex-1 bg-zinc-800 text-white placeholder-zinc-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400"
-        />
-        <button type="button" onClick={addTag} className="px-4 py-2.5 bg-zinc-700 text-white rounded-xl text-sm hover:bg-zinc-600 transition-colors">Add</button>
-      </div>
-    </div>
-  );
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -170,13 +124,6 @@ export default function ProfileEditView({
     initial.estimatedMaintenanceCalories != null ? String(initial.estimatedMaintenanceCalories) : ""
   );
 
-  // ── gut & food ────────────────────────────────────────────────────────────
-  const [gutSensitivity,   setGutSensitivity]   = useState(initial.gutSensitivity ?? "");
-  const [trackStoolHealth, setTrackStoolHealth] = useState(initial.trackStoolHealth);
-  const [foodExclusions,   setFoodExclusions]   = useState<string[]>(initial.foodExclusions ?? []);
-  const [preferredFoods,   setPreferredFoods]   = useState<string[]>(initial.preferredFoods ?? []);
-  const [supplements,    setSupplements]    = useState<string[]>(initial.currentSupplements ?? []);
-
   // ── eating style (merged appetite + meal timing) ─────────────────────────
   const EATING_STYLE_OPTS = [
     "3 big meals / no snacking",
@@ -215,10 +162,6 @@ export default function ProfileEditView({
     const initSex            = initial.sex      ?? "";
     const initWeightLossRate = initial.weightLossRate ?? "moderate";
     const initFasted         = initial.fastedTraining === true ? "yes" : initial.fastedTraining === false ? "no" : "sometimes";
-    const initGutSensitivity = initial.gutSensitivity ?? "";
-    const initFoodExclusions = initial.foodExclusions ?? [];
-    const initPreferredFoods = initial.preferredFoods  ?? [];
-    const initSupplements    = initial.currentSupplements ?? [];
     const initAppetite       = (initial.appetiteProfile ?? "").split(", ").filter((p) => EATING_STYLE_OPTS.includes(p));
     const initOverrideCals   = initial.estimatedMaintenanceCalories != null ? String(initial.estimatedMaintenanceCalories) : "";
 
@@ -229,29 +172,17 @@ export default function ProfileEditView({
     if (sex              !== initSex)            return true;
     if (weightLossRate   !== initWeightLossRate) return true;
     if (fastedTraining   !== initFasted)         return true;
-    if (gutSensitivity   !== initGutSensitivity) return true;
-    if (trackStoolHealth !== initial.trackStoolHealth) return true;
-    if (JSON.stringify(foodExclusions)  !== JSON.stringify(initFoodExclusions)) return true;
-    if (JSON.stringify(preferredFoods)  !== JSON.stringify(initPreferredFoods)) return true;
-    if (JSON.stringify(supplements)     !== JSON.stringify(initSupplements))    return true;
     if (JSON.stringify([...appetiteSelections].sort()) !== JSON.stringify([...initAppetite].sort())) return true;
     if (overrideActive && overrideCalsStr !== initOverrideCals)  return true;
     if (!overrideActive && initOverrideCals !== "" && overrideCalsStr !== initOverrideCals) return true;
     return false;
   }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, weightLossRate,
-      fastedTraining, gutSensitivity, trackStoolHealth, foodExclusions, preferredFoods,
-      supplements, appetiteSelections, overrideActive, overrideCalsStr, initial, unitSystem]);
+      fastedTraining, appetiteSelections, overrideActive, overrideCalsStr, initial, unitSystem]);
 
   const FASTED_OPTS = [
     { v: "yes",       l: "Yes"       },
     { v: "sometimes", l: "Sometimes" },
     { v: "no",        l: "No"        },
-  ];
-
-  const GUT_OPTS = [
-    { v: "low",    l: "Low — rarely an issue"      },
-    { v: "medium", l: "Medium — occasional issues" },
-    { v: "high",   l: "High — frequent problems"   },
   ];
 
   async function handleSave() {
@@ -292,11 +223,6 @@ export default function ProfileEditView({
       weightLossRate,
       ...(goalChanged ? { targetSetAt: new Date().toISOString() } : {}),
       fastedTraining,
-      gutSensitivity:               gutSensitivity    || null,
-      trackStoolHealth,
-      foodExclusions,
-      preferredFoods,
-      currentSupplements:           supplements,
       appetiteProfile:              appetiteSelections.length ? appetiteSelections.join(", ") : null,
       estimatedMaintenanceCalories,
     };
@@ -562,62 +488,7 @@ export default function ProfileEditView({
 
       <div className="border-t border-zinc-800" />
 
-      {/* 4 — Gut health & food preferences */}
-      <Section title="Gut health & food preferences">
-        <Field label="Gut sensitivity">
-          <div className="space-y-2">
-            {GUT_OPTS.map(({ v, l }) => (
-              <button
-                key={v} type="button" onClick={() => setGutSensitivity(v)}
-                className={`w-full text-left px-4 py-3 rounded-xl border text-sm transition-colors ${
-                  gutSensitivity === v
-                    ? "bg-lime-400 border-lime-400 text-black font-medium"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700"
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-        </Field>
-        <div className="flex items-start justify-between gap-4 py-1">
-          <div className="flex-1">
-            <p className="text-white text-sm font-medium">Track stool health</p>
-            <p className="text-zinc-600 text-xs mt-0.5 leading-relaxed">
-              Log stool consistency in your daily check-in. Helps the AI spot gut issues and adjust your plan.
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={trackStoolHealth}
-            onClick={() => setTrackStoolHealth((x) => !x)}
-            className={`relative shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors ${
-              trackStoolHealth ? "bg-lime-400" : "bg-zinc-700"
-            }`}
-          >
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-              trackStoolHealth ? "translate-x-5" : "translate-x-0"
-            }`} />
-          </button>
-        </div>
-
-        <Field label="Foods to avoid">
-          <TagInput tags={foodExclusions} onChange={setFoodExclusions} placeholder="e.g. Gluten, Dairy, Pasta..." />
-        </Field>
-        <div className="space-y-2">
-          <label className="block text-white text-sm font-medium">Preferred foods</label>
-          <p className="text-zinc-500 text-xs -mt-1">Foods that work well for you. The AI will favour these in your plans.</p>
-          <TagInput tags={preferredFoods} onChange={setPreferredFoods} placeholder="e.g. Rice, Chicken, Banana..." />
-        </div>
-        <Field label="Current supplements">
-          <TagInput tags={supplements} onChange={setSupplements} placeholder="e.g. Creatine, Vitamin D…" />
-        </Field>
-      </Section>
-
-      <div className="border-t border-zinc-800" />
-
-      {/* 5 — Eating style */}
+      {/* 4 — Eating style */}
       <Section title="Eating style">
         <div className="space-y-2">
           <p className="text-zinc-500 text-xs">Select all that describe you.</p>

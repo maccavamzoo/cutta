@@ -30,11 +30,6 @@ export default async function OnboardingPage() {
     weightLossRate:               null,
     targetSetAt:                  null,
     fastedTraining:               null,
-    gutSensitivity:               null,
-    trackStoolHealth:             false,
-    foodExclusions:               [],
-    preferredFoods:               [],
-    currentSupplements:           [],
     appetiteProfile:              null,
     estimatedMaintenanceCalories: null,
   };
