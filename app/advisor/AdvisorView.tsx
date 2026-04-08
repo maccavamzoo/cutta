@@ -107,8 +107,11 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   }, []);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading, pendingProtocol, pendingStrategy, showNamingCard]);
+    const timer = setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [messages, loading]);
 
   useEffect(() => {
     return () => { recognitionRef.current?.stop(); };
@@ -432,7 +435,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
       {/* Input bar — fixed above BottomNav */}
       <div className="fixed bottom-[52px] left-0 right-0 border-t border-zinc-800 bg-black z-30">
-        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 pt-[9px] pb-[10px]">
+        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 pt-2 pb-2.5">
 
           {/* Mic button */}
           {hasSpeech && (
