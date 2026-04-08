@@ -434,7 +434,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
         </div>
 
       {/* Input bar — fixed above BottomNav */}
-      <div className="fixed bottom-15 left-0 right-0 bg-black z-30" style={{ boxShadow: "0 -1px 0 0 rgb(39 39 42)" }}>
+      <div className="fixed bottom-16 left-0 right-0 bg-black z-30" style={{ boxShadow: "0 -1px 0 0 rgb(39 39 42)" }}>
         <div className="max-w-lg mx-auto flex items-center gap-2 px-4 py-2.5">
 
           {/* Mic button */}
