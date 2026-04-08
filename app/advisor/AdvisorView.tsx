@@ -435,7 +435,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
       {/* Input bar — fixed above BottomNav */}
       <div className="fixed bottom-[52px] left-0 right-0 border-t border-zinc-800 bg-black z-30">
-        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 pt-2 pb-2.5">
+        <div className="max-w-lg mx-auto flex items-center gap-2" style={{ padding: "7px 16px 8px 16px" }}>
 
           {/* Mic button */}
           {hasSpeech && (
@@ -481,7 +481,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
             disabled={loading}
             placeholder="Ask anything…"
-            className="flex-1 m-0 bg-zinc-900 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-zinc-700 disabled:opacity-50"
+            className="flex-1 m-0 bg-zinc-900 rounded-xl px-3.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-zinc-700 disabled:opacity-50"
           />
 
           {/* Send button */}
