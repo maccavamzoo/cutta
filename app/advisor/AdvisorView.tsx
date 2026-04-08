@@ -432,7 +432,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
       {/* Input bar — fixed above BottomNav */}
       <div className="fixed bottom-[52px] left-0 right-0 border-t border-zinc-800 bg-black z-30">
-        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 py-2.5">
+        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 pt-[9px] pb-[10px]">
 
           {/* Mic button */}
           {hasSpeech && (
@@ -485,7 +485,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
           <button
             onClick={handleSend}
             disabled={!input.trim() || loading}
-            className="px-4 py-3 rounded-xl bg-lime-400 text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity shrink-0"
+            className="px-4 h-10 rounded-xl bg-lime-400 text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity shrink-0"
           >
             Send
           </button>
