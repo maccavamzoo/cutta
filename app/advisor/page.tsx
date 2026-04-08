@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { userProfiles } from "@/lib/db/schema";
-import AdvisorView from "./AdvisorView";
+import dynamic from "next/dynamic";
+const AdvisorView = dynamic(() => import("./AdvisorView"), { ssr: false });
 
 interface Message {
   role: "user" | "assistant";

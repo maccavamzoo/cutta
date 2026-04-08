@@ -327,7 +327,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       </div>
 
       {/* Messages — scrollable, padded so last message clears input bar + nav */}
-      <div ref={scrollRef} className="px-4 py-4 pb-[130px]">
+      <div ref={scrollRef} className="px-4 py-4 pb-[140px]">
         <div className="max-w-lg mx-auto space-y-3">
 
             {messages.length === 0 && (
@@ -434,8 +434,8 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
         </div>
 
       {/* Input bar — fixed above BottomNav */}
-      <div className="fixed bottom-[52px] left-0 right-0 bg-black z-30" style={{ boxShadow: "0 -1px 0 0 rgb(39 39 42)" }}>
-        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 py-2">
+      <div className="fixed bottom-14 left-0 right-0 bg-black z-30" style={{ boxShadow: "0 -1px 0 0 rgb(39 39 42)" }}>
+        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 py-2.5">
 
           {/* Mic button */}
           {hasSpeech && (
