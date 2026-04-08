@@ -432,7 +432,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
       {/* Input bar — fixed above BottomNav */}
       <div className="fixed bottom-[52px] left-0 right-0 border-t border-zinc-800 bg-black z-30">
-        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 py-3">
+        <div className="max-w-lg mx-auto flex items-center gap-2 px-4 py-2.5">
 
           {/* Mic button */}
           {hasSpeech && (
@@ -441,8 +441,8 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
               onClick={toggleListening}
               className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${
                 listening
-                  ? "bg-red-500/20 text-red-400 animate-pulse"
-                  : "text-zinc-600 hover:text-zinc-300"
+                  ? "bg-red-500/20 border border-red-500/30 text-red-400 animate-pulse"
+                  : "bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600"
               }`}
               aria-label={listening ? "Stop recording" : "Voice input"}
             >
@@ -458,15 +458,14 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
           <button
             type="button"
             onClick={() => router.push("/training/upload")}
-            className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl text-zinc-600 hover:text-zinc-300 transition-colors"
+            className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
             aria-label="Log training"
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="2" width="14" height="14" rx="2" />
-              <path d="M6 2v14" />
-              <path d="M2 9h14" />
-              <circle cx="12" cy="5.5" r="1" fill="currentColor" stroke="none" />
-              <circle cx="12" cy="12.5" r="1" fill="currentColor" stroke="none" />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="5.5" cy="17.5" r="3.5" />
+              <circle cx="18.5" cy="17.5" r="3.5" />
+              <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" fill="currentColor" stroke="none" />
+              <path d="M12 17.5V14l-3-3 4-3 2 3h3" />
             </svg>
           </button>
 
@@ -479,7 +478,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
             disabled={loading}
             placeholder="Ask anything…"
-            className="flex-1 bg-zinc-900 rounded-xl px-3.5 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-zinc-700 disabled:opacity-50"
+            className="flex-1 m-0 bg-zinc-900 rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:ring-1 focus:ring-zinc-700 disabled:opacity-50"
           />
 
           {/* Send button */}
