@@ -29,6 +29,13 @@
 - Clerk v6. Single user app right now (Ben), but built to support multiple users via `clerkUserId` on every table.
 - Clerk v6 gotcha: `afterSignOutUrl` is the correct prop name. Older prop names cause build failures. Always verify Clerk component APIs against the installed version before using them.
 - JSX curly-quote escaping in Clerk components can cause build failures — watch for this.
+- `UserButton` from Clerk is on the Settings page (Account section at the bottom).
+
+## Hydration & loading.tsx — IMPORTANT
+
+- Multiple pages use `dynamic(() => import("./Component"), { ssr: false })` to avoid hydration bugs: **PlanView** and **AdvisorView**. This is intentional — don't re-enable SSR for these components.
+- `loading.tsx` Suspense skeletons must match the actual page's outer DOM structure exactly (same `<main>` wrapper, same container divs). Mismatched structure causes Next.js streaming to orphan DOM nodes outside the React tree or re-mount client components (wiping state).
+- When this is hard to achieve, use `dynamic(() => import("./Component"), { ssr: false })` to skip server-rendering the complex client component entirely. The loading skeleton covers the gap.
 
 ## Timezone handling
 
@@ -53,12 +60,6 @@
 - `typicalWeeklyHours` was removed — activity burn comes from calendar events, not a static guess.
 - Glycogen battery value comes from the AI plan, not pure math. It only shows when a plan exists for today. When no plan exists, a dimmed empty-state battery is shown.
 - **Past fuelling plans are kept as history** — they are no longer deleted on plan page load. The calendar view uses them to show what you ate on past days.
-- PlanView is loaded with `dynamic(() => import("./PlanView"), { ssr: false })` to avoid a hydration bug that orphaned day card nodes. This is intentional — don't re-enable SSR for PlanView.
-
-## Hydration & loading.tsx
-
-- `loading.tsx` Suspense skeletons must match the actual page's outer DOM structure exactly (same `<main>` wrapper, same container divs). Mismatched structure causes Next.js streaming to orphan DOM nodes outside the React tree.
-- When this is hard to achieve, use `dynamic(() => import("./Component"), { ssr: false })` to skip server-rendering the complex client component entirely. The loading skeleton covers the gap.
 
 ## Protocol system
 
@@ -76,14 +77,24 @@
 - **`preferred_foods`** (text array) is the single source of truth for foods the user likes. Previously hidden inside `foodProfile.positive`.
 - **`food_profile`** (JSONB) is deprecated for the above fields. It may still contain `supplementReactions` data. Don't write `gutTriggers`, `negative`, or `positive` to it — use the flat columns instead.
 - Audio notes processing writes food reactions directly to `food_exclusions` and `preferred_foods` columns, not to `food_profile`.
-- The `food_exclusions` and `preferred_foods` are edited on a standalone settings page at `/settings/food`, not on the profile edit page.
+- Food preferences are edited on a standalone settings page at `/settings/food`, NOT on the profile edit page.
+- The profile edit page (`/settings/profile`) covers: body stats, weight target, daily energy, training habits, eating style.
 
-## Audio notes
+## AI advisor page
 
-- Uses browser SpeechRecognition API (Chrome/Safari only).
-- Transcripts are processed by Claude Sonnet to extract structured data.
-- Food reactions are written to `food_exclusions` (negative/gut triggers) and `preferred_foods` (positive) on `user_profiles`.
-- These feed into plan generation — this is how voice notes influence future plans.
+- The AI chat page (`/advisor`) is the central input hub. It has:
+  - Chat with Cutta AI (protocol tweaks, shopping strategy, nutrition questions)
+  - Mic button for voice-to-text input (uses browser SpeechRecognition API)
+  - Log training button (navigates to `/training/upload`)
+- The mic uses `continuous: false` on mobile to avoid duplication bugs, `continuous: true` on desktop.
+- Voice input transcribes into the text field — user sends it like normal text. There is no separate audio note processing flow from this page.
+- The `/audio` page still exists but is effectively dead — voice input now goes through the AI chat input bar.
+
+## Audio notes (legacy)
+
+- The `/audio` page and `/api/audio-notes` endpoint still exist but are no longer linked from the UI.
+- Audio notes processing still writes to `food_exclusions` and `preferred_foods` if called directly.
+- The AI advisor chat is the intended replacement for audio notes going forward.
 
 ## Eating style
 
@@ -98,11 +109,20 @@
 - `beforeunload` was **removed** from edit profile — it fought with the custom modal. Don't add it back.
 - For post-save navigation that needs fresh data, use `window.location.href` not `router.push`.
 
+## Navigation
+
+- BottomNav has 5 items: Today, Plan, AI, Progress, Settings.
+- Settings → hub for Edit profile, Gut health & food preferences, Protocol, Shopping, plus Account (Clerk UserButton) at the bottom.
+- Log training and Record note are accessed from the AI page, not from Settings.
+- Calendar monthly view is accessed from the Plan page via "Monthly view →" link.
+- Any fixed element positioned above BottomNav should use `bottom-16` (64px) — this is the measured height of the nav.
+
 ## Known rough edges
 
 - Training log page: source selection (Strava/Rouvy) is being removed. Auto tab (screenshot upload, any app) + Manual tab (form entry) replacing it.
 - Plan generation button UX: clicking any of the 3 day buttons generates all 3 days. The separate per-day buttons are somewhat misleading.
 - Next.js server component caching can still occasionally serve stale data despite the fixes. Hard refresh always works.
+- The AI chat input bar padding has been fiddly — uses box-shadow instead of border-t for the separator to avoid layout-space issues. Don't reintroduce `border-t` on the input bar outer div.
 
 ## Ben's context
 
