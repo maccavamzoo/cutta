@@ -22,11 +22,6 @@ interface ChatMessage {
   content: string;
 }
 
-interface ChatRequest {
-  message: string;
-  conversationHistory: ChatMessage[];
-}
-
 // ── Schema reference for the AI ──────────────────────────────────────────────
 
 const SCHEMAS = `
@@ -101,9 +96,8 @@ function buildSystemPrompt(ctx: {
 }): string {
   const { profile, latestWeightKg, timezone, protocolRow, strategyRow, upcomingEvents, recentCompliance, recentFeedback } = ctx;
 
-  // ── Profile ───────────────────────────────────────────────────────────────
-  const foodProfileRaw  = profile?.foodProfile as Record<string, unknown> | null ?? null;
-  const preferredFoods  = fmtArr(
+  const foodProfileRaw = profile?.foodProfile as Record<string, unknown> | null ?? null;
+  const preferredFoods = fmtArr(
     (profile?.preferredFoods as string[] | null)?.length
       ? profile?.preferredFoods
       : foodProfileRaw?.positive,
@@ -123,7 +117,6 @@ Preferred foods: ${preferredFoods}
 Supplements: ${supplements}
 Eating style: ${fmt(profile.appetiteProfile, "not specified")}` : "## USER PROFILE\nNo profile data found.";
 
-  // ── Protocol ──────────────────────────────────────────────────────────────
   let protocolSection: string;
   if (protocolRow) {
     const p = protocolRow.content;
@@ -155,7 +148,6 @@ ${JSON.stringify(p, null, 2)}`;
     protocolSection = "## ACTIVE PROTOCOL\nNo active protocol set.";
   }
 
-  // ── Strategy ──────────────────────────────────────────────────────────────
   let strategySection: string;
   if (strategyRow) {
     const pool  = fmtArr(strategyRow.ingredientPool, "empty");
@@ -171,7 +163,6 @@ ${items}`;
     strategySection = "## WEEKLY SHOPPING STRATEGY\nNo active shopping strategy set.";
   }
 
-  // ── Upcoming week ─────────────────────────────────────────────────────────
   let calendarSection: string;
   if (upcomingEvents.length > 0) {
     const lines = upcomingEvents.map((e) => {
@@ -184,7 +175,6 @@ ${items}`;
     calendarSection = "## UPCOMING WEEK\nNo events scheduled for the next 7 days.";
   }
 
-  // ── Recent feedback ───────────────────────────────────────────────────────
   let feedbackSection = "## RECENT FEEDBACK (last 7 days)\n";
   if (recentCompliance.length === 0 && recentFeedback.length === 0) {
     feedbackSection += "No recent check-ins or feedback.";
@@ -202,7 +192,6 @@ ${items}`;
     }
   }
 
-  // ── Capabilities ──────────────────────────────────────────────────────────
   const capabilitiesSection = `## YOUR CAPABILITIES
 
 You can:
@@ -253,65 +242,92 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: ChatRequest;
+  let body: { message: string; conversationHistory: ChatMessage[]; requestedData: string[] };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { message, conversationHistory } = body;
+  const { message, conversationHistory, requestedData } = body;
   if (!message || typeof message !== "string" || message.trim().length === 0) {
     return NextResponse.json({ error: "Message is required." }, { status: 400 });
   }
 
   const now = new Date();
-  const sevenDaysAgoStr  = new Date(now.getTime() - 7 * 86_400_000).toISOString().split("T")[0];
-  const sevenDaysLater   = new Date(now.getTime() + 7 * 86_400_000);
+  const sevenDaysAgoStr = new Date(now.getTime() - 7 * 86_400_000).toISOString().split("T")[0];
+  const sevenDaysLater  = new Date(now.getTime() + 7 * 86_400_000);
 
-  // Fetch all context in parallel
+  const needProfile  = requestedData.includes("Profile");
+  const needProtocol = requestedData.includes("Protocol");
+  const needShopping = requestedData.includes("Shopping");
+  const needCalendar = requestedData.includes("Calendar");
+  const needFeedback = requestedData.includes("Feedback");
+  const needWeight   = requestedData.includes("Weight");
+
+  type ProfileRow   = typeof userProfiles.$inferSelect;
+  type ProtocolRow  = { name: string; content: unknown };
+  type StrategyRow  = { id: number; name: string; ingredientPool: unknown; shoppingItems: unknown };
+  type EventRow     = { scheduledAt: Date; title: string; eventType: string; durationMinutes: number | null };
+  type ComplianceRow = { logDate: string; compliance: string };
+  type FeedbackRow  = { feedbackType: string; rating: number | null; planDate: string };
+  type WeightRow    = { weightKg: unknown };
+
   const [profileRows, protocolRows, strategyRows, eventRows, complianceRows, feedbackRows, weightRows] =
     await Promise.all([
-      db.select().from(userProfiles).where(eq(userProfiles.clerkUserId, userId)).limit(1),
+      needProfile
+        ? db.select().from(userProfiles).where(eq(userProfiles.clerkUserId, userId)).limit(1) as Promise<ProfileRow[]>
+        : Promise.resolve([] as ProfileRow[]),
 
-      db.select({ name: protocols.name, content: protocols.content })
-        .from(protocols)
-        .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
-        .limit(1),
+      needProtocol
+        ? db.select({ name: protocols.name, content: protocols.content })
+            .from(protocols)
+            .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
+            .limit(1) as Promise<ProtocolRow[]>
+        : Promise.resolve([] as ProtocolRow[]),
 
-      db.select({ id: weeklyStrategies.id, name: weeklyStrategies.name, ingredientPool: weeklyStrategies.ingredientPool, shoppingItems: weeklyStrategies.shoppingItems })
-        .from(weeklyStrategies)
-        .where(and(eq(weeklyStrategies.clerkUserId, userId), eq(weeklyStrategies.isActive, true)))
-        .limit(1),
+      needShopping
+        ? db.select({ id: weeklyStrategies.id, name: weeklyStrategies.name, ingredientPool: weeklyStrategies.ingredientPool, shoppingItems: weeklyStrategies.shoppingItems })
+            .from(weeklyStrategies)
+            .where(and(eq(weeklyStrategies.clerkUserId, userId), eq(weeklyStrategies.isActive, true)))
+            .limit(1) as Promise<StrategyRow[]>
+        : Promise.resolve([] as StrategyRow[]),
 
-      db.select({ scheduledAt: calendarEvents.scheduledAt, title: calendarEvents.title, eventType: calendarEvents.eventType, durationMinutes: calendarEvents.durationMinutes })
-        .from(calendarEvents)
-        .where(and(eq(calendarEvents.clerkUserId, userId), gte(calendarEvents.scheduledAt, now), lt(calendarEvents.scheduledAt, sevenDaysLater)))
-        .orderBy(calendarEvents.scheduledAt),
+      needCalendar
+        ? db.select({ scheduledAt: calendarEvents.scheduledAt, title: calendarEvents.title, eventType: calendarEvents.eventType, durationMinutes: calendarEvents.durationMinutes })
+            .from(calendarEvents)
+            .where(and(eq(calendarEvents.clerkUserId, userId), gte(calendarEvents.scheduledAt, now), lt(calendarEvents.scheduledAt, sevenDaysLater)))
+            .orderBy(calendarEvents.scheduledAt) as Promise<EventRow[]>
+        : Promise.resolve([] as EventRow[]),
 
-      db.select({ logDate: complianceLog.logDate, compliance: complianceLog.compliance })
-        .from(complianceLog)
-        .where(and(eq(complianceLog.clerkUserId, userId), gte(complianceLog.logDate, sevenDaysAgoStr)))
-        .orderBy(desc(complianceLog.logDate))
-        .limit(7),
+      needFeedback
+        ? db.select({ logDate: complianceLog.logDate, compliance: complianceLog.compliance })
+            .from(complianceLog)
+            .where(and(eq(complianceLog.clerkUserId, userId), gte(complianceLog.logDate, sevenDaysAgoStr)))
+            .orderBy(desc(complianceLog.logDate))
+            .limit(7) as Promise<ComplianceRow[]>
+        : Promise.resolve([] as ComplianceRow[]),
 
-      db.select({ feedbackType: feedbackLog.feedbackType, rating: feedbackLog.rating, planDate: feedbackLog.planDate })
-        .from(feedbackLog)
-        .where(and(eq(feedbackLog.clerkUserId, userId), gte(feedbackLog.planDate, sevenDaysAgoStr)))
-        .limit(20),
+      needFeedback
+        ? db.select({ feedbackType: feedbackLog.feedbackType, rating: feedbackLog.rating, planDate: feedbackLog.planDate })
+            .from(feedbackLog)
+            .where(and(eq(feedbackLog.clerkUserId, userId), gte(feedbackLog.planDate, sevenDaysAgoStr)))
+            .limit(20) as Promise<FeedbackRow[]>
+        : Promise.resolve([] as FeedbackRow[]),
 
-      db.select({ weightKg: weightLog.weightKg })
-        .from(weightLog)
-        .where(eq(weightLog.clerkUserId, userId))
-        .orderBy(desc(weightLog.weighedAt))
-        .limit(1),
+      needWeight
+        ? db.select({ weightKg: weightLog.weightKg })
+            .from(weightLog)
+            .where(eq(weightLog.clerkUserId, userId))
+            .orderBy(desc(weightLog.weighedAt))
+            .limit(1) as Promise<WeightRow[]>
+        : Promise.resolve([] as WeightRow[]),
     ]);
 
   const profile     = profileRows[0] ?? null;
   const protocolRow = protocolRows[0] ?? null;
   const strategyRow = strategyRows[0] ?? null;
 
-  // Validate protocol is new-format before using
   let typedProtocol: { name: string; content: ProtocolFile } | null = null;
   if (protocolRow) {
     const c = protocolRow.content as Record<string, unknown>;
@@ -322,7 +338,6 @@ export async function POST(req: NextRequest) {
   }
 
   const latestWeightKg = weightRows[0]?.weightKg ? Number(weightRows[0].weightKg) : null;
-
   const timezone = (profile?.timezone as string | null) ?? "Europe/London";
 
   const systemPrompt = buildSystemPrompt({
@@ -332,8 +347,8 @@ export async function POST(req: NextRequest) {
     protocolRow: typedProtocol,
     strategyRow,
     upcomingEvents: eventRows,
-    recentCompliance: complianceRows as { logDate: string; compliance: string }[],
-    recentFeedback:   feedbackRows as { feedbackType: string; rating: number | null; planDate: string }[],
+    recentCompliance: complianceRows,
+    recentFeedback:   feedbackRows,
   });
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -352,7 +367,7 @@ export async function POST(req: NextRequest) {
     const block = response.content[0];
     rawReply = block.type === "text" ? block.text : "";
   } catch (err) {
-    console.error("[advisor/chat] Anthropic error:", err);
+    console.error("[advisor/chat/step2] Anthropic error:", err);
     return NextResponse.json({ error: "AI request failed. Please try again." }, { status: 500 });
   }
 
@@ -386,7 +401,6 @@ export async function POST(req: NextRequest) {
       const result = validateStrategyUpdate(parsed);
       if (result.valid) {
         proposedStrategyUpdate = result.data;
-        // Save proposed update to DB so /api/weekly-strategy/confirm can apply it
         if (strategyRow) {
           await db
             .update(weeklyStrategies)
@@ -401,7 +415,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Strip XML tags from displayed reply
   const reply = rawReply
     .replace(/<protocol_update>[\s\S]*?<\/protocol_update>/g, "")
     .replace(/<strategy_update>[\s\S]*?<\/strategy_update>/g, "")
