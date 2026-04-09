@@ -65,14 +65,14 @@ export async function POST(req: NextRequest) {
     raw = block.type === "text" ? block.text : "";
   } catch (err) {
     console.error("[advisor/chat/step1] Anthropic error:", err);
-    return NextResponse.json(FALLBACK);
+    return NextResponse.json({ ...FALLBACK, step1SystemPrompt: STEP1_SYSTEM });
   }
 
   try {
     const cleaned = raw.replace(/^```(?:json)?\n?/m, "").replace(/\n?```$/m, "").trim();
     const parsed = JSON.parse(cleaned) as { holdingMessage: string; requestedData: string[] };
-    return NextResponse.json({ holdingMessage: parsed.holdingMessage, requestedData: parsed.requestedData });
+    return NextResponse.json({ holdingMessage: parsed.holdingMessage, requestedData: parsed.requestedData, step1SystemPrompt: STEP1_SYSTEM });
   } catch {
-    return NextResponse.json(FALLBACK);
+    return NextResponse.json({ ...FALLBACK, step1SystemPrompt: STEP1_SYSTEM });
   }
 }

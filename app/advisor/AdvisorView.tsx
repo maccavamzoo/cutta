@@ -239,6 +239,10 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
     try {
       // Step 1 — holding message + data manifest
+      if (debugMode === "live") {
+        setLivePromptData({ systemPrompt: "(step 1 — manifest only, no user data)", userMessage: text });
+      }
+
       const step1Res = await fetch("/api/advisor/chat/step1", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -249,9 +253,12 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       let requestedData: string[] = ["Profile", "Protocol", "Calendar", "Feedback", "Weight", "Shopping"];
 
       if (step1Res.ok) {
-        const step1Data = await step1Res.json() as { holdingMessage: string; requestedData: string[] };
+        const step1Data = await step1Res.json() as { holdingMessage: string; requestedData: string[]; step1SystemPrompt: string };
         holdingMessage = step1Data.holdingMessage;
         requestedData  = step1Data.requestedData;
+        if (debugMode === "live") {
+          setLivePromptData({ systemPrompt: step1Data.step1SystemPrompt, userMessage: text });
+        }
       }
 
       // No data needed — holdingMessage is the final answer
@@ -266,6 +273,10 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       setMessages((prev) => [...prev, { role: "assistant", content: holdingMessage, isHolding: true, timestamp: Date.now() }]);
 
       // Step 2 — fetch data + real answer
+      if (debugMode === "live") {
+        setLivePromptData({ systemPrompt: `Fetching: ${requestedData.join(", ") || "nothing"}`, userMessage: text });
+      }
+
       const step2Res = await fetch("/api/advisor/chat/step2", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
