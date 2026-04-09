@@ -88,6 +88,12 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   const [pendingStrategy,  setPendingStrategy]  = useState<{ ingredientPool: string[]; shoppingItems: unknown[] } | null>(null);
   const [applyingStrategy, setApplyingStrategy] = useState(false);
 
+  // Inspect / debug mode
+  const [inspectMode, setInspectMode] = useState(false);
+  const [inspectData, setInspectData] = useState<{ systemPrompt: string; userMessage: string } | null>(null);
+  const keyPressCountRef = useRef(0);
+  const keyPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Navigation guard
   const [pendingNav, setPendingNav] = useState<string | null>(null);
 
@@ -104,6 +110,21 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
   useEffect(() => {
     setHasSpeech(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "`") return;
+      keyPressCountRef.current += 1;
+      if (keyPressTimerRef.current) clearTimeout(keyPressTimerRef.current);
+      keyPressTimerRef.current = setTimeout(() => { keyPressCountRef.current = 0; }, 600);
+      if (keyPressCountRef.current >= 3) {
+        keyPressCountRef.current = 0;
+        setInspectMode((prev) => !prev);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -178,6 +199,25 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   async function handleSend() {
     const text = input.trim();
     if (!text || loading) return;
+
+    if (inspectMode) {
+      setLoading(true);
+      setInput("");
+      try {
+        const res = await fetch("/api/advisor/inspect-prompt", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ message: text, conversationHistory: messages }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { systemPrompt: string; userMessage: string };
+          setInspectData(data);
+        }
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setInput("");
@@ -315,14 +355,21 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
             <h1 className="text-xl font-bold tracking-tight text-white">Cutta AI</h1>
             <p className="text-zinc-500 text-sm mt-0.5">Nutrition, training &amp; protocol advice</p>
           </div>
-          {messages.length > 0 && (
-            <button
-              onClick={handleClearChat}
-              className="text-zinc-600 hover:text-zinc-400 text-xs transition-colors mt-1"
-            >
-              Clear chat
-            </button>
-          )}
+          <div className="flex items-center gap-2 mt-1">
+            {inspectMode && (
+              <span className="bg-amber-400/10 text-amber-400 border border-amber-400/30 text-xs px-2 py-0.5 rounded-full">
+                Debug
+              </span>
+            )}
+            {messages.length > 0 && (
+              <button
+                onClick={handleClearChat}
+                className="text-zinc-600 hover:text-zinc-400 text-xs transition-colors"
+              >
+                Clear chat
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -494,6 +541,38 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
           </button>
         </div>
       </div>
+
+      {/* Prompt Inspector modal */}
+      {inspectData !== null && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-white text-sm font-semibold">Prompt Inspector</span>
+              <span className="bg-amber-400/10 text-amber-400 border border-amber-400/30 text-xs px-2 py-0.5 rounded-full">Debug mode</span>
+            </div>
+            <button
+              onClick={() => setInspectData(null)}
+              className="text-zinc-400 hover:text-white text-lg leading-none"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex flex-col flex-1 overflow-hidden border-b border-zinc-800/60">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider px-4 pt-3 pb-1 shrink-0">System Prompt</p>
+              <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono px-4 py-2 overflow-y-auto flex-1">
+                {inspectData.systemPrompt}
+              </pre>
+            </div>
+            <div className="flex flex-col" style={{ maxHeight: "8rem" }}>
+              <p className="text-xs text-zinc-500 uppercase tracking-wider px-4 pt-3 pb-1 shrink-0">User Message</p>
+              <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono px-4 py-2 overflow-y-auto" style={{ maxHeight: "6rem" }}>
+                {inspectData.userMessage}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav active="ai" onNavigate={handleNavigate} />
 
