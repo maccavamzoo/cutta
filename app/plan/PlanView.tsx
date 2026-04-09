@@ -423,18 +423,43 @@ export default function PlanView({
 }) {
   const router = useRouter();
 
+  const inspectMode = true; // set to false to re-enable real generation
+
   const [plans, setPlans] = useState<Map<string, StoredPlan>>(
     () => new Map(initialPlans.map((p) => [p.planDate, p]))
   );
   const [events, setEvents] = useState<PlanCalendarEvent[]>(calendarEvents);
   const [generatingDates, setGeneratingDates] = useState<Set<string>>(new Set());
   const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
+  const [inspectPrompt, setInspectPrompt] = useState<string | null>(null);
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
 
   // ── Per-day generation ───────────────────────────────────────────────────
 
   async function handleGenerate(dateStr: string) {
+    if (inspectMode) {
+      setGeneratingDates((prev) => new Set(prev).add(dateStr));
+      try {
+        const res = await fetch("/api/fuelling-plan/inspect-prompt", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ date: dateStr }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { prompt: string };
+          setInspectPrompt(data.prompt);
+        }
+      } finally {
+        setGeneratingDates((prev) => {
+          const next = new Set(prev);
+          next.delete(dateStr);
+          return next;
+        });
+      }
+      return;
+    }
+
     setGeneratingDates((prev) => new Set(prev).add(dateStr));
     try {
       const res = await fetch("/api/fuelling-plan/generate-day", {
@@ -594,6 +619,24 @@ export default function PlanView({
             );
           })}
         </>
+      )}
+
+      {/* Prompt Inspector modal */}
+      {inspectPrompt !== null && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+            <span className="text-white text-sm font-semibold">Prompt Inspector</span>
+            <button
+              onClick={() => setInspectPrompt(null)}
+              className="text-zinc-400 hover:text-white text-lg leading-none"
+            >
+              ✕
+            </button>
+          </div>
+          <pre className="flex-1 overflow-y-auto text-xs text-zinc-300 whitespace-pre-wrap font-mono px-4 py-4">
+            {inspectPrompt}
+          </pre>
+        </div>
       )}
     </div>
   );
