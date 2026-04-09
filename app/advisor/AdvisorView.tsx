@@ -52,6 +52,7 @@ interface Message {
 
 interface ApiResponse {
   reply:                   string;
+  systemPrompt:            string;
   proposedProtocolUpdate:  ProtocolFile | null;
   proposedStrategyUpdate:  { ingredientPool: string[]; shoppingItems: unknown[] } | null;
   protocolValidationError: string | null;
@@ -231,18 +232,6 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
     const startTime = Date.now();
     const historyForApi = messages.filter((m) => !m.isHolding);
 
-    if (debugMode === "live") {
-      void fetch("/api/advisor/inspect-prompt", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ message: text, conversationHistory: historyForApi }),
-      }).then(async (res) => {
-        if (res.ok) {
-          const data = await res.json() as { systemPrompt: string; userMessage: string };
-          setLivePromptData(data);
-        }
-      });
-    }
 
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setInput("");
@@ -292,6 +281,10 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
       const realMsg: Message = { role: "assistant", content: step2Data.reply, timestamp: Date.now(), responseTimeMs: Date.now() - startTime };
       setMessages((prev) => [...prev, realMsg]);
+
+      if (debugMode === "live") {
+        setLivePromptData({ systemPrompt: step2Data.systemPrompt, userMessage: text });
+      }
 
       void saveHistory([...historyForApi, { role: "user", content: text }, { role: "assistant", content: holdingMessage, isHolding: true }, realMsg]);
 
