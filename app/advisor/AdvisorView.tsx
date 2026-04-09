@@ -403,7 +403,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
         {/* Left panel — live prompt inspector */}
         {debugMode === "live" && (
-          <div className="w-[420px] shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col h-screen overflow-hidden">
+          <div className="w-[420px] min-w-0 shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col h-screen overflow-hidden">
             <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
               <span className="text-white text-sm font-semibold">Live Prompt</span>
               <span className="bg-lime-400/10 text-lime-400 border border-lime-400/30 text-xs px-2 py-0.5 rounded-full">Live</span>
@@ -413,17 +413,17 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
                 <p className="text-zinc-700 text-xs">Send a message to see the prompt</p>
               </div>
             ) : (
-              <div ref={liveLogRef} className="flex-1 overflow-y-auto">
+              <div ref={liveLogRef} className="flex-1 overflow-y-auto overflow-x-hidden">
                 {liveCallLog.map((call, i) => (
                   <div key={call.index} className={i > 0 ? "border-t border-zinc-800" : ""}>
                     <p className="text-zinc-500 text-xs font-mono px-3 py-2 shrink-0">── CALL {call.index} {"─".repeat(20)}</p>
                     <div className="px-3 pb-1">
                       <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">System</p>
-                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono">{call.system}</pre>
+                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-hidden break-all">{call.system}</pre>
                     </div>
                     <div className="px-3 py-2">
                       <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Messages</p>
-                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono">{JSON.stringify(call.messages, null, 2)}</pre>
+                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-hidden break-all">{JSON.stringify(call.messages, null, 2)}</pre>
                     </div>
                   </div>
                 ))}
