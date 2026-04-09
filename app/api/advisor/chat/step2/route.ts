@@ -341,14 +341,14 @@ export async function POST(req: NextRequest) {
   const timezone = (profile?.timezone as string | null) ?? "Europe/London";
 
   const systemPrompt = buildSystemPrompt({
-    profile: profile as Record<string, unknown> | null,
-    latestWeightKg,
+    profile:          needProfile  ? profile as Record<string, unknown> | null : null,
+    latestWeightKg:   needWeight   ? latestWeightKg : null,
     timezone,
-    protocolRow: typedProtocol,
-    strategyRow,
-    upcomingEvents: eventRows,
-    recentCompliance: complianceRows,
-    recentFeedback:   feedbackRows,
+    protocolRow:      needProtocol ? typedProtocol : null,
+    strategyRow:      needShopping ? strategyRow : null,
+    upcomingEvents:   needCalendar ? eventRows : [],
+    recentCompliance: needFeedback ? complianceRows : [],
+    recentFeedback:   needFeedback ? feedbackRows : [],
   });
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
