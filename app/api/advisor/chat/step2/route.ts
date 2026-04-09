@@ -422,6 +422,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     reply,
+    systemPrompt,
     proposedProtocolUpdate,
     proposedStrategyUpdate,
     protocolValidationError,
