@@ -432,7 +432,6 @@ export default function PlanView({
   const [generatingDates, setGeneratingDates] = useState<Set<string>>(new Set());
   const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
   const [inspectPrompt, setInspectPrompt] = useState<string | null>(null);
-  const [inspecting, setInspecting] = useState(false);
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
 
@@ -440,7 +439,6 @@ export default function PlanView({
 
   async function handleGenerate(dateStr: string) {
     if (inspectMode) {
-      setInspecting(true);
       setGeneratingDates((prev) => new Set(prev).add(dateStr));
       try {
         const res = await fetch("/api/fuelling-plan/inspect-prompt", {
@@ -458,7 +456,6 @@ export default function PlanView({
           next.delete(dateStr);
           return next;
         });
-        setInspecting(false);
       }
       return;
     }
