@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
@@ -423,7 +423,10 @@ export default function PlanView({
 }) {
   const router = useRouter();
 
-  const inspectMode = true; // set to false to re-enable real generation
+  const [inspectMode, setInspectMode] = useState(false);
+  const [inspectPrompt, setInspectPrompt] = useState<string | null>(null);
+  const keyPressCountRef = useRef(0);
+  const keyPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [plans, setPlans] = useState<Map<string, StoredPlan>>(
     () => new Map(initialPlans.map((p) => [p.planDate, p]))
@@ -431,7 +434,21 @@ export default function PlanView({
   const [events, setEvents] = useState<PlanCalendarEvent[]>(calendarEvents);
   const [generatingDates, setGeneratingDates] = useState<Set<string>>(new Set());
   const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
-  const [inspectPrompt, setInspectPrompt] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "`") return;
+      keyPressCountRef.current += 1;
+      if (keyPressTimerRef.current) clearTimeout(keyPressTimerRef.current);
+      keyPressTimerRef.current = setTimeout(() => { keyPressCountRef.current = 0; }, 600);
+      if (keyPressCountRef.current >= 3) {
+        keyPressCountRef.current = 0;
+        setInspectMode((prev) => !prev);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
 
@@ -557,13 +574,20 @@ export default function PlanView({
             </span>
           </p>
         )}
-        <button
-          type="button"
-          onClick={() => router.push("/calendar")}
-          className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors mt-1"
-        >
-          Monthly view →
-        </button>
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            type="button"
+            onClick={() => router.push("/calendar")}
+            className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors"
+          >
+            Monthly view →
+          </button>
+          {inspectMode && (
+            <span className="bg-amber-400/10 text-amber-400 border border-amber-400/30 text-xs px-2 py-0.5 rounded-full">
+              Debug
+            </span>
+          )}
+        </div>
       </div>
 
       {/* No active protocol — full empty state, no day cards */}
