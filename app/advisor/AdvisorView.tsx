@@ -45,6 +45,9 @@ declare global {
 interface Message {
   role: "user" | "assistant";
   content: string;
+  isHolding?: boolean;
+  timestamp?: number;
+  responseTimeMs?: number;
 }
 
 interface ApiResponse {
@@ -219,45 +222,74 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       return;
     }
 
+    // Two-step flow
+    const startTime = Date.now();
+    const historyForApi = messages.filter((m) => !m.isHolding);
+
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setInput("");
     setLoading(true);
 
     try {
-      const res = await fetch("/api/advisor/chat", {
+      // Step 1 — holding message + data manifest
+      const step1Res = await fetch("/api/advisor/chat/step1", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          conversationHistory: messages,
-        }),
+        body:    JSON.stringify({ message: text, conversationHistory: historyForApi }),
       });
 
-      const data = await res.json() as ApiResponse;
+      let holdingMessage = "Bear with me…";
+      let requestedData: string[] = ["Profile", "Protocol", "Calendar", "Feedback", "Weight", "Shopping"];
 
-      if (!res.ok) {
-        setMessages((prev) => [...prev, { role: "assistant", content: (data as { error?: string }).error ?? "Something went wrong. Please try again." }]);
+      if (step1Res.ok) {
+        const step1Data = await step1Res.json() as { holdingMessage: string; requestedData: string[] };
+        holdingMessage = step1Data.holdingMessage;
+        requestedData  = step1Data.requestedData;
+      }
+
+      // No data needed — holdingMessage is the final answer
+      if (requestedData.length === 0) {
+        const finalMsg: Message = { role: "assistant", content: holdingMessage, timestamp: Date.now(), responseTimeMs: Date.now() - startTime };
+        setMessages((prev) => [...prev, finalMsg]);
+        void saveHistory([...historyForApi, { role: "user", content: text }, finalMsg]);
         return;
       }
 
-      const updatedMessages: Message[] = [...messages, { role: "user", content: text }, { role: "assistant", content: data.reply }];
-      setMessages(updatedMessages);
-      void saveHistory(updatedMessages);
+      // Append holding bubble
+      setMessages((prev) => [...prev, { role: "assistant", content: holdingMessage, isHolding: true, timestamp: Date.now() }]);
 
-      if (data.proposedProtocolUpdate) {
-        setPendingProtocol(data.proposedProtocolUpdate);
+      // Step 2 — fetch data + real answer
+      const step2Res = await fetch("/api/advisor/chat/step2", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ message: text, conversationHistory: historyForApi, requestedData }),
+      });
+
+      const step2Data = await step2Res.json() as ApiResponse;
+
+      if (!step2Res.ok) {
+        setMessages((prev) => [...prev, { role: "assistant", content: (step2Data as { error?: string }).error ?? "Something went wrong. Please try again." }]);
+        return;
+      }
+
+      const realMsg: Message = { role: "assistant", content: step2Data.reply, timestamp: Date.now(), responseTimeMs: Date.now() - startTime };
+      setMessages((prev) => [...prev, realMsg]);
+
+      void saveHistory([...historyForApi, { role: "user", content: text }, { role: "assistant", content: holdingMessage, isHolding: true }, realMsg]);
+
+      if (step2Data.proposedProtocolUpdate) {
+        setPendingProtocol(step2Data.proposedProtocolUpdate);
         setShowNamingCard(false);
-        setProposedName(`${data.proposedProtocolUpdate.protocol_name} (modified)`);
+        setProposedName(`${step2Data.proposedProtocolUpdate.protocol_name} (modified)`);
       }
-      if (data.protocolValidationError) {
-        setMessages((prev) => [...prev, { role: "assistant", content: `Note: protocol update couldn't be validated — ${data.protocolValidationError}` }]);
+      if (step2Data.protocolValidationError) {
+        setMessages((prev) => [...prev, { role: "assistant", content: `Note: protocol update couldn't be validated — ${step2Data.protocolValidationError}` }]);
       }
-
-      if (data.proposedStrategyUpdate) {
-        setPendingStrategy(data.proposedStrategyUpdate);
+      if (step2Data.proposedStrategyUpdate) {
+        setPendingStrategy(step2Data.proposedStrategyUpdate);
       }
-      if (data.strategyValidationError) {
-        setMessages((prev) => [...prev, { role: "assistant", content: `Note: shopping update couldn't be validated — ${data.strategyValidationError}` }]);
+      if (step2Data.strategyValidationError) {
+        setMessages((prev) => [...prev, { role: "assistant", content: `Note: shopping update couldn't be validated — ${step2Data.strategyValidationError}` }]);
       }
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", content: "Network error. Please try again." }]);
@@ -393,7 +425,13 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
                     ? "bg-lime-400/10 border border-lime-400/20 text-zinc-100 rounded-br-sm"
                     : "bg-zinc-800 text-zinc-200 rounded-bl-sm"
                 }`}>
-                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  {msg.role === "assistant" && !msg.isHolding && msg.timestamp && (
+                    <p className="text-zinc-600 text-xs mb-1.5">
+                      {new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(msg.timestamp))}
+                      {msg.responseTimeMs != null && ` · ${(msg.responseTimeMs / 1000).toFixed(1)}s`}
+                    </p>
+                  )}
+                  <p className={`whitespace-pre-wrap leading-relaxed${msg.isHolding ? " opacity-70 italic" : ""}`}>{msg.content}</p>
                 </div>
               </div>
             ))}
