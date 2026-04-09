@@ -91,9 +91,10 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   const [pendingStrategy,  setPendingStrategy]  = useState<{ ingredientPool: string[]; shoppingItems: unknown[] } | null>(null);
   const [applyingStrategy, setApplyingStrategy] = useState(false);
 
-  // Inspect / debug mode
-  const [inspectMode, setInspectMode] = useState(false);
+  // Debug mode — cycles normal → inspect → live → normal
+  const [debugMode, setDebugMode] = useState<"normal" | "inspect" | "live">("normal");
   const [inspectData, setInspectData] = useState<{ systemPrompt: string; userMessage: string } | null>(null);
+  const [livePromptData, setLivePromptData] = useState<{ systemPrompt: string; userMessage: string } | null>(null);
   const keyPressCountRef = useRef(0);
   const keyPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -123,12 +124,16 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       keyPressTimerRef.current = setTimeout(() => { keyPressCountRef.current = 0; }, 600);
       if (keyPressCountRef.current >= 3) {
         keyPressCountRef.current = 0;
-        setInspectMode((prev) => !prev);
+        setDebugMode((prev) => prev === "normal" ? "inspect" : prev === "inspect" ? "live" : "normal");
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (debugMode !== "live") setLivePromptData(null);
+  }, [debugMode]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -203,7 +208,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
     const text = input.trim();
     if (!text || loading) return;
 
-    if (inspectMode) {
+    if (debugMode === "inspect") {
       setLoading(true);
       setInput("");
       try {
@@ -222,9 +227,22 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       return;
     }
 
-    // Two-step flow
+    // Two-step flow (+ parallel inspect-prompt fetch in live mode)
     const startTime = Date.now();
     const historyForApi = messages.filter((m) => !m.isHolding);
+
+    if (debugMode === "live") {
+      void fetch("/api/advisor/inspect-prompt", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ message: text, conversationHistory: historyForApi }),
+      }).then(async (res) => {
+        if (res.ok) {
+          const data = await res.json() as { systemPrompt: string; userMessage: string };
+          setLivePromptData(data);
+        }
+      });
+    }
 
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setInput("");
@@ -380,6 +398,37 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
   return (
     <>
+      <div className={debugMode === "live" ? "flex h-screen" : ""}>
+
+        {/* Left panel — live prompt inspector */}
+        {debugMode === "live" && (
+          <div className="w-[420px] shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col h-screen overflow-hidden">
+            <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
+              <span className="text-white text-sm font-semibold">Live Prompt</span>
+              <span className="bg-lime-400/10 text-lime-400 border border-lime-400/30 text-xs px-2 py-0.5 rounded-full">Live</span>
+            </div>
+            {livePromptData ? (
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <div className="px-3 py-2 border-b border-zinc-800 shrink-0">
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider">User Message</p>
+                  <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono mt-1 max-h-24 overflow-y-auto">{livePromptData.userMessage}</pre>
+                </div>
+                <div className="flex-1 overflow-hidden flex flex-col px-3 py-2">
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider shrink-0">System Prompt</p>
+                  <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono mt-1 flex-1 overflow-y-auto">{livePromptData.systemPrompt}</pre>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-zinc-700 text-xs">Send a message to see the prompt</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Right panel — normal chat */}
+        <div className={debugMode === "live" ? "flex-1 overflow-hidden relative" : ""}>
+
       {/* Header — sticky so it stays visible while messages scroll */}
       <div className="sticky top-0 z-30 bg-black px-4 pt-5 pb-3 border-b border-zinc-800">
         <div className="max-w-lg mx-auto flex items-start justify-between">
@@ -388,10 +437,11 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
             <p className="text-zinc-500 text-sm mt-0.5">Nutrition, training &amp; protocol advice</p>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            {inspectMode && (
-              <span className="bg-amber-400/10 text-amber-400 border border-amber-400/30 text-xs px-2 py-0.5 rounded-full">
-                Debug
-              </span>
+            {debugMode === "inspect" && (
+              <span className="bg-amber-400/10 text-amber-400 border border-amber-400/30 text-xs px-2 py-0.5 rounded-full">Inspect</span>
+            )}
+            {debugMode === "live" && (
+              <span className="bg-lime-400/10 text-lime-400 border border-lime-400/30 text-xs px-2 py-0.5 rounded-full">Live Debug</span>
             )}
             {messages.length > 0 && (
               <button
@@ -579,6 +629,9 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
           </button>
         </div>
       </div>
+
+        </div>{/* end right panel */}
+      </div>{/* end flex wrapper */}
 
       {/* Prompt Inspector modal */}
       {inspectData !== null && (
