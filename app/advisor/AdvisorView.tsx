@@ -95,7 +95,8 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   // Debug mode — cycles normal → inspect → live → normal
   const [debugMode, setDebugMode] = useState<"normal" | "inspect" | "live">("normal");
   const [inspectData, setInspectData] = useState<{ systemPrompt: string; userMessage: string } | null>(null);
-  const [livePromptData, setLivePromptData] = useState<{ systemPrompt: string; userMessage: string } | null>(null);
+  const [liveCallLog, setLiveCallLog] = useState<{ index: number; system: string; messages: { role: string; content: string }[] }[]>([]);
+  const liveLogRef = useRef<HTMLDivElement>(null);
   const keyPressCountRef = useRef(0);
   const keyPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -133,15 +134,17 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   }, []);
 
   useEffect(() => {
-    if (debugMode !== "live") setLivePromptData(null);
-  }, [debugMode]);
-
-  useEffect(() => {
     const timer = setTimeout(() => {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }, 50);
     return () => clearTimeout(timer);
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (liveLogRef.current) {
+      liveLogRef.current.scrollTop = liveLogRef.current.scrollHeight;
+    }
+  }, [liveCallLog]);
 
   useEffect(() => {
     return () => { recognitionRef.current?.stop(); };
@@ -239,10 +242,6 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
     try {
       // Step 1 — holding message + data manifest
-      if (debugMode === "live") {
-        setLivePromptData({ systemPrompt: "(step 1 — manifest only, no user data)", userMessage: text });
-      }
-
       const step1Res = await fetch("/api/advisor/chat/step1", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -257,7 +256,8 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
         holdingMessage = step1Data.holdingMessage;
         requestedData  = step1Data.requestedData;
         if (debugMode === "live") {
-          setLivePromptData({ systemPrompt: step1Data.step1SystemPrompt, userMessage: text });
+          const step1Messages = [...historyForApi, { role: "user", content: text }];
+          setLiveCallLog((prev) => [...prev, { index: prev.length + 1, system: step1Data.step1SystemPrompt, messages: step1Messages }]);
         }
       }
 
@@ -273,10 +273,6 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       setMessages((prev) => [...prev, { role: "assistant", content: holdingMessage, isHolding: true, timestamp: Date.now() }]);
 
       // Step 2 — fetch data + real answer
-      if (debugMode === "live") {
-        setLivePromptData({ systemPrompt: `Fetching: ${requestedData.join(", ") || "nothing"}`, userMessage: text });
-      }
-
       const step2Res = await fetch("/api/advisor/chat/step2", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -294,7 +290,8 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       setMessages((prev) => [...prev, realMsg]);
 
       if (debugMode === "live") {
-        setLivePromptData({ systemPrompt: step2Data.systemPrompt, userMessage: text });
+        const step2Messages = [...historyForApi, { role: "user", content: text }];
+        setLiveCallLog((prev) => [...prev, { index: prev.length + 1, system: step2Data.systemPrompt, messages: step2Messages }]);
       }
 
       void saveHistory([...historyForApi, { role: "user", content: text }, { role: "assistant", content: holdingMessage, isHolding: true }, realMsg]);
@@ -411,20 +408,25 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
               <span className="text-white text-sm font-semibold">Live Prompt</span>
               <span className="bg-lime-400/10 text-lime-400 border border-lime-400/30 text-xs px-2 py-0.5 rounded-full">Live</span>
             </div>
-            {livePromptData ? (
-              <div className="flex flex-col flex-1 overflow-hidden">
-                <div className="px-3 py-2 border-b border-zinc-800 shrink-0">
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider">User Message</p>
-                  <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono mt-1 max-h-24 overflow-y-auto">{livePromptData.userMessage}</pre>
-                </div>
-                <div className="flex-1 overflow-hidden flex flex-col px-3 py-2">
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider shrink-0">System Prompt</p>
-                  <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono mt-1 flex-1 overflow-y-auto">{livePromptData.systemPrompt}</pre>
-                </div>
-              </div>
-            ) : (
+            {liveCallLog.length === 0 ? (
               <div className="flex-1 flex items-center justify-center">
                 <p className="text-zinc-700 text-xs">Send a message to see the prompt</p>
+              </div>
+            ) : (
+              <div ref={liveLogRef} className="flex-1 overflow-y-auto">
+                {liveCallLog.map((call, i) => (
+                  <div key={call.index} className={i > 0 ? "border-t border-zinc-800" : ""}>
+                    <p className="text-zinc-500 text-xs font-mono px-3 py-2 shrink-0">── CALL {call.index} {"─".repeat(20)}</p>
+                    <div className="px-3 pb-1">
+                      <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">System</p>
+                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono">{call.system}</pre>
+                    </div>
+                    <div className="px-3 py-2">
+                      <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Messages</p>
+                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono">{JSON.stringify(call.messages, null, 2)}</pre>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
