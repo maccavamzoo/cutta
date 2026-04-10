@@ -420,7 +420,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
                 <p className="text-zinc-700 text-xs">Send a message to see the prompt</p>
               </div>
             ) : (
-              <div ref={liveLogRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+              <div ref={liveLogRef} className="flex-1 overflow-y-auto overflow-x-hidden" style={{ paddingBottom: "140px" }}>
                 {liveCallLog.map((call, i) => (
                   <div key={call.index} className={i > 0 ? "border-t border-zinc-800" : ""}>
                     <p className="text-zinc-500 text-xs font-mono px-3 py-2 shrink-0">── CALL {call.index} {"─".repeat(20)}</p>
