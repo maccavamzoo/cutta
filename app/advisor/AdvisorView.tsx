@@ -406,11 +406,11 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
   return (
     <>
-      <div className={debugMode === "live" ? "flex h-screen" : ""}>
+      <div style={debugMode === "live" ? { display: "flex", height: "calc(100vh - 140px)" } : undefined}>
 
         {/* Left panel — live prompt inspector */}
         {debugMode === "live" && (
-          <div style={{ width: "420px", minWidth: "420px", maxWidth: "420px", overflow: "hidden" }} className="shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col h-screen">
+          <div style={{ width: "420px", minWidth: "420px", maxWidth: "420px", overflow: "hidden", display: "flex", flexDirection: "column" }} className="shrink-0 border-r border-zinc-800 bg-zinc-950">
             <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
               <span className="text-white text-sm font-semibold">Live Prompt</span>
               <span className="bg-lime-400/10 text-lime-400 border border-lime-400/30 text-xs px-2 py-0.5 rounded-full">Live</span>
@@ -420,7 +420,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
                 <p className="text-zinc-700 text-xs">Send a message to see the prompt</p>
               </div>
             ) : (
-              <div ref={liveLogRef} className="flex-1 overflow-y-auto overflow-x-hidden" style={{ paddingBottom: "140px" }}>
+              <div ref={liveLogRef} className="flex-1 overflow-y-auto overflow-x-hidden">
                 {liveCallLog.map((call, i) => (
                   <div key={call.index} className={i > 0 ? "border-t border-zinc-800" : ""}>
                     <p className="text-zinc-500 text-xs font-mono px-3 py-2 shrink-0">── CALL {call.index} {"─".repeat(20)}</p>
