@@ -406,11 +406,11 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
   return (
     <>
-      <div style={debugMode === "live" ? { display: "flex", height: "calc(100vh - 140px)" } : undefined}>
+      <div>
 
         {/* Left panel — live prompt inspector */}
         {debugMode === "live" && (
-          <div style={{ width: "420px", minWidth: "420px", maxWidth: "420px", overflow: "hidden", display: "flex", flexDirection: "column" }} className="shrink-0 border-r border-zinc-800 bg-zinc-950">
+          <div style={{ position: "fixed", top: 0, left: 0, width: "420px", height: "100vh", zIndex: 40, overflow: "hidden", display: "flex", flexDirection: "column" }} className="border-r border-zinc-800 bg-zinc-950">
             <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
               <span className="text-white text-sm font-semibold">Live Prompt</span>
               <span className="bg-lime-400/10 text-lime-400 border border-lime-400/30 text-xs px-2 py-0.5 rounded-full">Live</span>
@@ -440,7 +440,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
         )}
 
         {/* Right panel — normal chat */}
-        <div style={debugMode === "live" ? { flex: 1, minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" } : undefined}>
+        <div style={debugMode === "live" ? { marginLeft: "420px" } : undefined}>
 
       {/* Header — sticky so it stays visible while messages scroll */}
       <div className="sticky top-0 z-30 bg-black px-4 pt-5 pb-3 border-b border-zinc-800">
@@ -469,7 +469,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       </div>
 
       {/* Messages — scrollable, padded so last message clears input bar + nav */}
-      <div ref={scrollRef} className="px-4 py-4 pb-[140px]" style={debugMode === "live" ? { overflowY: "auto", flex: 1 } : undefined}>
+      <div ref={scrollRef} className="px-4 py-4 pb-[140px]">
         <div className="max-w-lg mx-auto space-y-3">
 
             {messages.length === 0 && (
