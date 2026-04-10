@@ -187,33 +187,6 @@ export const fuellingPlans = pgTable(
   })
 );
 
-// ---------------------------------------------------------------------------
-// Food Log
-// What was actually eaten, when different from the plan.
-// ---------------------------------------------------------------------------
-export const foodLog = pgTable(
-  "food_log",
-  {
-    id: serial("id").primaryKey(),
-    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
-
-    loggedAt: timestamp("logged_at").defaultNow().notNull(),
-    planDate: date("plan_date").notNull(),
-    mealName: varchar("meal_name", { length: 255 }),
-    description: text("description"),
-    calories: integer("calories"),
-    carbsG: integer("carbs_g"),
-    proteinG: integer("protein_g"),
-    fatG: integer("fat_g"),
-    notes: text("notes"),
-
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    clerkUserIdIdx: index("food_log_clerk_user_id_idx").on(t.clerkUserId),
-    planDateIdx: index("food_log_plan_date_idx").on(t.planDate),
-  })
-);
 
 // ---------------------------------------------------------------------------
 // Compliance Log
@@ -315,33 +288,6 @@ export const trainingLog = pgTable(
   })
 );
 
-// ---------------------------------------------------------------------------
-// Audio Notes
-// Transcribed voice memos processed into structured profile/log data.
-// ---------------------------------------------------------------------------
-export const audioNotes = pgTable(
-  "audio_notes",
-  {
-    id: serial("id").primaryKey(),
-    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
-
-    recordedAt: timestamp("recorded_at").defaultNow().notNull(),
-    audioUrl: text("audio_url"),
-    transcript: text("transcript"),
-
-    // Structured data extracted from the note by the AI
-    // e.g. { symptoms: ["bloating"], energyLevel: "low", foods: ["pasta"] }
-    processedData: jsonb("processed_data"),
-    processingStatus: varchar("processing_status", { length: 20 })
-      .default("pending")
-      .notNull(), // pending | processing | done | failed
-
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    clerkUserIdIdx: index("audio_notes_clerk_user_id_idx").on(t.clerkUserId),
-  })
-);
 
 // ---------------------------------------------------------------------------
 // Weight Log
@@ -405,28 +351,3 @@ export const weeklyStrategies = pgTable(
   })
 );
 
-// ---------------------------------------------------------------------------
-// Shopping Lists
-// Auto-generated 3-day ingredient lists aggregated from fuelling plans.
-// ---------------------------------------------------------------------------
-export const shoppingLists = pgTable(
-  "shopping_lists",
-  {
-    id: serial("id").primaryKey(),
-    clerkUserId: varchar("clerk_user_id", { length: 255 }).notNull(),
-
-    generatedForStart: date("generated_for_start").notNull(),
-    generatedForEnd: date("generated_for_end").notNull(),
-
-    // Array of { ingredient, totalGrams, unit, category }
-    items: jsonb("items").notNull().default([]),
-
-    generatedAt: timestamp("generated_at").defaultNow().notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    clerkUserIdIdx: index("shopping_lists_clerk_user_id_idx").on(
-      t.clerkUserId
-    ),
-  })
-);
