@@ -135,7 +135,14 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      const el = scrollRef.current;
+      if (el && el.scrollHeight > el.clientHeight) {
+        // live mode — the messages div is the scroller
+        el.scrollTop = el.scrollHeight;
+      } else {
+        // normal mode — page scrolls
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      }
     }, 50);
     return () => clearTimeout(timer);
   }, [messages, loading]);
@@ -419,11 +426,11 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
                     <p className="text-zinc-500 text-xs font-mono px-3 py-2 shrink-0">── CALL {call.index} {"─".repeat(20)}</p>
                     <div className="px-3 pb-1">
                       <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">System</p>
-                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-hidden break-all">{call.system}</pre>
+                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-hidden break-all" style={{ wordBreak: "break-all", overflowWrap: "anywhere" }}>{call.system}</pre>
                     </div>
                     <div className="px-3 py-2">
                       <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Messages</p>
-                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-hidden break-all">{JSON.stringify(call.messages, null, 2)}</pre>
+                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-hidden break-all" style={{ wordBreak: "break-all", overflowWrap: "anywhere" }}>{JSON.stringify(call.messages, null, 2)}</pre>
                     </div>
                   </div>
                 ))}
@@ -433,7 +440,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
         )}
 
         {/* Right panel — normal chat */}
-        <div className={debugMode === "live" ? "flex-1 overflow-hidden relative" : ""}>
+        <div className={debugMode === "live" ? "flex-1 flex flex-col overflow-hidden" : ""}>
 
       {/* Header — sticky so it stays visible while messages scroll */}
       <div className="sticky top-0 z-30 bg-black px-4 pt-5 pb-3 border-b border-zinc-800">
@@ -462,7 +469,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       </div>
 
       {/* Messages — scrollable, padded so last message clears input bar + nav */}
-      <div ref={scrollRef} className="px-4 py-4 pb-[140px]">
+      <div ref={scrollRef} className={`px-4 py-4 pb-[140px]${debugMode === "live" ? " flex-1 overflow-y-auto" : ""}`}>
         <div className="max-w-lg mx-auto space-y-3">
 
             {messages.length === 0 && (
