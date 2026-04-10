@@ -410,7 +410,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
         {/* Left panel — live prompt inspector */}
         {debugMode === "live" && (
-          <div style={{ position: "fixed", top: 0, left: 0, width: "420px", height: "100vh", zIndex: 40, overflow: "hidden", display: "flex", flexDirection: "column" }} className="border-r border-zinc-800 bg-zinc-950">
+          <div style={{ position: "fixed", top: 0, left: 0, width: "420px", height: "100vh", zIndex: 50, overflow: "hidden", display: "flex", flexDirection: "column" }} className="border-r border-zinc-800 bg-zinc-950">
             <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
               <span className="text-white text-sm font-semibold">Live Prompt</span>
               <span className="bg-lime-400/10 text-lime-400 border border-lime-400/30 text-xs px-2 py-0.5 rounded-full">Live</span>
