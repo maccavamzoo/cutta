@@ -410,7 +410,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
         {/* Left panel — live prompt inspector */}
         {debugMode === "live" && (
-          <div className="w-[420px] min-w-0 shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col h-screen overflow-hidden">
+          <div style={{ width: "420px", minWidth: "420px", maxWidth: "420px", overflow: "hidden" }} className="shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col h-screen">
             <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
               <span className="text-white text-sm font-semibold">Live Prompt</span>
               <span className="bg-lime-400/10 text-lime-400 border border-lime-400/30 text-xs px-2 py-0.5 rounded-full">Live</span>
@@ -426,11 +426,11 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
                     <p className="text-zinc-500 text-xs font-mono px-3 py-2 shrink-0">── CALL {call.index} {"─".repeat(20)}</p>
                     <div className="px-3 pb-1">
                       <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">System</p>
-                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-hidden break-all" style={{ wordBreak: "break-all", overflowWrap: "anywhere" }}>{call.system}</pre>
+                      <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word", overflow: "hidden", maxWidth: "100%" }} className="text-xs text-zinc-300 font-mono">{call.system}</pre>
                     </div>
                     <div className="px-3 py-2">
                       <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Messages</p>
-                      <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono overflow-x-hidden break-all" style={{ wordBreak: "break-all", overflowWrap: "anywhere" }}>{JSON.stringify(call.messages, null, 2)}</pre>
+                      <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word", overflow: "hidden", maxWidth: "100%" }} className="text-xs text-zinc-300 font-mono">{JSON.stringify(call.messages, null, 2)}</pre>
                     </div>
                   </div>
                 ))}
@@ -440,7 +440,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
         )}
 
         {/* Right panel — normal chat */}
-        <div className={debugMode === "live" ? "flex-1 flex flex-col overflow-hidden" : ""}>
+        <div style={debugMode === "live" ? { flex: 1, minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" } : undefined}>
 
       {/* Header — sticky so it stays visible while messages scroll */}
       <div className="sticky top-0 z-30 bg-black px-4 pt-5 pb-3 border-b border-zinc-800">
@@ -469,7 +469,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
       </div>
 
       {/* Messages — scrollable, padded so last message clears input bar + nav */}
-      <div ref={scrollRef} className={`px-4 py-4 pb-[140px]${debugMode === "live" ? " flex-1 overflow-y-auto" : ""}`}>
+      <div ref={scrollRef} className="px-4 py-4 pb-[140px]" style={debugMode === "live" ? { overflowY: "auto", flex: 1 } : undefined}>
         <div className="max-w-lg mx-auto space-y-3">
 
             {messages.length === 0 && (
