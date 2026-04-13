@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { weightLog, complianceLog, feedbackLog, userProfiles } from "@/lib/db/schema";
 import BottomNav from "@/components/BottomNav";
 import ProgressView, { type ProgressData } from "./ProgressView";
-import { dailyLossKg, arrivalDate as computeArrival, RATE_KG_PER_WEEK } from "@/lib/weight-projection";
+import { dailyLossKg, arrivalDate as computeArrival, parseRate, AGGRESSIVE_KG_PER_WEEK, CONSERVATIVE_KG_PER_WEEK } from "@/lib/weight-projection";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -67,9 +67,7 @@ export default async function ProgressPage() {
   const profileRow     = profileRows[0] ?? null;
   const targetWeightKg = profileRow?.targetWeightKg ? Number(profileRow.targetWeightKg) : null;
   const weightLossRate = profileRow?.weightLossRate ?? null;
-  // Treat null as "moderate" so the plan renders even when the column hasn't
-  // been migrated yet or the user hasn't explicitly saved a rate.
-  const effectiveRate  = weightLossRate !== "maintain" ? (weightLossRate ?? "moderate") : "maintain";
+  const rateKgPerWeek = parseRate(weightLossRate);
   const targetSetAt    = profileRow?.targetSetAt    ?? null;
 
   const actualWeightPoints = weightRows.map((r) => ({
@@ -115,18 +113,16 @@ export default async function ProgressPage() {
   // ── rate-based projections ───────────────────────────────────────────────
 
   const canProject =
-    effectiveRate   !== "maintain" &&
+    rateKgPerWeek   > 0 &&
     planStartWeight !== null &&
     targetWeightKg  !== null &&
     planStartWeight > targetWeightKg;
 
   const arrival = canProject
-    ? computeArrival(planStartWeight!, targetWeightKg!, effectiveRate, planStartDate)
+    ? computeArrival(planStartWeight!, targetWeightKg!, weightLossRate, planStartDate)
     : null;
 
-  const slopeKgPerWeek = effectiveRate === "maintain"
-    ? 0
-    : -(RATE_KG_PER_WEEK[effectiveRate] ?? 0.5);
+  const slopeKgPerWeek = -rateKgPerWeek;
 
   const projectedDate = arrival
     ? arrival.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
@@ -144,9 +140,9 @@ export default async function ProgressPage() {
 
   // Plan line + band — weekly anchors plus gap-fill for every point in the window
   if (canProject && planStartWeight !== null && arrival !== null) {
-    const dailyPlan  = dailyLossKg(effectiveRate);
-    const dailyCons  = RATE_KG_PER_WEEK.conservative / 7;
-    const dailyAggr  = RATE_KG_PER_WEEK.aggressive   / 7;
+    const dailyPlan  = dailyLossKg(weightLossRate);
+    const dailyCons  = CONSERVATIVE_KG_PER_WEEK / 7;
+    const dailyAggr  = AGGRESSIVE_KG_PER_WEEK   / 7;
     const planStartMs = planStartDate.getTime();
 
     // Conservative rate is slowest — extend window to when it hits target
@@ -246,7 +242,7 @@ export default async function ProgressPage() {
     weightPoints:   weightChartPoints,
     chartStartDate,
     targetWeightKg,
-    weightLossRate: effectiveRate,
+    weightLossRate: rateKgPerWeek,
     projectedDate,
     slopeKgPerWeek,
     bfPoints,

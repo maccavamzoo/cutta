@@ -103,7 +103,19 @@ export default function ProfileEditView({
   const [sex,       setSex]       = useState(initial.sex ?? "");
 
   // ── weight loss rate ─────────────────────────────────────────────────────
-  const [weightLossRate, setWeightLossRate] = useState(initial.weightLossRate ?? "moderate");
+  const [maintainMode, setMaintainMode] = useState<boolean>(() => {
+    return initial.weightLossRate === "0" || initial.weightLossRate === "maintain";
+  });
+  const [rateKgPerWeek, setRateKgPerWeek] = useState<number>(() => {
+    const raw = initial.weightLossRate;
+    if (!raw || raw === "maintain" || raw === "0") return 0.5;
+    const parsed = parseFloat(raw);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+    if (raw === "aggressive") return 0.875;
+    if (raw === "moderate") return 0.5;
+    if (raw === "conservative") return 0.25;
+    return 0.5;
+  });
 
   // ── maintenance calories (auto-calc + optional override) ─────────────────
   const currentWeightKgParsed = currentWeightStr ? displayToKg(parseFloat(currentWeightStr), unitSystem) : null;
@@ -151,7 +163,16 @@ export default function ProfileEditView({
     const initHeight         = initial.heightCm != null ? String(initial.heightCm) : "";
     const initAge            = initial.age      != null ? String(initial.age)      : "";
     const initSex            = initial.sex      ?? "";
-    const initWeightLossRate = initial.weightLossRate ?? "moderate";
+    const initRateSave = (() => {
+      const raw = initial.weightLossRate;
+      if (!raw || raw === "maintain" || raw === "0") return "0";
+      const p = parseFloat(raw);
+      if (!isNaN(p) && p > 0) return String(p);
+      if (raw === "aggressive") return "0.875";
+      if (raw === "moderate") return "0.5";
+      if (raw === "conservative") return "0.25";
+      return "0.5";
+    })();
     const initMealPattern    = MEAL_PATTERNS.includes(initial.appetiteProfile?.split(", ")[0] as typeof MEAL_PATTERNS[number])
       ? initial.appetiteProfile!.split(", ")[0]
       : DEFAULT_MEAL_PATTERN;
@@ -163,13 +184,14 @@ export default function ProfileEditView({
     if (heightStr        !== initHeight)         return true;
     if (ageStr           !== initAge)            return true;
     if (sex              !== initSex)            return true;
-    if (weightLossRate   !== initWeightLossRate) return true;
+    const currentRateSave = maintainMode ? "0" : String(rateKgPerWeek);
+    if (currentRateSave  !== initRateSave)      return true;
     if (mealPattern      !== initMealPattern)    return true;
     if (doneBy7          !== initDoneBy7)        return true;
     if (overrideActive && overrideCalsStr !== initOverrideCals)  return true;
     if (!overrideActive && initOverrideCals !== "" && overrideCalsStr !== initOverrideCals) return true;
     return false;
-  }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, weightLossRate,
+  }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, maintainMode, rateKgPerWeek,
       mealPattern, doneBy7, overrideActive, overrideCalsStr, initial, unitSystem]);
 
   async function handleSave() {
@@ -207,7 +229,7 @@ export default function ProfileEditView({
       heightCm:                     heightStr ? Number(heightStr) : null,
       age:                          ageStr    ? Number(ageStr)    : null,
       sex:                          sex       || null,
-      weightLossRate,
+      weightLossRate: maintainMode ? "0" : String(rateKgPerWeek),
       ...(goalChanged ? { targetSetAt: new Date().toISOString() } : {}),
       appetiteProfile:              doneBy7 ? `${mealPattern}, Done eating by 7pm` : mealPattern,
       estimatedMaintenanceCalories,
@@ -349,27 +371,61 @@ export default function ProfileEditView({
         </div>
 
         <Field label="Weight loss rate">
-          <p className="text-zinc-500 text-xs -mt-1 mb-2">How quickly do you want to reach your target?</p>
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              { v: "aggressive",   l: "Aggressive",   sub: "~0.75–1 kg/week"   },
-              { v: "moderate",     l: "Moderate",     sub: "~0.4–0.6 kg/week"  },
-              { v: "conservative", l: "Conservative", sub: "~0.2–0.3 kg/week"  },
-              { v: "maintain",     l: "Maintain",     sub: "No deficit"         },
-            ] as const).map(({ v, l, sub }) => (
-              <button
-                key={v} type="button" onClick={() => setWeightLossRate(v)}
-                className={`text-left px-4 py-3 rounded-xl border text-sm transition-colors ${
-                  weightLossRate === v
-                    ? "bg-lime-400 border-lime-400 text-black"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700"
-                }`}
-              >
-                <span className="font-medium block">{l}</span>
-                <span className={`text-xs block mt-0.5 ${weightLossRate === v ? "text-black/60" : "text-zinc-500"}`}>{sub}</span>
-              </button>
-            ))}
+          <p className="text-zinc-500 text-xs -mt-1 mb-3">How quickly do you want to lose weight?</p>
+
+          {/* Maintain toggle */}
+          <div className="mb-4">
+            <Pill label="Maintain" active={maintainMode} onClick={() => setMaintainMode((m) => !m)} />
           </div>
+
+          {/* Slider */}
+          <div className={maintainMode ? "opacity-40 pointer-events-none" : ""}>
+            <style>{`
+              input[type="range"].rate-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 9999px; outline: none; }
+              input[type="range"].rate-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
+              input[type="range"].rate-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; border: none; cursor: pointer; }
+              input[type="range"].rate-slider::-webkit-slider-thumb { background: ${maintainMode ? "#52525b" : "#a3e635"}; }
+              input[type="range"].rate-slider::-moz-range-thumb { background: ${maintainMode ? "#52525b" : "#a3e635"}; }
+            `}</style>
+            <input
+              type="range"
+              className="rate-slider"
+              min={0.2} max={1.0} step={0.05}
+              value={rateKgPerWeek}
+              disabled={maintainMode}
+              onChange={(e) => setRateKgPerWeek(parseFloat(e.target.value))}
+              style={{
+                background: maintainMode
+                  ? "#3f3f46"
+                  : `linear-gradient(to right, #a3e635 0%, #a3e635 ${((rateKgPerWeek - 0.2) / 0.8) * 100}%, #3f3f46 ${((rateKgPerWeek - 0.2) / 0.8) * 100}%, #3f3f46 100%)`,
+              }}
+            />
+            <div className="flex justify-between text-zinc-500 text-xs mt-1.5 px-0.5">
+              <span>Conservative</span>
+              <span>Moderate</span>
+              <span>Aggressive</span>
+            </div>
+          </div>
+
+          {/* Numeric input */}
+          <div className={`flex items-center gap-2 mt-4 ${maintainMode ? "opacity-40 pointer-events-none" : ""}`}>
+            <div className="relative w-24">
+              <input
+                type="number" inputMode="decimal" step="0.05" min="0" max="2"
+                value={rateKgPerWeek.toFixed(2)}
+                disabled={maintainMode}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!isNaN(v) && v >= 0) setRateKgPerWeek(v);
+                }}
+                className="w-full bg-zinc-900 text-white rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800 tabular-nums"
+              />
+            </div>
+            <span className="text-zinc-500 text-sm">kg/week</span>
+          </div>
+          {!maintainMode && (rateKgPerWeek < 0.2 || rateKgPerWeek > 1.0) && (
+            <p className="text-amber-400 text-xs mt-1.5">Outside typical range (0.2–1.0 kg/week)</p>
+          )}
         </Field>
 
         <div className="grid grid-cols-2 gap-3">

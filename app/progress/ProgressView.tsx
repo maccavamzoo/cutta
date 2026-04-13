@@ -31,7 +31,7 @@ export interface ProgressData {
   }[];
   chartStartDate:  string | null;
   targetWeightKg:  number | null;
-  weightLossRate:  string | null;
+  weightLossRate:  number | null;
   projectedDate:   string | null;
   slopeKgPerWeek:  number | null;
 
@@ -48,13 +48,6 @@ export interface ProgressData {
 }
 
 // ─── rate display labels ──────────────────────────────────────────────────────
-
-const RATE_DISPLAY: Record<string, string> = {
-  aggressive:   "aggressive (0.875 kg/week)",
-  moderate:     "moderate (0.5 kg/week)",
-  conservative: "conservative (0.25 kg/week)",
-  maintain:     "maintain",
-};
 
 // ─── tooltip styles ───────────────────────────────────────────────────────────
 
@@ -453,7 +446,7 @@ export default function ProgressView({
     hasWeight &&
     targetWeightKg !== null &&
     weightLossRate !== null &&
-    weightLossRate !== "maintain";
+    weightLossRate > 0;
 
   return (
     <div className="space-y-8">
@@ -469,8 +462,8 @@ export default function ProgressView({
               <span className="text-lime-400">{kgToDisplay(targetWeightKg, unitSystem).toFixed(1)} {wl}</span>{" "}
               by{" "}
               <span className="text-lime-400">{projectedDate}</span>
-              {weightLossRate && RATE_DISPLAY[weightLossRate] && (
-                <span className="text-zinc-400 font-normal"> · {RATE_DISPLAY[weightLossRate]}</span>
+              {weightLossRate !== null && weightLossRate > 0 && (
+                <span className="text-zinc-400 font-normal"> · {weightLossRate.toFixed(2)} kg/week</span>
               )}
             </p>
             {slopeLabel && (

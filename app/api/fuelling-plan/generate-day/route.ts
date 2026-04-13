@@ -259,7 +259,6 @@ export async function POST(req: NextRequest) {
   const input: PlanEngineInput = {
     currentWeightKg:        Number(profile.currentWeightKg ?? 75),
     maintenanceCalories:    profile.estimatedMaintenanceCalories,
-    weightLossRate:         profile.weightLossRate ?? "moderate",
     foodExclusions:         (profile.foodExclusions as string[] | null) ?? [],
     currentSupplements:     (profile.currentSupplements as string[] | null) ?? [],
     appetiteProfile:        profile.appetiteProfile ?? null,
