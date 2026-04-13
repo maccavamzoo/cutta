@@ -97,7 +97,6 @@ function buildSystemPrompt(ctx: {
   const { profile, latestWeightKg, timezone, protocolRow, strategyRow, upcomingEvents, recentCompliance, recentFeedback } = ctx;
 
   const preferredFoods = fmtArr(profile?.preferredFoods, "none logged");
-  const supplements = fmtArr(profile?.currentSupplements, "none");
   const exclusions  = fmtArr(profile?.foodExclusions, "none");
 
   const profileSection = profile ? `## USER PROFILE
@@ -107,7 +106,6 @@ Height: ${fmt(profile.heightCm, "unknown")} cm | Age: ${fmt(profile.age, "unknow
 Maintenance calories: ${fmt(profile.estimatedMaintenanceCalories, "not calculated")} kcal/day
 Foods to avoid: ${exclusions}
 Preferred foods: ${preferredFoods}
-Supplements: ${supplements}
 Eating style: ${fmt(profile.appetiteProfile, "not specified")}` : "## USER PROFILE\nNo profile data found.";
 
   let protocolSection: string;

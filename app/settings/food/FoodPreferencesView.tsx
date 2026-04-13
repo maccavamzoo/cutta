@@ -10,7 +10,6 @@ export interface FoodPreferencesData {
   trackStoolHealth:   boolean;
   foodExclusions:     string[] | null;
   preferredFoods:     string[] | null;
-  currentSupplements: string[] | null;
 }
 
 // ─── sub-components ───────────────────────────────────────────────────────────
@@ -81,7 +80,6 @@ export default function FoodPreferencesView({
   const [trackStoolHealth, setTrackStoolHealth] = useState(initial.trackStoolHealth);
   const [foodExclusions,   setFoodExclusions]   = useState<string[]>(initial.foodExclusions ?? []);
   const [preferredFoods,   setPreferredFoods]   = useState<string[]>(initial.preferredFoods ?? []);
-  const [supplements,      setSupplements]      = useState<string[]>(initial.currentSupplements ?? []);
 
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
@@ -93,9 +91,8 @@ export default function FoodPreferencesView({
     if (trackStoolHealth !== initial.trackStoolHealth)                return true;
     if (JSON.stringify(foodExclusions)  !== JSON.stringify(initial.foodExclusions  ?? [])) return true;
     if (JSON.stringify(preferredFoods)  !== JSON.stringify(initial.preferredFoods  ?? [])) return true;
-    if (JSON.stringify(supplements)     !== JSON.stringify(initial.currentSupplements ?? [])) return true;
     return false;
-  }, [trackStoolHealth, foodExclusions, preferredFoods, supplements, initial]);
+  }, [trackStoolHealth, foodExclusions, preferredFoods, initial]);
 
   async function handleSave() {
     setSaving(true);
@@ -110,7 +107,6 @@ export default function FoodPreferencesView({
           trackStoolHealth,
           foodExclusions,
           preferredFoods,
-          currentSupplements: supplements,
         }),
       });
       if (!res.ok) {
@@ -229,13 +225,6 @@ export default function FoodPreferencesView({
           <p className="text-zinc-500 text-xs">Foods that work well for you. The AI will favour these in your plans.</p>
           <TagInput tags={preferredFoods} onChange={setPreferredFoods} placeholder="e.g. Rice, Chicken, Banana..." />
         </div>
-
-        <div className="border-t border-zinc-800" />
-
-        {/* Current supplements */}
-        <Field label="Current supplements">
-          <TagInput tags={supplements} onChange={setSupplements} placeholder="e.g. Creatine, Vitamin D..." />
-        </Field>
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
         {saved && !isDirty && <p className="text-lime-400 text-sm font-medium">Changes saved ✓</p>}

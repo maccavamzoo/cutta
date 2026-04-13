@@ -151,7 +151,6 @@ export default async function PlanPage() {
     calendarEventId: r.calendarEventId,
     meals:           (r.meals as StoredPlan["meals"]) ?? [],
     onBikeFuelling:  (r.onBikeFuelling as StoredPlan["onBikeFuelling"]) ?? null,
-    supplements:     (r.supplements as StoredPlan["supplements"]) ?? [],
     totalCalories:   r.totalCalories,
     totalCarbsG:     r.totalCarbsG,
     totalProteinG:   r.totalProteinG,

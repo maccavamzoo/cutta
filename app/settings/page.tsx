@@ -58,7 +58,7 @@ export default async function SettingsPage() {
           >
             <div>
               <p className="text-white text-sm font-medium">Gut health &amp; food preferences</p>
-              <p className="text-zinc-600 text-xs mt-0.5">Foods to avoid, preferred foods, supplements, gut sensitivity</p>
+              <p className="text-zinc-600 text-xs mt-0.5">Foods to avoid and preferred foods</p>
             </div>
             <span className="text-zinc-500 text-sm">→</span>
           </Link>

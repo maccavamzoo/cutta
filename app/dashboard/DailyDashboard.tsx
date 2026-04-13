@@ -15,7 +15,6 @@ import type { ActivityTypeOption } from "@/app/plan/AddEventSheet";
 export interface TodayPlan {
   meals:           DayPlanOutput["meals"];
   onBikeFuelling:  DayPlanOutput["on_bike_fuelling"];
-  supplements:     DayPlanOutput["supplements"];
   totalCalories:   number | null;
   totalCarbsG:     number | null;
   totalProteinG:   number | null;
@@ -746,25 +745,6 @@ export default function DailyDashboard({
                 </div>
               )}
 
-              {/* Supplements */}
-              {todayPlan.supplements.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                    Supplements
-                  </p>
-                  <div className="bg-zinc-900 rounded-xl border border-zinc-800 divide-y divide-zinc-800">
-                    {todayPlan.supplements.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between px-4 py-3">
-                        <div>
-                          <p className="text-white text-sm">{s.name}</p>
-                          <p className="text-zinc-600 text-xs">{s.dose}</p>
-                        </div>
-                        <span className="text-zinc-500 text-xs">{s.timing}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             <NoPlan events={events} timezone={timezone} onEdit={setEditingEvent} />

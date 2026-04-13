@@ -2,7 +2,7 @@
 
 export interface ShoppingItem {
   item:     string;
-  category: string; // protein | carbs | fats | vegetables | dairy | supplements | other
+  category: string; // protein | carbs | fats | vegetables | dairy | other
   amount:   string; // e.g. "500g", "6 units", "1 bag"
 }
 

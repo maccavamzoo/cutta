@@ -17,7 +17,6 @@ export interface StoredPlan {
   calendarEventId: number | null;
   meals: DayPlanOutput["meals"];
   onBikeFuelling: DayPlanOutput["on_bike_fuelling"];
-  supplements: DayPlanOutput["supplements"];
   totalCalories: number | null;
   totalCarbsG: number | null;
   totalProteinG: number | null;
@@ -335,17 +334,6 @@ function DayCard({
                   </div>
                 )}
                 {plan.onBikeFuelling && <OnBikeCard fuelling={plan.onBikeFuelling} />}
-                {plan.supplements?.length > 0 && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Supplements</p>
-                    {plan.supplements.map((s, i) => (
-                      <div key={i} className="flex items-baseline justify-between text-xs">
-                        <span className="text-zinc-300">{s.name} <span className="text-zinc-600">{s.dose}</span></span>
-                        <span className="text-zinc-600">{s.timing}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </>
             )}
 

@@ -41,7 +41,6 @@ export interface PlanEngineInput {
   currentWeightKg: number;
   maintenanceCalories: number;
   foodExclusions: string[];
-  currentSupplements: string[];
   appetiteProfile: string | null;
   preferredFoods: string[];
 
@@ -157,7 +156,6 @@ export interface DayBrief {
   yesterdayMeals: string[];
   ingredientPool: string[] | null;
   foodExclusions: string[];
-  currentSupplements: string[];
   appetiteProfile: string | null;
   foodPreferences: string[];
 }
@@ -701,9 +699,8 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
     guardrails,
     yesterdayMeals:     input.yesterdayMeals,
     ingredientPool:     input.ingredientPool,
-    foodExclusions:     input.foodExclusions,
-    currentSupplements: input.currentSupplements,
-    appetiteProfile:    input.appetiteProfile,
-    foodPreferences:    input.preferredFoods,
+    foodExclusions:  input.foodExclusions,
+    appetiteProfile: input.appetiteProfile,
+    foodPreferences: input.preferredFoods,
   };
 }
