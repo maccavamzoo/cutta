@@ -26,7 +26,6 @@ export async function POST(request: Request) {
       ? Number(body.estimatedMaintenanceCalories)
       : null,
     // Gut health
-    gutSensitivity:   body.gutSensitivity || null,
     trackStoolHealth: body.trackStoolHealth === true,
     foodExclusions:   (body.foodExclusions as string[]) ?? [],
     preferredFoods:   (body.preferredFoods as string[]) ?? [],
@@ -53,7 +52,6 @@ export async function POST(request: Request) {
         weightLossRate: values.weightLossRate,
         targetSetAt: values.targetSetAt,
         estimatedMaintenanceCalories: values.estimatedMaintenanceCalories,
-        gutSensitivity:   values.gutSensitivity,
         trackStoolHealth: values.trackStoolHealth,
         foodExclusions:   values.foodExclusions,
         preferredFoods:   values.preferredFoods,

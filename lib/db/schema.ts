@@ -35,6 +35,7 @@ export const userProfiles = pgTable(
     estimatedMaintenanceCalories: integer("estimated_maintenance_calories"),
 
     // Diet & gut
+    // DEPRECATED — redundant with food_exclusions. Drop in next cleanup migration.
     gutSensitivity: text("gut_sensitivity"),
     trackStoolHealth: boolean("track_stool_health").default(false).notNull(),
     foodExclusions: text("food_exclusions").array(),
@@ -44,8 +45,7 @@ export const userProfiles = pgTable(
     // Appetite & timing preferences
     appetiteProfile: text("appetite_profile"),
 
-    // Living profile built from explicit inputs + learned patterns
-    // { positive: string[], negative: string[], gutTriggers: string[], supplementReactions: Record<string,string> }
+    // DEPRECATED — no longer read or written. Drop in next cleanup migration.
     foodProfile: jsonb("food_profile"),
 
     // Display preferences

@@ -35,9 +35,6 @@ export async function PATCH(req: NextRequest) {
   if (body.targetSetAt !== undefined)
     update.targetSetAt = body.targetSetAt ? new Date(body.targetSetAt) : null;
 
-  if (body.gutSensitivity !== undefined)
-    update.gutSensitivity = body.gutSensitivity || null;
-
   if (body.trackStoolHealth !== undefined)
     update.trackStoolHealth = Boolean(body.trackStoolHealth);
 

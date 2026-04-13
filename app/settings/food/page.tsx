@@ -15,7 +15,6 @@ export default async function FoodPreferencesPage() {
 
   const [profile] = await db
     .select({
-      gutSensitivity:     userProfiles.gutSensitivity,
       trackStoolHealth:   userProfiles.trackStoolHealth,
       foodExclusions:     userProfiles.foodExclusions,
       preferredFoods:     userProfiles.preferredFoods,
@@ -28,7 +27,6 @@ export default async function FoodPreferencesPage() {
   if (!profile) redirect("/onboarding");
 
   const initial = {
-    gutSensitivity:     profile.gutSensitivity     ?? null,
     trackStoolHealth:   profile.trackStoolHealth   ?? false,
     foodExclusions:     profile.foodExclusions      ?? [],
     preferredFoods:     profile.preferredFoods      ?? [],
