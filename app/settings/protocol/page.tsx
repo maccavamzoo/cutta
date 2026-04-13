@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { protocols } from "@/lib/db/schema";
@@ -45,9 +46,15 @@ export default async function ProtocolSettingsPage() {
   return (
     <main className="min-h-[calc(100dvh-52px)] bg-black px-4 py-6 max-w-lg mx-auto space-y-6">
       {/* Header */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Protocol</h1>
+      <div>
+        <Link
+          href="/settings"
+          className="text-zinc-500 hover:text-white text-sm transition-colors"
+        >
+          ← Settings
+        </Link>
+        <div className="flex items-center gap-3 mt-2">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Fuelling protocol</h1>
           {content && (
             <span className="px-2.5 py-0.5 rounded-full bg-lime-400/10 border border-lime-400/30 text-lime-400 text-xs font-semibold">
               {content.protocol_name}
