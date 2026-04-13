@@ -96,13 +96,7 @@ function buildSystemPrompt(ctx: {
 }): string {
   const { profile, latestWeightKg, timezone, protocolRow, strategyRow, upcomingEvents, recentCompliance, recentFeedback } = ctx;
 
-  const foodProfileRaw = profile?.foodProfile as Record<string, unknown> | null ?? null;
-  const preferredFoods = fmtArr(
-    (profile?.preferredFoods as string[] | null)?.length
-      ? profile?.preferredFoods
-      : foodProfileRaw?.positive,
-    "none logged"
-  );
+  const preferredFoods = fmtArr(profile?.preferredFoods, "none logged");
   const supplements = fmtArr(profile?.currentSupplements, "none");
   const exclusions  = fmtArr(profile?.foodExclusions, "none");
 
@@ -111,7 +105,6 @@ Current weight: ${latestWeightKg ? `${latestWeightKg} kg` : (profile.currentWeig
 Target weight: ${fmt(profile.targetWeightKg, "not set")} kg, rate: ${fmt(profile.weightLossRate, "not set")}
 Height: ${fmt(profile.heightCm, "unknown")} cm | Age: ${fmt(profile.age, "unknown")} | Sex: ${fmt(profile.sex, "unknown")}
 Maintenance calories: ${fmt(profile.estimatedMaintenanceCalories, "not calculated")} kcal/day
-Gut sensitivity: ${fmt(profile.gutSensitivity, "not specified")}
 Foods to avoid: ${exclusions}
 Preferred foods: ${preferredFoods}
 Supplements: ${supplements}

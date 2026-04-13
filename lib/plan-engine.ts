@@ -44,12 +44,7 @@ export interface PlanEngineInput {
   foodExclusions: string[];
   currentSupplements: string[];
   appetiteProfile: string | null;
-  gutSensitivity: string | null;
-  foodProfile: {
-    positive?: string[];
-    negative?: string[];
-    gutTriggers?: string[];
-  } | null;
+  preferredFoods: string[];
 
   // Protocol
   protocol: ProtocolFile;
@@ -165,9 +160,7 @@ export interface DayBrief {
   foodExclusions: string[];
   currentSupplements: string[];
   appetiteProfile: string | null;
-  gutSensitivity: string | null;
   foodPreferences: string[];
-  gutTriggers: string[];
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -712,8 +705,6 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
     foodExclusions:     input.foodExclusions,
     currentSupplements: input.currentSupplements,
     appetiteProfile:    input.appetiteProfile,
-    gutSensitivity:     input.gutSensitivity,
-    foodPreferences:    input.foodProfile?.positive   ?? [],
-    gutTriggers:        input.foodProfile?.gutTriggers ?? [],
+    foodPreferences:    input.preferredFoods,
   };
 }

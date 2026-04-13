@@ -29,7 +29,6 @@ export default async function OnboardingPage() {
     sex:                          null,
     weightLossRate:               null,
     targetSetAt:                  null,
-    fastedTraining:               null,
     appetiteProfile:              null,
     estimatedMaintenanceCalories: null,
   };

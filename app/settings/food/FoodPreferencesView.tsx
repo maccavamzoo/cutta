@@ -7,7 +7,6 @@ import BottomNav from "@/components/BottomNav";
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface FoodPreferencesData {
-  gutSensitivity:     string | null;
   trackStoolHealth:   boolean;
   foodExclusions:     string[] | null;
   preferredFoods:     string[] | null;
@@ -70,12 +69,6 @@ function Field({ label, subtitle, children }: { label: string; subtitle?: string
 
 // ─── main component ───────────────────────────────────────────────────────────
 
-const GUT_OPTS = [
-  { v: "low",    l: "Low — rarely an issue"      },
-  { v: "medium", l: "Medium — occasional issues" },
-  { v: "high",   l: "High — frequent problems"   },
-];
-
 export default function FoodPreferencesView({
   initial,
   backHref,
@@ -85,7 +78,6 @@ export default function FoodPreferencesView({
 }) {
   const router = useRouter();
 
-  const [gutSensitivity,   setGutSensitivity]   = useState(initial.gutSensitivity ?? "");
   const [trackStoolHealth, setTrackStoolHealth] = useState(initial.trackStoolHealth);
   const [foodExclusions,   setFoodExclusions]   = useState<string[]>(initial.foodExclusions ?? []);
   const [preferredFoods,   setPreferredFoods]   = useState<string[]>(initial.preferredFoods ?? []);
@@ -98,13 +90,12 @@ export default function FoodPreferencesView({
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   const isDirty = useMemo(() => {
-    if (gutSensitivity   !== (initial.gutSensitivity ?? ""))          return true;
     if (trackStoolHealth !== initial.trackStoolHealth)                return true;
     if (JSON.stringify(foodExclusions)  !== JSON.stringify(initial.foodExclusions  ?? [])) return true;
     if (JSON.stringify(preferredFoods)  !== JSON.stringify(initial.preferredFoods  ?? [])) return true;
     if (JSON.stringify(supplements)     !== JSON.stringify(initial.currentSupplements ?? [])) return true;
     return false;
-  }, [gutSensitivity, trackStoolHealth, foodExclusions, preferredFoods, supplements, initial]);
+  }, [trackStoolHealth, foodExclusions, preferredFoods, supplements, initial]);
 
   async function handleSave() {
     setSaving(true);
@@ -116,7 +107,6 @@ export default function FoodPreferencesView({
         method:  "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          gutSensitivity:     gutSensitivity || null,
           trackStoolHealth,
           foodExclusions,
           preferredFoods,
@@ -202,24 +192,6 @@ export default function FoodPreferencesView({
             <p className="text-zinc-500 text-sm">What to avoid, what works, and how your gut handles it.</p>
           </div>
         </div>
-
-        {/* Gut sensitivity */}
-        <Field label="Gut sensitivity">
-          <div className="space-y-2">
-            {GUT_OPTS.map(({ v, l }) => (
-              <button
-                key={v} type="button" onClick={() => setGutSensitivity(v)}
-                className={`w-full text-left px-4 py-3 rounded-xl border text-sm transition-colors ${
-                  gutSensitivity === v
-                    ? "bg-lime-400 border-lime-400 text-black font-medium"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700"
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-        </Field>
 
         {/* Track stool health */}
         <div className="flex items-start justify-between gap-4 py-1">

@@ -105,8 +105,6 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
   // ── Food rules section ─────────────────────────────────────────────────────
   lines.push('## FOOD RULES');
   lines.push(`- Exclude: ${brief.foodExclusions.length > 0 ? brief.foodExclusions.join(', ') : 'none'}`);
-  lines.push(`- Gut triggers (avoid): ${brief.gutTriggers.length > 0 ? brief.gutTriggers.join(', ') : 'none'}`);
-  lines.push(`- Gut sensitivity: ${brief.gutSensitivity ?? 'normal'}`);
   lines.push(`- Preferred foods: ${brief.foodPreferences.length > 0 ? brief.foodPreferences.join(', ') : 'no specific preferences'}`);
   lines.push(`- Supplements to schedule: ${brief.currentSupplements.length > 0 ? brief.currentSupplements.join(', ') : 'none'}`);
   lines.push(`- Eating style: ${brief.appetiteProfile ?? 'no preference'}`);

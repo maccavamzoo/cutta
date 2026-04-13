@@ -11,14 +11,6 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  // Map fastedTraining string → boolean | null
-  const fastedTraining =
-    body.fastedTraining === "yes"
-      ? true
-      : body.fastedTraining === "no"
-        ? false
-        : null; // "sometimes" → null
-
   const values = {
     clerkUserId: userId,
     // Body stats — numeric columns stored as strings in Drizzle (pg numeric type)
@@ -33,9 +25,7 @@ export async function POST(request: Request) {
     estimatedMaintenanceCalories: body.estimatedMaintenanceCalories
       ? Number(body.estimatedMaintenanceCalories)
       : null,
-    fastedTraining,
     // Gut health
-    gutSensitivity:   body.gutSensitivity || null,
     trackStoolHealth: body.trackStoolHealth === true,
     foodExclusions:   (body.foodExclusions as string[]) ?? [],
     preferredFoods:   (body.preferredFoods as string[]) ?? [],
@@ -62,8 +52,6 @@ export async function POST(request: Request) {
         weightLossRate: values.weightLossRate,
         targetSetAt: values.targetSetAt,
         estimatedMaintenanceCalories: values.estimatedMaintenanceCalories,
-        fastedTraining: values.fastedTraining,
-        gutSensitivity:   values.gutSensitivity,
         trackStoolHealth: values.trackStoolHealth,
         foodExclusions:   values.foodExclusions,
         preferredFoods:   values.preferredFoods,

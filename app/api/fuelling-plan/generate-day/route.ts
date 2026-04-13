@@ -245,12 +245,6 @@ export async function POST(req: NextRequest) {
   const previousGlycogen = yesterdayPlan?.glycogenBattery ?? null;
   const previousDayHadTraining = yesterdayEventRows.some((e) => e.eventType !== "rest");
 
-  const foodProfile = profile.foodProfile as {
-    positive?: string[];
-    negative?: string[];
-    gutTriggers?: string[];
-  } | null;
-
   // Resolve primary events and activity types
   const todayPrimaryRow = todayEventRows.length > 0
     ? todayEventRows.reduce((a, b) => (b.durationMinutes ?? 0) > (a.durationMinutes ?? 0) ? b : a)
@@ -269,12 +263,7 @@ export async function POST(req: NextRequest) {
     foodExclusions:         (profile.foodExclusions as string[] | null) ?? [],
     currentSupplements:     (profile.currentSupplements as string[] | null) ?? [],
     appetiteProfile:        profile.appetiteProfile ?? null,
-    gutSensitivity:         profile.gutSensitivity ?? null,
-    foodProfile: {
-      positive:    (profile.preferredFoods as string[] | null) ?? foodProfile?.positive ?? [],
-      negative:    [],
-      gutTriggers: [],
-    },
+    preferredFoods:         (profile.preferredFoods as string[] | null) ?? [],
     protocol,
     todayActivityType,
     tomorrowActivityType,

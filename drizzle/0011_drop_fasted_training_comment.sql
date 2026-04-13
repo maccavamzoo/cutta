@@ -1,0 +1,2 @@
+-- fastedTraining is now deprecated and no longer read/written by the app.
+-- Column left in place; will be dropped in a future cleanup migration.
