@@ -35,19 +35,12 @@ export const userProfiles = pgTable(
     estimatedMaintenanceCalories: integer("estimated_maintenance_calories"),
 
     // Diet & gut
-    // DEPRECATED — redundant with food_exclusions. Drop in next cleanup migration.
-    gutSensitivity: text("gut_sensitivity"),
     trackStoolHealth: boolean("track_stool_health").default(false).notNull(),
     foodExclusions: text("food_exclusions").array(),
     preferredFoods: text("preferred_foods").array(),
-    // DEPRECATED — supplements feature removed. Drop in next cleanup migration.
-    currentSupplements: text("current_supplements").array(),
 
     // Appetite & timing preferences
     appetiteProfile: text("appetite_profile"),
-
-    // DEPRECATED — no longer read or written. Drop in next cleanup migration.
-    foodProfile: jsonb("food_profile"),
 
     // Display preferences
     unitSystem: varchar("unit_system", { length: 10 }).default("metric"),
@@ -148,8 +141,6 @@ export const fuellingPlans = pgTable(
     meals: jsonb("meals").notNull().default([]),
     // { pre: {...}, onBike: {...}, post: {...} }
     onBikeFuelling: jsonb("on_bike_fuelling"),
-    // DEPRECATED — supplements feature removed. Drop in next cleanup migration.
-    supplements: jsonb("supplements"),
 
     // Macro totals
     totalCalories: integer("total_calories"),
@@ -224,8 +215,6 @@ export const feedbackLog = pgTable(
 
     // Optional tag to link signal to a specific meal
     taggedMeal: varchar("tagged_meal", { length: 255 }),
-    // DEPRECATED — supplements feature removed. Drop in next cleanup migration.
-    taggedSupplement: varchar("tagged_supplement", { length: 255 }),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
