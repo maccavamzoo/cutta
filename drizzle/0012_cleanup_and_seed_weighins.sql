@@ -5,9 +5,13 @@
 -- fastedTraining: never used in plan generation or AI prompts
 -- typicalWeeklyHours: replaced by calendar event-based activity burn
 -- preferredMealTiming: superseded by appetiteProfile
+-- foodProfile: all data migrated to flat columns preferred_foods and food_exclusions
+-- gutSensitivity: redundant with food_exclusions (specific triggers more useful than low/medium/high)
 ALTER TABLE user_profiles DROP COLUMN IF EXISTS fasted_training;
 ALTER TABLE user_profiles DROP COLUMN IF EXISTS typical_weekly_hours;
 ALTER TABLE user_profiles DROP COLUMN IF EXISTS preferred_meal_timing;
+ALTER TABLE user_profiles DROP COLUMN IF EXISTS food_profile;
+ALTER TABLE user_profiles DROP COLUMN IF EXISTS gut_sensitivity;
 
 -- ─── 2. Reset old-format appetite_profile ────────────────────────────────────
 -- New format is "Meal pattern[, Done eating by 7pm]".
