@@ -92,7 +92,7 @@ function buildSystemPrompt(ctx: {
 
   const profileSection = profile ? `## USER PROFILE
 Current weight: ${latestWeightKg ? `${latestWeightKg} kg` : (profile.currentWeightKg ? `${profile.currentWeightKg} kg` : "unknown")}
-Target weight: ${fmt(profile.targetWeightKg, "not set")} kg, rate: ${fmt(profile.weightLossRate, "not set")}
+Target weight: ${fmt(profile.targetWeightKg, "not set")} kg, loss rate: ${fmt(profile.weightLossRate, "not set")} kg/week
 Height: ${fmt(profile.heightCm, "unknown")} cm | Age: ${fmt(profile.age, "unknown")} | Sex: ${fmt(profile.sex, "unknown")}
 Maintenance calories: ${fmt(profile.estimatedMaintenanceCalories, "not calculated")} kcal/day
 Foods to avoid: ${exclusions}

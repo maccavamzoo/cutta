@@ -1,13 +1,26 @@
-export const RATE_KG_PER_WEEK: Record<string, number> = {
-  aggressive:   0.875, // midpoint of 0.75–1.0
+// Fixed bounds used for progress chart projection band
+export const AGGRESSIVE_KG_PER_WEEK = 0.875;
+export const CONSERVATIVE_KG_PER_WEEK = 0.25;
+
+// Legacy label map — only for parsing old stored values
+const LEGACY_RATES: Record<string, number> = {
+  aggressive:   0.875,
   moderate:     0.5,
   conservative: 0.25,
   maintain:     0,
 };
 
-/** Daily kg loss for the selected rate. */
+/** Parse the stored weightLossRate string to a kg/week number. */
+export function parseRate(rate: string | null): number {
+  if (!rate) return 0.5;
+  const num = parseFloat(rate);
+  if (!isNaN(num)) return num;
+  return LEGACY_RATES[rate] ?? 0.5;
+}
+
+/** Daily kg loss for the stored rate. */
 export function dailyLossKg(rate: string | null): number {
-  return (RATE_KG_PER_WEEK[rate ?? "moderate"] ?? 0.5) / 7;
+  return parseRate(rate) / 7;
 }
 
 /**

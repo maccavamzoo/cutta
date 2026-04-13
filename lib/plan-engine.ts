@@ -40,7 +40,6 @@ export interface PlanEngineInput {
   // User profile
   currentWeightKg: number;
   maintenanceCalories: number;
-  weightLossRate: string; // aggressive | moderate | conservative | maintain
   foodExclusions: string[];
   currentSupplements: string[];
   appetiteProfile: string | null;
