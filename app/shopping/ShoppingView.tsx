@@ -129,7 +129,8 @@ export default function ShoppingView({
           >
             ← Settings
           </Link>
-          <h1 className="text-xl font-bold tracking-tight text-white mt-2">Shopping</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Shopping</h1>
+          <p className="text-zinc-500 text-sm">Weekly ingredient pool and shopping list.</p>
         </div>
 
         {/* No strategy: template picker */}

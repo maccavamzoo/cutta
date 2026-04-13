@@ -32,14 +32,18 @@ export default function ProtocolPageShell({
   return (
     <>
       <div className="space-y-6 pb-20">
-        {/* Back link */}
-        <button
-          type="button"
-          onClick={() => router.push("/settings")}
-          className="text-zinc-500 hover:text-white text-sm transition-colors"
-        >
-          ← Settings
-        </button>
+        {/* Header */}
+        <div>
+          <button
+            type="button"
+            onClick={() => router.push("/settings")}
+            className="text-zinc-500 hover:text-white text-sm transition-colors"
+          >
+            ← Settings
+          </button>
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Fuelling protocol</h1>
+          <p className="text-zinc-500 text-sm">View or update your fuelling protocol.</p>
+        </div>
 
         {/* Template picker */}
         <section className="space-y-3">

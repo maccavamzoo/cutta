@@ -321,7 +321,7 @@ export default function ProfileEditView({
     <div className="space-y-8 pb-32">
 
       {mode === "edit" && backHref && (
-        <div className="flex items-center gap-3 -mt-2 mb-0">
+        <div>
           <button
             type="button"
             onClick={() => isDirty ? setPendingNavigation(backHref) : router.push(backHref)}
@@ -329,10 +329,8 @@ export default function ProfileEditView({
           >
             ← Settings
           </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Edit profile</h1>
-            <p className="text-zinc-500 text-sm">Update your training habits and food preferences.</p>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Edit profile</h1>
+          <p className="text-zinc-500 text-sm">Body stats, weight target, daily energy, eating style.</p>
         </div>
       )}
 
