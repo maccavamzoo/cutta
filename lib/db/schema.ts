@@ -34,14 +34,6 @@ export const userProfiles = pgTable(
     // Calorie baseline
     estimatedMaintenanceCalories: integer("estimated_maintenance_calories"),
 
-    // Training habits
-    typicalWeeklyHours: numeric("typical_weekly_hours", {
-      precision: 4,
-      scale: 1,
-    }),
-    // DEPRECATED — no longer used
-    fastedTraining: boolean("fasted_training"),
-
     // Diet & gut
     gutSensitivity: text("gut_sensitivity"),
     trackStoolHealth: boolean("track_stool_health").default(false).notNull(),
@@ -51,7 +43,6 @@ export const userProfiles = pgTable(
 
     // Appetite & timing preferences
     appetiteProfile: text("appetite_profile"),
-    preferredMealTiming: text("preferred_meal_timing"),
 
     // Living profile built from explicit inputs + learned patterns
     // { positive: string[], negative: string[], gutTriggers: string[], supplementReactions: Record<string,string> }
