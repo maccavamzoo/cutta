@@ -15,7 +15,6 @@ export interface ProfileData {
   sex:                          string | null;
   weightLossRate:               string | null;
   targetSetAt:                  string | null;
-  fastedTraining:               boolean | null;
   appetiteProfile:              string | null;
   estimatedMaintenanceCalories: number | null;
 }
@@ -106,11 +105,6 @@ export default function ProfileEditView({
   // ── weight loss rate ─────────────────────────────────────────────────────
   const [weightLossRate, setWeightLossRate] = useState(initial.weightLossRate ?? "moderate");
 
-  // ── training ─────────────────────────────────────────────────────────────
-  const [fastedTraining, setFastedTraining] = useState(
-    initial.fastedTraining === true ? "yes" : initial.fastedTraining === false ? "no" : "sometimes"
-  );
-
   // ── maintenance calories (auto-calc + optional override) ─────────────────
   const currentWeightKgParsed = currentWeightStr ? displayToKg(parseFloat(currentWeightStr), unitSystem) : null;
   const calculatedCals = useMemo(
@@ -124,28 +118,25 @@ export default function ProfileEditView({
     initial.estimatedMaintenanceCalories != null ? String(initial.estimatedMaintenanceCalories) : ""
   );
 
-  // ── eating style (merged appetite + meal timing) ─────────────────────────
-  const EATING_STYLE_OPTS = [
-    "3 big meals / no snacking",
-    "3 meals + snacks",
-    "Little and often / grazing",
-    "Big breakfast / lighter evening",
-    "Light morning / big dinner",
-    "Done eating by 7pm",
-    "Small portions / more meals",
-    "Large portions / fewer meals",
-  ];
+  // ── eating style ─────────────────────────────────────────────────────────
+  const MEAL_PATTERNS = [
+    "3 big meals, no snacking",
+    "3 meals + evening snack",
+    "Big breakfast, lighter evening",
+    "Light morning, big dinner",
+    "Grazing (5 smaller meals)",
+  ] as const;
 
-  const [appetiteSelections, setAppetiteSelections] = useState<string[]>(() => {
-    const stored = initial.appetiteProfile ?? "";
-    return stored.split(", ").filter((p) => EATING_STYLE_OPTS.includes(p));
-  });
+  const DEFAULT_MEAL_PATTERN = "3 meals + evening snack";
 
-  function toggleAppetite(opt: string) {
-    setAppetiteSelections((prev) =>
-      prev.includes(opt) ? prev.filter((o) => o !== opt) : [...prev, opt]
-    );
-  }
+  const [mealPattern, setMealPattern] = useState<string>(
+    MEAL_PATTERNS.includes(initial.appetiteProfile?.split(", ")[0] as typeof MEAL_PATTERNS[number])
+      ? initial.appetiteProfile!.split(", ")[0]
+      : DEFAULT_MEAL_PATTERN
+  );
+  const [doneBy7, setDoneBy7] = useState<boolean>(
+    initial.appetiteProfile?.includes("Done eating by 7pm") ?? false
+  );
 
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
@@ -161,8 +152,10 @@ export default function ProfileEditView({
     const initAge            = initial.age      != null ? String(initial.age)      : "";
     const initSex            = initial.sex      ?? "";
     const initWeightLossRate = initial.weightLossRate ?? "moderate";
-    const initFasted         = initial.fastedTraining === true ? "yes" : initial.fastedTraining === false ? "no" : "sometimes";
-    const initAppetite       = (initial.appetiteProfile ?? "").split(", ").filter((p) => EATING_STYLE_OPTS.includes(p));
+    const initMealPattern    = MEAL_PATTERNS.includes(initial.appetiteProfile?.split(", ")[0] as typeof MEAL_PATTERNS[number])
+      ? initial.appetiteProfile!.split(", ")[0]
+      : DEFAULT_MEAL_PATTERN;
+    const initDoneBy7        = initial.appetiteProfile?.includes("Done eating by 7pm") ?? false;
     const initOverrideCals   = initial.estimatedMaintenanceCalories != null ? String(initial.estimatedMaintenanceCalories) : "";
 
     if (currentWeightStr !== initCurrentWeight)  return true;
@@ -171,19 +164,13 @@ export default function ProfileEditView({
     if (ageStr           !== initAge)            return true;
     if (sex              !== initSex)            return true;
     if (weightLossRate   !== initWeightLossRate) return true;
-    if (fastedTraining   !== initFasted)         return true;
-    if (JSON.stringify([...appetiteSelections].sort()) !== JSON.stringify([...initAppetite].sort())) return true;
+    if (mealPattern      !== initMealPattern)    return true;
+    if (doneBy7          !== initDoneBy7)        return true;
     if (overrideActive && overrideCalsStr !== initOverrideCals)  return true;
     if (!overrideActive && initOverrideCals !== "" && overrideCalsStr !== initOverrideCals) return true;
     return false;
   }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, weightLossRate,
-      fastedTraining, appetiteSelections, overrideActive, overrideCalsStr, initial, unitSystem]);
-
-  const FASTED_OPTS = [
-    { v: "yes",       l: "Yes"       },
-    { v: "sometimes", l: "Sometimes" },
-    { v: "no",        l: "No"        },
-  ];
+      mealPattern, doneBy7, overrideActive, overrideCalsStr, initial, unitSystem]);
 
   async function handleSave() {
     // Validate weights
@@ -222,8 +209,7 @@ export default function ProfileEditView({
       sex:                          sex       || null,
       weightLossRate,
       ...(goalChanged ? { targetSetAt: new Date().toISOString() } : {}),
-      fastedTraining,
-      appetiteProfile:              appetiteSelections.length ? appetiteSelections.join(", ") : null,
+      appetiteProfile:              doneBy7 ? `${mealPattern}, Done eating by 7pm` : mealPattern,
       estimatedMaintenanceCalories,
     };
 
@@ -475,27 +461,22 @@ export default function ProfileEditView({
 
       <div className="border-t border-zinc-800" />
 
-      {/* 3 — Training habits */}
-      <Section title="Training habits">
-        <Field label="Train fasted?">
-          <div className="flex gap-2">
-            {FASTED_OPTS.map(({ v, l }) => (
-              <Pill key={v} label={l} active={fastedTraining === v} onClick={() => setFastedTraining(v)} />
+      {/* 3 — Eating style */}
+      <Section title="Eating style">
+        <div className="space-y-4">
+          <p className="text-zinc-500 text-xs">How do you prefer to structure your meals?</p>
+          <div className="flex flex-wrap gap-2">
+            {MEAL_PATTERNS.map((opt) => (
+              <Pill key={opt} label={opt} active={mealPattern === opt} onClick={() => setMealPattern(opt)} />
             ))}
           </div>
-        </Field>
-      </Section>
-
-      <div className="border-t border-zinc-800" />
-
-      {/* 4 — Eating style */}
-      <Section title="Eating style">
-        <div className="space-y-2">
-          <p className="text-zinc-500 text-xs">Select all that describe you.</p>
-          <div className="flex flex-wrap gap-2">
-            {EATING_STYLE_OPTS.map((opt) => (
-              <Pill key={opt} label={opt} active={appetiteSelections.includes(opt)} onClick={() => toggleAppetite(opt)} />
-            ))}
+          <div className="pt-2">
+            <p className="text-zinc-600 text-xs mb-2">Modifier</p>
+            <Pill
+              label="Done eating by 7pm"
+              active={doneBy7}
+              onClick={() => setDoneBy7((prev) => !prev)}
+            />
           </div>
         </div>
       </Section>

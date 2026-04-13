@@ -39,6 +39,7 @@ export const userProfiles = pgTable(
       precision: 4,
       scale: 1,
     }),
+    // DEPRECATED — no longer used
     fastedTraining: boolean("fasted_training"),
 
     // Diet & gut
