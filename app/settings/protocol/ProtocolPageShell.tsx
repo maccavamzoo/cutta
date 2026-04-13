@@ -36,9 +36,9 @@ export default function ProtocolPageShell({
         <button
           type="button"
           onClick={() => router.push("/settings")}
-          className="inline-flex items-center gap-1 text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
+          className="text-zinc-500 hover:text-white text-sm transition-colors"
         >
-          ← Back
+          ← Settings
         </button>
 
         {/* Template picker */}
