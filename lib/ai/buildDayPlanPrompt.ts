@@ -15,16 +15,14 @@ export interface SingleDayPlanOutput {
     on_bike: { carbs_per_hour: number; items: { item: string; amount: string }[] };
     post:    { description: string; timing: string; items: { item: string; amount: string }[] };
   } | null;
-  supplements: { name: string; dose: string; timing: string }[];
   ai_reasoning: string;
 }
 
-// Full plan shape used by PlanView and DailyDashboard (meals/fuelling/supplements sub-types).
+// Full plan shape used by PlanView and DailyDashboard (meals/fuelling sub-types).
 // These components will be fully reworked in Phase 5 — kept for now to avoid breaking changes.
 export interface DayPlanOutput {
   meals:            SingleDayPlanOutput['meals'];
   on_bike_fuelling: SingleDayPlanOutput['on_bike_fuelling'];
-  supplements:      SingleDayPlanOutput['supplements'];
 }
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
@@ -106,7 +104,6 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
   lines.push('## FOOD RULES');
   lines.push(`- Exclude: ${brief.foodExclusions.length > 0 ? brief.foodExclusions.join(', ') : 'none'}`);
   lines.push(`- Preferred foods: ${brief.foodPreferences.length > 0 ? brief.foodPreferences.join(', ') : 'no specific preferences'}`);
-  lines.push(`- Supplements to schedule: ${brief.currentSupplements.length > 0 ? brief.currentSupplements.join(', ') : 'none'}`);
   lines.push(`- Eating style: ${brief.appetiteProfile ?? 'no preference'}`);
   if (brief.ingredientPool && brief.ingredientPool.length > 0) {
     lines.push(`- INGREDIENT POOL (use ONLY these ingredients for all meals — do not add items not on this list): ${brief.ingredientPool.join(', ')}`);
@@ -134,7 +131,6 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
       on_bike: { carbs_per_hour: brief.onBikeFuelling.carbsPerHour, items: [{ item: '<name>', amount: '<amount>' }] },
       post: { description: '<what to eat/drink>', timing: '<from post-ride brief>', items: [{ item: '<name>', amount: '<amount>' }] },
     } : null,
-    supplements: [{ name: '<from supplements list>', dose: '<e.g. 5g>', timing: '<e.g. with breakfast>' }],
     ai_reasoning: '<1 sentence explaining the day\'s approach, max 150 chars>',
   }, null, 2));
   lines.push('');
@@ -144,7 +140,6 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
   lines.push('- cooking_note: required, one concise sentence, practical prep instruction');
   lines.push('- Ingredient gram weights MUST sum to roughly match the per-meal macro targets (within 10%)');
   lines.push(`- on_bike_fuelling: ${brief.onBikeFuelling ? 'required for this training day' : 'null (rest day)'}`);
-  lines.push('- supplements: only from the provided list, assign sensible timing');
   lines.push('- ai_reasoning: brief, e.g. "Rest day deficit with high protein to preserve muscle"');
   lines.push('- Do NOT recalculate or override any targets — use them exactly as given');
   if (brief.ingredientPool && brief.ingredientPool.length > 0) {

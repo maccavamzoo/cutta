@@ -18,7 +18,6 @@ export default async function FoodPreferencesPage() {
       trackStoolHealth:   userProfiles.trackStoolHealth,
       foodExclusions:     userProfiles.foodExclusions,
       preferredFoods:     userProfiles.preferredFoods,
-      currentSupplements: userProfiles.currentSupplements,
     })
     .from(userProfiles)
     .where(eq(userProfiles.clerkUserId, userId))
@@ -30,7 +29,6 @@ export default async function FoodPreferencesPage() {
     trackStoolHealth:   profile.trackStoolHealth   ?? false,
     foodExclusions:     profile.foodExclusions      ?? [],
     preferredFoods:     profile.preferredFoods      ?? [],
-    currentSupplements: profile.currentSupplements  ?? [],
   };
 
   return (

@@ -122,7 +122,6 @@ export default async function DashboardPage() {
     ? {
         meals:           (planRow.meals           as TodayPlan["meals"])           ?? [],
         onBikeFuelling:  (planRow.onBikeFuelling  as TodayPlan["onBikeFuelling"])  ?? null,
-        supplements:     (planRow.supplements     as TodayPlan["supplements"])     ?? [],
         totalCalories:   planRow.totalCalories,
         totalCarbsG:     planRow.totalCarbsG,
         totalProteinG:   planRow.totalProteinG,

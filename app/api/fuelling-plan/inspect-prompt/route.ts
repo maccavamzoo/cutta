@@ -242,7 +242,6 @@ export async function POST(req: NextRequest) {
     currentWeightKg:        Number(profile.currentWeightKg ?? 75),
     maintenanceCalories:    profile.estimatedMaintenanceCalories,
     foodExclusions:         (profile.foodExclusions as string[] | null) ?? [],
-    currentSupplements:     (profile.currentSupplements as string[] | null) ?? [],
     appetiteProfile:        profile.appetiteProfile ?? null,
     preferredFoods:         (profile.preferredFoods as string[] | null) ?? [],
     protocol,

@@ -31,8 +31,6 @@ export async function POST(request: Request) {
     preferredFoods:   (body.preferredFoods as string[]) ?? [],
     // Appetite & timing — appetiteProfile is submitted as comma-joined string
     appetiteProfile: body.appetiteProfile || null,
-    // Supplements
-    currentSupplements: (body.currentSupplements as string[]) ?? [],
     // Mark onboarding complete
     onboardingComplete: true as const,
     updatedAt: new Date(),
@@ -56,7 +54,6 @@ export async function POST(request: Request) {
         foodExclusions:   values.foodExclusions,
         preferredFoods:   values.preferredFoods,
         appetiteProfile: values.appetiteProfile,
-        currentSupplements: values.currentSupplements,
         onboardingComplete: true,
         updatedAt: new Date(),
       },

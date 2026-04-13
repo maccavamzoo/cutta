@@ -30,14 +30,13 @@ interface TemplateMeta {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const CATEGORY_ORDER  = ["protein", "carbs", "fats", "vegetables", "dairy", "supplements", "other"];
+const CATEGORY_ORDER  = ["protein", "carbs", "fats", "vegetables", "dairy", "other"];
 const CATEGORY_LABELS: Record<string, string> = {
   protein:     "Protein",
   carbs:       "Carbs & Grains",
   fats:        "Fats & Nuts",
   vegetables:  "Vegetables",
   dairy:       "Dairy",
-  supplements: "Supplements",
   other:       "Other",
 };
 
