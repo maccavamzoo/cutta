@@ -143,9 +143,6 @@ export default async function DashboardPage() {
   const activityTypes: ActivityTypeOption[] = (() => {
     const content = protocolRows[0]?.content as Record<string, unknown> | null ?? null;
     if (!content || typeof content !== "object") return [];
-    // Only extract from new-format protocols (must have rest_day.calorie_offset)
-    const restDay = (content as Record<string, Record<string, unknown>>).rest_day;
-    if (typeof restDay?.calorie_offset !== "number") return [];
     if (!Array.isArray(content.activity_types)) return [];
     return (content.activity_types as Array<Record<string, unknown>>)
       .filter((at) => typeof at.name === "string")

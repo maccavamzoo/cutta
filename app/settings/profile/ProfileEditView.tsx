@@ -441,7 +441,7 @@ export default function ProfileEditView({
           </p>
           <p className="text-zinc-600 text-xs mt-1">
             {calculatedCals != null
-              ? "Calories to maintain your weight at rest. Training burn is added when you log activities."
+              ? "Calculated using the Mifflin-St Jeor equation (BMR × 1.2 sedentary multiplier). Training burn is added per activity from your calendar."
               : "Fill in weight, height, age and sex to calculate"}
           </p>
         </div>
