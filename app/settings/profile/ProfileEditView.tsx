@@ -371,6 +371,26 @@ export default function ProfileEditView({
         <Field label="Weight loss rate">
           <p className="text-zinc-500 text-xs -mt-1 mb-3">How quickly do you want to lose weight?</p>
 
+          {/* Numeric input */}
+          <div className={`flex items-center gap-2 mb-4 ${maintainMode ? "opacity-40 pointer-events-none" : ""}`}>
+            <div className="relative w-24">
+              <input
+                type="number" inputMode="decimal" step="0.05" min="0" max="2"
+                value={rateKgPerWeek.toFixed(2)}
+                disabled={maintainMode}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!isNaN(v) && v >= 0) setRateKgPerWeek(v);
+                }}
+                className="w-full bg-zinc-900 text-white rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800 tabular-nums"
+              />
+            </div>
+            <span className="text-zinc-500 text-sm">kg/week</span>
+          </div>
+          {!maintainMode && (rateKgPerWeek < 0.2 || rateKgPerWeek > 1.0) && (
+            <p className="text-amber-400 text-xs -mt-2 mb-4">Outside typical range (0.2–1.0 kg/week)</p>
+          )}
+
           {/* Maintain toggle */}
           <div className="mb-4">
             <Pill label="Maintain" active={maintainMode} onClick={() => setMaintainMode((m) => !m)} />
@@ -404,26 +424,6 @@ export default function ProfileEditView({
               <span>Aggressive</span>
             </div>
           </div>
-
-          {/* Numeric input */}
-          <div className={`flex items-center gap-2 mt-4 ${maintainMode ? "opacity-40 pointer-events-none" : ""}`}>
-            <div className="relative w-24">
-              <input
-                type="number" inputMode="decimal" step="0.05" min="0" max="2"
-                value={rateKgPerWeek.toFixed(2)}
-                disabled={maintainMode}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!isNaN(v) && v >= 0) setRateKgPerWeek(v);
-                }}
-                className="w-full bg-zinc-900 text-white rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800 tabular-nums"
-              />
-            </div>
-            <span className="text-zinc-500 text-sm">kg/week</span>
-          </div>
-          {!maintainMode && (rateKgPerWeek < 0.2 || rateKgPerWeek > 1.0) && (
-            <p className="text-amber-400 text-xs mt-1.5">Outside typical range (0.2–1.0 kg/week)</p>
-          )}
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
