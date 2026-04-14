@@ -391,13 +391,8 @@ export default function ProfileEditView({
             <p className="text-amber-400 text-xs -mt-2 mb-4">Outside typical range (0.2–1.0 kg/week)</p>
           )}
 
-          {/* Maintain toggle */}
-          <div className="mb-4">
-            <Pill label="Maintain" active={maintainMode} onClick={() => setMaintainMode((m) => !m)} />
-          </div>
-
           {/* Slider */}
-          <div className={maintainMode ? "opacity-40 pointer-events-none" : ""}>
+          <div className={`mb-4 ${maintainMode ? "opacity-40 pointer-events-none" : ""}`}>
             <style>{`
               input[type="range"].rate-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 9999px; outline: none; }
               input[type="range"].rate-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
@@ -423,6 +418,11 @@ export default function ProfileEditView({
               <span>Moderate</span>
               <span>Aggressive</span>
             </div>
+          </div>
+
+          {/* Maintain toggle */}
+          <div>
+            <Pill label="Maintain" active={maintainMode} onClick={() => setMaintainMode((m) => !m)} />
           </div>
         </Field>
 
