@@ -32,15 +32,6 @@ export default function ProtocolPageShell({
   return (
     <>
       <div className="space-y-6 pb-20">
-        {/* Back link */}
-        <button
-          type="button"
-          onClick={() => router.push("/settings")}
-          className="inline-flex items-center gap-1 text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
-        >
-          ← Back
-        </button>
-
         {/* Template picker */}
         <section className="space-y-3">
           <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">

@@ -33,25 +33,18 @@ export default async function SettingsPage() {
         {/* Unit system */}
         <SettingsView unitSystem={unitSystem} />
 
-        {/* Protocol */}
-        {/* Profile */}
-        <div className="space-y-2">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Profile</p>
+        <div className="space-y-3">
           <Link
             href="/settings/profile"
             className="flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
           >
             <div>
               <p className="text-white text-sm font-medium">Edit profile</p>
-              <p className="text-zinc-600 text-xs mt-0.5">Body stats, weight target, daily energy, training habits, eating style</p>
+              <p className="text-zinc-600 text-xs mt-0.5">Body stats, weight target, daily energy, eating style</p>
             </div>
             <span className="text-zinc-500 text-sm">→</span>
           </Link>
-        </div>
 
-        {/* Gut health & food */}
-        <div className="space-y-2">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Food</p>
           <Link
             href="/settings/food"
             className="flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
@@ -62,11 +55,7 @@ export default async function SettingsPage() {
             </div>
             <span className="text-zinc-500 text-sm">→</span>
           </Link>
-        </div>
 
-        {/* Protocol */}
-        <div className="space-y-2">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Protocol</p>
           <Link
             href="/settings/protocol"
             className="flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
@@ -77,11 +66,7 @@ export default async function SettingsPage() {
             </div>
             <span className="text-zinc-500 text-sm">→</span>
           </Link>
-        </div>
 
-        {/* Quick actions */}
-        <div className="space-y-2">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Quick actions</p>
           <Link
             href="/shopping"
             className="flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
@@ -93,6 +78,7 @@ export default async function SettingsPage() {
             <span className="text-zinc-500 text-sm">→</span>
           </Link>
         </div>
+
         {/* Account */}
         <div className="space-y-2">
           <p className="text-zinc-500 text-xs uppercase tracking-wider font-semibold">Account</p>

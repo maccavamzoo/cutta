@@ -121,8 +121,17 @@ export default function ShoppingView({
     <>
       <div className="space-y-6 pb-20">
 
-        {/* Page heading */}
-        <h1 className="text-xl font-bold tracking-tight text-white">Shopping</h1>
+        {/* Back link + heading */}
+        <div>
+          <Link
+            href="/settings"
+            className="text-zinc-500 hover:text-white text-sm transition-colors"
+          >
+            ← Settings
+          </Link>
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Shopping</h1>
+          <p className="text-zinc-500 text-sm">Weekly ingredient pool and shopping list.</p>
+        </div>
 
         {/* No strategy: template picker */}
         {!strategy && (

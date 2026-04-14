@@ -175,7 +175,7 @@ export default function FoodPreferencesView({
 
       <div className="space-y-8 pb-32">
         {/* Header */}
-        <div className="flex items-center gap-3 -mt-2 mb-0">
+        <div>
           <button
             type="button"
             onClick={() => isDirty ? setPendingNavigation(backHref) : router.push(backHref)}
@@ -183,10 +183,8 @@ export default function FoodPreferencesView({
           >
             ← Settings
           </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Gut health &amp; food</h1>
-            <p className="text-zinc-500 text-sm">What to avoid, what works, and how your gut handles it.</p>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Gut health &amp; food preferences</h1>
+          <p className="text-zinc-500 text-sm">Foods to avoid and preferred foods.</p>
         </div>
 
         {/* Track stool health */}
