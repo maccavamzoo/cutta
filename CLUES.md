@@ -78,7 +78,7 @@
 - **`food_profile`** (JSONB) is deprecated for the above fields. It may still contain `supplementReactions` data. Don't write `gutTriggers`, `negative`, or `positive` to it — use the flat columns instead.
 - Audio notes processing writes food reactions directly to `food_exclusions` and `preferred_foods` columns, not to `food_profile`.
 - Food preferences are edited on a standalone settings page at `/settings/food`, NOT on the profile edit page.
-- The profile edit page (`/settings/profile`) covers: body stats, weight target, daily energy, training habits, eating style.
+- The profile edit page (`/settings/profile`) covers: body stats, weight target, daily energy.
 
 ## AI advisor page
 

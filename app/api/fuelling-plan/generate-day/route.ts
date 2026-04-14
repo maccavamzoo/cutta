@@ -15,6 +15,7 @@ import {
 import { computeDayBrief, resolveActivityType, type PlanEngineInput } from "@/lib/plan-engine";
 import { buildDayPlanPrompt, type SingleDayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
 import type { ProtocolFile } from "@/lib/protocol";
+import { parseRate } from "@/lib/weight-projection";
 
 export const maxDuration = 30;
 
@@ -259,6 +260,7 @@ export async function POST(req: NextRequest) {
   const input: PlanEngineInput = {
     currentWeightKg:        Number(profile.currentWeightKg ?? 75),
     maintenanceCalories:    profile.estimatedMaintenanceCalories,
+    weightLossRate:         parseRate(profile.weightLossRate),
     foodExclusions:         (profile.foodExclusions as string[] | null) ?? [],
     appetiteProfile:        profile.appetiteProfile ?? null,
     preferredFoods:         (profile.preferredFoods as string[] | null) ?? [],

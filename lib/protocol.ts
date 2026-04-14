@@ -34,10 +34,6 @@ export interface ActivityType {
   name: string;
   /** Short description for the UI */
   description: string;
-  /** Calorie offset from maintenance (e.g. -200) */
-  calorie_offset: number;
-  /** Whether to add estimated training burn to daily calories */
-  add_training_burn: boolean;
   /** Estimated kcal burned per minute for this activity */
   burn_rate_kcal_per_min: number;
   /** Day macro targets (g per kg body weight) */
@@ -59,7 +55,6 @@ export interface ActivityType {
 // ─── Rest day (always present) ──────────────────────────────────────────────
 
 export interface RestDayRules {
-  calorie_offset: number;
   carbs_g_per_kg: MacroRange;
   protein_g_per_kg: MacroRange;
   fat_g_per_kg: MacroRange;
@@ -105,9 +100,6 @@ function validateRestDay(v: unknown): ValidationResult | null {
     return { valid: false, error: '"rest_day" must be an object.' };
   }
   const obj = v as Record<string, unknown>;
-  if (typeof obj.calorie_offset !== "number") {
-    return { valid: false, error: '"rest_day.calorie_offset" must be a number.' };
-  }
   if (!isMacroRange(obj.carbs_g_per_kg)) {
     return { valid: false, error: '"rest_day.carbs_g_per_kg" must be an object with numeric min and max.' };
   }
@@ -131,12 +123,6 @@ function validateActivityType(v: unknown, index: number): ValidationResult | nul
   }
   if (typeof a.description !== "string") {
     return { valid: false, error: `activity_types[${index}].description must be a string.` };
-  }
-  if (typeof a.calorie_offset !== "number") {
-    return { valid: false, error: `activity_types[${index}].calorie_offset must be a number.` };
-  }
-  if (typeof a.add_training_burn !== "boolean") {
-    return { valid: false, error: `activity_types[${index}].add_training_burn must be a boolean.` };
   }
   if (typeof a.burn_rate_kcal_per_min !== "number") {
     return { valid: false, error: `activity_types[${index}].burn_rate_kcal_per_min must be a number.` };

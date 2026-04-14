@@ -4,6 +4,8 @@
 
 import type { ProtocolFile, MacroRange, ActivityType } from './protocol';
 
+const KCAL_PER_KG_FAT = 7700;
+
 // ─── resolveActivityType ─────────────────────────────────────────────────────
 // Maps a calendar event's eventType string to an ActivityType from the protocol.
 // Handles both new-style names ("Hard ride") and old-style values ("ride","race").
@@ -40,6 +42,7 @@ export interface PlanEngineInput {
   // User profile
   currentWeightKg: number;
   maintenanceCalories: number;
+  weightLossRate: number; // kg/week, 0 = maintain
   foodExclusions: string[];
   appetiteProfile: string | null;
   preferredFoods: string[];
@@ -142,7 +145,7 @@ export interface DayBrief {
   calorieBreakdown: {
     maintenance: number;
     trainingBurn: number;
-    calorieOffset: number;
+    deficit: number;
     guardrailAdjustment: number;
     total: number;
   };
@@ -163,8 +166,6 @@ export interface DayBrief {
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 interface DayMacroRules {
-  calorie_offset: number;
-  add_training_burn: boolean;
   carbs_g_per_kg: MacroRange;
   protein_g_per_kg: MacroRange;
   fat_g_per_kg: MacroRange;
@@ -173,16 +174,12 @@ interface DayMacroRules {
 function getDayMacroRules(protocol: ProtocolFile, activityType: ActivityType | null): DayMacroRules {
   if (activityType === null) {
     return {
-      calorie_offset:    protocol.rest_day.calorie_offset,
-      add_training_burn: false,
       carbs_g_per_kg:    protocol.rest_day.carbs_g_per_kg,
       protein_g_per_kg:  protocol.rest_day.protein_g_per_kg,
       fat_g_per_kg:      protocol.rest_day.fat_g_per_kg,
     };
   }
   return {
-    calorie_offset:    activityType.calorie_offset,
-    add_training_burn: activityType.add_training_burn,
     carbs_g_per_kg:    activityType.carbs_g_per_kg,
     protein_g_per_kg:  activityType.protein_g_per_kg,
     fat_g_per_kg:      activityType.fat_g_per_kg,
@@ -625,8 +622,8 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
 
   // C. Calorie target
   const dayRules = getDayMacroRules(input.protocol, todayActivityType);
-  let baseCalories = input.maintenanceCalories + dayRules.calorie_offset;
-  if (dayRules.add_training_burn) baseCalories += trainingBurn;
+  const dailyDeficit = Math.round((input.weightLossRate * KCAL_PER_KG_FAT) / 7);
+  const baseCalories = input.maintenanceCalories + trainingBurn - dailyDeficit;
 
   // D. Guardrails
   const guardrails       = computeGuardrails(input.recentFeedback);
@@ -688,7 +685,7 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
     calorieBreakdown: {
       maintenance:         input.maintenanceCalories,
       trainingBurn,
-      calorieOffset:       dayRules.calorie_offset,
+      deficit:             dailyDeficit,
       guardrailAdjustment: guardrailCalAdj,
       total:               totalCalories,
     },

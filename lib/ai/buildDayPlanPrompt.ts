@@ -63,7 +63,9 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
   if (brief.calorieBreakdown.trainingBurn > 0) {
     lines.push(`- Training burn: +${brief.calorieBreakdown.trainingBurn} kcal`);
   }
-  lines.push(`- Protocol offset: ${brief.calorieBreakdown.calorieOffset} kcal`);
+  if (brief.calorieBreakdown.deficit > 0) {
+    lines.push(`- Weight loss deficit: -${brief.calorieBreakdown.deficit} kcal (from profile rate)`);
+  }
   if (brief.calorieBreakdown.guardrailAdjustment !== 0) {
     lines.push(`- Guardrail adjustments: ${brief.calorieBreakdown.guardrailAdjustment > 0 ? '+' : ''}${brief.calorieBreakdown.guardrailAdjustment} kcal`);
   }

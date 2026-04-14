@@ -7,19 +7,6 @@ import type { ProtocolFile, MacroRange, ActivityType } from "@/lib/protocol";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function formatCalorieRule(offset: number, addTrainingBurn: boolean): string {
-  let base: string;
-  if (offset === 0) {
-    base = "Maintenance";
-  } else if (offset > 0) {
-    base = `Maintenance + ${offset} kcal`;
-  } else {
-    base = `Maintenance \u2212 ${Math.abs(offset)} kcal`;
-  }
-  if (addTrainingBurn) base += " + training burn";
-  return base;
-}
-
 function formatRange(range: MacroRange, unit: string): string {
   if (range.min === range.max) return `${range.min} ${unit}`;
   return `${range.min}\u2013${range.max} ${unit}`;
@@ -73,10 +60,6 @@ function ActivityCard({ activity }: { activity: ActivityType }) {
 
       {open && (
         <div className="px-4 pb-3 border-t border-zinc-800">
-          <Row
-            label="Calories"
-            value={formatCalorieRule(activity.calorie_offset, activity.add_training_burn)}
-          />
           <Row label="Burn rate"  value={`${activity.burn_rate_kcal_per_min} kcal/min`} />
           <Row label="Carbs"      value={formatRange(activity.carbs_g_per_kg, "g/kg")} />
           <Row label="Protein"    value={formatRange(activity.protein_g_per_kg, "g/kg")} />
@@ -156,7 +139,6 @@ export default function ProtocolReadable({
 
       {/* Rest day */}
       <Section title="Rest day">
-        <Row label="Calories" value={formatCalorieRule(rest_day.calorie_offset, false)} />
         <Row label="Carbs"    value={formatRange(rest_day.carbs_g_per_kg, "g/kg")} />
         <Row label="Protein"  value={formatRange(rest_day.protein_g_per_kg, "g/kg")} />
         <Row label="Fat"      value={formatRange(rest_day.fat_g_per_kg, "g/kg")} />

@@ -31,14 +31,14 @@ const SCHEMAS = `
 interface MacroRange { min: number; max: number; }
 interface ActivityType {
   name: string; description: string;
-  calorie_offset: number; add_training_burn: boolean; burn_rate_kcal_per_min: number;
+  burn_rate_kcal_per_min: number;
   carbs_g_per_kg: MacroRange; protein_g_per_kg: MacroRange; fat_g_per_kg: MacroRange;
   pre_activity: { timing_hours_before: number; focus: string; };
   during_activity: { carbs_per_hour: number; description: string; } | null;
   post_activity: { timing_minutes_after: number; focus: string; protein_g_per_kg: number; carbs_g_per_kg: number; };
   default_duration_minutes: number; is_race: boolean;
 }
-interface RestDayRules { calorie_offset: number; carbs_g_per_kg: MacroRange; protein_g_per_kg: MacroRange; fat_g_per_kg: MacroRange; }
+interface RestDayRules { carbs_g_per_kg: MacroRange; protein_g_per_kg: MacroRange; fat_g_per_kg: MacroRange; }
 interface ProtocolFile {
   protocol_name: string; description: string;
   rest_day: RestDayRules; activity_types: ActivityType[];
@@ -95,8 +95,7 @@ Target weight: ${fmt(profile.targetWeightKg, "not set")} kg, loss rate: ${fmt(pr
 Height: ${fmt(profile.heightCm, "unknown")} cm | Age: ${fmt(profile.age, "unknown")} | Sex: ${fmt(profile.sex, "unknown")}
 Maintenance calories: ${fmt(profile.estimatedMaintenanceCalories, "not calculated")} kcal/day
 Foods to avoid: ${exclusions}
-Preferred foods: ${preferredFoods}
-Eating style: ${fmt(profile.appetiteProfile, "not specified")}` : "## USER PROFILE\nNo profile data found.";
+Preferred foods: ${preferredFoods}` : "## USER PROFILE\nNo profile data found.";
 
   // ── Protocol ──────────────────────────────────────────────────────────────
   let protocolSection: string;
@@ -120,7 +119,7 @@ ${p.description}
 Activity types:
 ${atLines}
 
-Rest day: carbs ${rd.carbs_g_per_kg.min}–${rd.carbs_g_per_kg.max}g/kg, protein ${rd.protein_g_per_kg.min}–${rd.protein_g_per_kg.max}g/kg, fat ${rd.fat_g_per_kg.min}–${rd.fat_g_per_kg.max}g/kg, offset ${rd.calorie_offset} kcal
+Rest day: carbs ${rd.carbs_g_per_kg.min}–${rd.carbs_g_per_kg.max}g/kg, protein ${rd.protein_g_per_kg.min}–${rd.protein_g_per_kg.max}g/kg, fat ${rd.fat_g_per_kg.min}–${rd.fat_g_per_kg.max}g/kg
 
 Race week: ${p.race_week.strategy_notes}
 
@@ -288,8 +287,7 @@ export async function POST(req: NextRequest) {
   let typedProtocol: { name: string; content: ProtocolFile } | null = null;
   if (protocolRow) {
     const c = protocolRow.content as Record<string, unknown>;
-    const restDay = c.rest_day as Record<string, unknown> | undefined;
-    if (typeof restDay?.calorie_offset === "number" && Array.isArray(c.activity_types)) {
+    if (Array.isArray(c.activity_types) && (c.activity_types as unknown[]).length > 0) {
       typedProtocol = { name: protocolRow.name, content: protocolRow.content as ProtocolFile };
     }
   }

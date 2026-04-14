@@ -21,8 +21,8 @@ import { getUserToday } from "@/lib/dates";
 
 function isNewFormatProtocol(content: unknown): boolean {
   if (typeof content !== "object" || content === null) return false;
-  const restDay = (content as Record<string, Record<string, unknown>>).rest_day;
-  return typeof restDay?.calorie_offset === "number";
+  const c = content as Record<string, unknown>;
+  return Array.isArray(c.activity_types) && (c.activity_types as unknown[]).length > 0;
 }
 
 export default async function PlanPage() {
