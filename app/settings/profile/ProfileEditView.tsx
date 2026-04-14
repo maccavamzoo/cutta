@@ -368,11 +368,14 @@ export default function ProfileEditView({
           </Field>
         </div>
 
-        <Field label="Weight loss rate">
-          <p className="text-zinc-500 text-xs -mt-1 mb-3">How quickly do you want to lose weight?</p>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4 space-y-4">
+          <div>
+            <p className="text-white text-sm font-medium">Weight loss rate</p>
+            <p className="text-zinc-500 text-xs mt-0.5">How quickly do you want to lose weight?</p>
+          </div>
 
           {/* Numeric input */}
-          <div className={`flex items-center gap-2 mb-4 ${maintainMode ? "opacity-40 pointer-events-none" : ""}`}>
+          <div className={`flex items-center gap-2 ${maintainMode ? "opacity-40 pointer-events-none" : ""}`}>
             <div className="relative w-24">
               <input
                 type="number" inputMode="decimal" step="0.05" min="0" max="2"
@@ -382,17 +385,17 @@ export default function ProfileEditView({
                   const v = parseFloat(e.target.value);
                   if (!isNaN(v) && v >= 0) setRateKgPerWeek(v);
                 }}
-                className="w-full bg-zinc-900 text-white rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800 tabular-nums"
+                className="w-full bg-zinc-800 text-white rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-700 tabular-nums"
               />
             </div>
             <span className="text-zinc-500 text-sm">kg/week</span>
           </div>
           {!maintainMode && (rateKgPerWeek < 0.2 || rateKgPerWeek > 1.0) && (
-            <p className="text-amber-400 text-xs -mt-2 mb-4">Outside typical range (0.2–1.0 kg/week)</p>
+            <p className="text-amber-400 text-xs -mt-2">Outside typical range (0.2–1.0 kg/week)</p>
           )}
 
           {/* Slider */}
-          <div className={`mb-4 ${maintainMode ? "opacity-40 pointer-events-none" : ""}`}>
+          <div className={maintainMode ? "opacity-40 pointer-events-none" : ""}>
             <style>{`
               input[type="range"].rate-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 9999px; outline: none; }
               input[type="range"].rate-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
@@ -421,10 +424,8 @@ export default function ProfileEditView({
           </div>
 
           {/* Maintain toggle */}
-          <div>
-            <Pill label="Maintain" active={maintainMode} onClick={() => setMaintainMode((m) => !m)} />
-          </div>
-        </Field>
+          <Pill label="Maintain" active={maintainMode} onClick={() => setMaintainMode((m) => !m)} />
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Height (cm)">
