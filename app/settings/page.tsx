@@ -40,7 +40,7 @@ export default async function SettingsPage() {
           >
             <div>
               <p className="text-white text-sm font-medium">Edit profile</p>
-              <p className="text-zinc-600 text-xs mt-0.5">Body stats, weight target, daily energy, eating style</p>
+              <p className="text-zinc-600 text-xs mt-0.5">Body stats, weight target, daily energy</p>
             </div>
             <span className="text-zinc-500 text-sm">→</span>
           </Link>

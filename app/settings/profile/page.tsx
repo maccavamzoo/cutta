@@ -23,7 +23,6 @@ export default async function ProfileEditPage() {
       sex:                          userProfiles.sex,
       weightLossRate:               userProfiles.weightLossRate,
       targetSetAt:                  userProfiles.targetSetAt,
-      appetiteProfile:              userProfiles.appetiteProfile,
       estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
       unitSystem:                   userProfiles.unitSystem,
     })
@@ -43,7 +42,6 @@ export default async function ProfileEditPage() {
     sex:                          profile.sex             ?? null,
     weightLossRate:               profile.weightLossRate  ?? null,
     targetSetAt:                  profile.targetSetAt ? profile.targetSetAt.toISOString() : null,
-    appetiteProfile:              profile.appetiteProfile              ?? null,
     estimatedMaintenanceCalories: profile.estimatedMaintenanceCalories ?? null,
   };
 

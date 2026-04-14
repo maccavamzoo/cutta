@@ -44,9 +44,6 @@ export async function PATCH(req: NextRequest) {
   if (body.preferredFoods !== undefined)
     update.preferredFoods = Array.isArray(body.preferredFoods) ? body.preferredFoods : [];
 
-  if (body.appetiteProfile !== undefined)
-    update.appetiteProfile = body.appetiteProfile || null;
-
   if (body.estimatedMaintenanceCalories !== undefined)
     update.estimatedMaintenanceCalories = body.estimatedMaintenanceCalories
       ? Number(body.estimatedMaintenanceCalories)
