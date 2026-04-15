@@ -273,28 +273,6 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
     }
   }
 
-  function handleConfigureWithAI() {
-    const parts: string[] = ["I want to create a new activity type. Here's what I have so far:"];
-    if (name.trim()) parts.push(`Name: ${name.trim()}`);
-    if (description.trim()) parts.push(`Description: ${description.trim()}`);
-    if (burnRate) parts.push(`Burn rate: ${burnRate} kcal/min`);
-    if (carbs) parts.push(`Carbs: ${carbs} g/kg`);
-    if (protein) parts.push(`Protein: ${protein} g/kg`);
-    if (preTiming !== "2" || preFocus.trim()) parts.push(`Pre-activity: ${preTiming} hrs before${preFocus.trim() ? ` — ${preFocus.trim()}` : ""}`);
-    if (duringEnabled && duringCarbs) parts.push(`During: ${duringCarbs} g/hr carbs${duringDesc.trim() ? ` — ${duringDesc.trim()}` : ""}`);
-    if (!duringEnabled) parts.push("During: no fuelling during activity");
-    if (postTiming !== "30" || postFocus.trim()) parts.push(`Post-activity: ${postTiming} min after${postFocus.trim() ? ` — ${postFocus.trim()}` : ""}`);
-    if (postProtein !== "0.3") parts.push(`Post protein: ${postProtein} g/kg`);
-    if (postCarbs !== "0.8") parts.push(`Post carbs: ${postCarbs} g/kg`);
-    if (defaultDuration !== "60") parts.push(`Default duration: ${defaultDuration} min`);
-    if (isRace) parts.push("This is a race-type activity");
-
-    parts.push("\nHelp me figure out the right values for the remaining fields.");
-
-    const msg = parts.join("\n");
-    window.location.href = `/advisor?prefill=${encodeURIComponent(msg)}`;
-  }
-
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-1">
       <p className="text-white text-sm font-semibold pb-1">New activity type</p>
@@ -393,7 +371,7 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
 
       {error && <p className="text-red-400 text-xs pt-1">{error}</p>}
 
-      <div className="pt-3 space-y-2">
+      <div className="pt-3">
         <button
           type="button"
           onClick={handleSave}
@@ -401,13 +379,6 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
           className="w-full py-2.5 rounded-xl bg-lime-400 text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
         >
           {saving ? "Saving..." : "Save activity type"}
-        </button>
-        <button
-          type="button"
-          onClick={handleConfigureWithAI}
-          className="w-full py-2.5 rounded-xl bg-zinc-800 text-zinc-300 text-sm font-semibold hover:bg-zinc-700 transition-colors"
-        >
-          Configure with AI &rarr;
         </button>
       </div>
     </div>
@@ -465,16 +436,8 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
           </p>
         </div>
 
-        {/* Pills row */}
+        {/* Action pills */}
         <div className="flex flex-wrap gap-2">
-          {items.map((item) => (
-            <span
-              key={item.id}
-              className="text-xs px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-300"
-            >
-              {item.name}
-            </span>
-          ))}
           <button
             type="button"
             onClick={() => setFormOpen((o) => !o)}
@@ -485,6 +448,13 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
             }`}
           >
             +
+          </button>
+          <button
+            type="button"
+            onClick={() => { window.location.href = "/advisor?prefill=" + encodeURIComponent("I want to create a new activity type. Help me figure out the right values."); }}
+            className="text-xs px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors font-medium"
+          >
+            Configure with AI &rarr;
           </button>
         </div>
 
@@ -510,17 +480,7 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
           )}
         </div>
 
-        {/* Add/customise via AI */}
-        <p className="text-zinc-600 text-xs text-center">
-          Need help choosing values?{" "}
-          <button
-            type="button"
-            onClick={() => window.location.href = "/advisor?prefill=" + encodeURIComponent("Help me create a new activity type for my training.")}
-            className="text-lime-600 hover:text-lime-400 transition-colors"
-          >
-            Chat with Cutta AI &rarr;
-          </button>
-        </p>
+
       </div>
 
       <BottomNav active="settings" />
