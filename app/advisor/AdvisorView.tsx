@@ -72,7 +72,7 @@ function LoadingDots() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function AdvisorView({ initialChatHistory = [] }: { initialChatHistory?: Message[] }) {
+export default function AdvisorView({ initialChatHistory = [], prefillMessage }: { initialChatHistory?: Message[]; prefillMessage?: string }) {
   const router = useRouter();
 
   const [messages,  setMessages]  = useState<Message[]>(initialChatHistory);
@@ -107,6 +107,16 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
   useEffect(() => {
     setHasSpeech(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
+  }, []);
+
+  // Prefill input from URL param (e.g. from activity types page)
+  useEffect(() => {
+    if (prefillMessage && messages.length === 0 && !input) {
+      setInput(prefillMessage);
+      inputRef.current?.focus();
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
