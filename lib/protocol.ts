@@ -53,16 +53,6 @@ export interface RestDayRules {
   protein_g_per_kg: number;
 }
 
-// ─── Race week prep ─────────────────────────────────────────────────────────
-
-export interface RaceWeekRules {
-  carb_load_days_before: number;
-  carb_load_g_per_kg: number;
-  race_morning_carbs_g_per_kg: number;
-  race_morning_hours_before: number;
-  strategy_notes: string;
-}
-
 // ─── The full protocol ──────────────────────────────────────────────────────
 
 export interface ProtocolFile {
@@ -70,7 +60,6 @@ export interface ProtocolFile {
   description: string;
   rest_day: RestDayRules;
   activity_types: ActivityType[];
-  race_week: RaceWeekRules;
 }
 
 // ─── Validation ──────────────────────────────────────────────────────────────
@@ -195,26 +184,6 @@ export function validateProtocol(raw: unknown): ValidationResult {
   for (let i = 0; i < obj.activity_types.length; i++) {
     const err = validateActivityType(obj.activity_types[i] as unknown, i);
     if (err) return err;
-  }
-
-  if (typeof obj.race_week !== "object" || obj.race_week === null) {
-    return { valid: false, error: '"race_week" must be an object.' };
-  }
-  const rw = obj.race_week as Record<string, unknown>;
-  if (typeof rw.carb_load_days_before !== "number") {
-    return { valid: false, error: '"race_week.carb_load_days_before" must be a number.' };
-  }
-  if (typeof rw.carb_load_g_per_kg !== "number") {
-    return { valid: false, error: '"race_week.carb_load_g_per_kg" must be a number.' };
-  }
-  if (typeof rw.race_morning_carbs_g_per_kg !== "number") {
-    return { valid: false, error: '"race_week.race_morning_carbs_g_per_kg" must be a number.' };
-  }
-  if (typeof rw.race_morning_hours_before !== "number") {
-    return { valid: false, error: '"race_week.race_morning_hours_before" must be a number.' };
-  }
-  if (typeof rw.strategy_notes !== "string") {
-    return { valid: false, error: '"race_week.strategy_notes" must be a string.' };
   }
 
   return { valid: true, data: obj as unknown as ProtocolFile };

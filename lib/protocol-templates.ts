@@ -22,12 +22,5 @@ export const PROTOCOL_TEMPLATES: ProtocolFile[] = [
         is_race: false,
       },
     ],
-    race_week: {
-      carb_load_days_before: 3,
-      carb_load_g_per_kg: 9,
-      race_morning_carbs_g_per_kg: 2.5,
-      race_morning_hours_before: 3,
-      strategy_notes: "Taper intensity but maintain volume of eating. Practice race-day nutrition in training.",
-    },
   },
 ];

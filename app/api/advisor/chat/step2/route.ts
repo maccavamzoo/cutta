@@ -40,7 +40,6 @@ interface RestDayRules { carbs_g_per_kg: number; protein_g_per_kg: number; }
 interface ProtocolFile {
   protocol_name: string; description: string;
   rest_day: RestDayRules; activity_types: ActivityType[];
-  race_week: { carb_load_days_before: number; carb_load_g_per_kg: number; race_morning_carbs_g_per_kg: number; race_morning_hours_before: number; strategy_notes: string; };
 }
 
 // SHOPPING STRATEGY SCHEMA
@@ -126,8 +125,6 @@ Activity types:
 ${atLines}
 
 Rest day: carbs ${rd.carbs_g_per_kg}g/kg, protein ${rd.protein_g_per_kg}g/kg, fat auto-calculated
-
-Race week: ${p.race_week.strategy_notes}
 
 Full protocol JSON (needed for proposed updates):
 ${JSON.stringify(p, null, 2)}`;

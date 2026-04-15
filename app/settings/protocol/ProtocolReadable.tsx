@@ -7,11 +7,11 @@ import type { ProtocolFile, ActivityType } from "@/lib/protocol";
 
 // ─── primitives ─────────────────────────────────────────────────────────────
 
-function Row({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
+function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex justify-between gap-4 py-2 border-b border-zinc-800 last:border-0">
       <span className="text-zinc-500 text-sm shrink-0">{label}</span>
-      <span className={`text-sm text-right ${valueClassName ?? "text-zinc-200"}`}>{value}</span>
+      {children}
     </div>
   );
 }
@@ -25,9 +25,37 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function InfoButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-5 h-5 flex items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+      aria-label="Why is fat auto-calculated?"
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M7 6.5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="7" cy="4.25" r="0.8" fill="currentColor" />
+      </svg>
+    </button>
+  );
+}
+
+const FAT_INFO_TEXT =
+  "Fat is the flex macro. Protein and carbs are set from your protocol \u2014 fat fills the remaining calories to hit your daily target. This means fat adjusts automatically based on your activity level and calorie goal.";
+
 // ─── ActivityCard ────────────────────────────────────────────────────────────
 
-function ActivityCard({ activity }: { activity: ActivityType }) {
+function ActivityCard({
+  activity,
+  fatInfoOpen,
+  onToggleFatInfo,
+}: {
+  activity: ActivityType;
+  fatInfoOpen: boolean;
+  onToggleFatInfo: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -53,31 +81,46 @@ function ActivityCard({ activity }: { activity: ActivityType }) {
 
       {open && (
         <div className="px-4 pb-3 border-t border-zinc-800">
-          <Row label="Burn rate"  value={`${activity.burn_rate_kcal_per_min} kcal/min`} />
-          <Row label="Carbs"      value={`${activity.carbs_g_per_kg} g/kg`} />
-          <Row label="Protein"    value={`${activity.protein_g_per_kg} g/kg`} />
-          <Row label="Fat"        value="Auto-calculated" valueClassName="text-zinc-500" />
-          <Row
-            label="Pre-activity"
-            value={`${activity.pre_activity.timing_hours_before} hrs before — ${activity.pre_activity.focus}`}
-          />
-          <Row
-            label="During"
-            value={
-              activity.during_activity
+          <Row label="Burn rate">
+            <span className="text-sm text-right text-zinc-200">{activity.burn_rate_kcal_per_min} kcal/min</span>
+          </Row>
+          <Row label="Carbs">
+            <span className="text-sm text-right text-zinc-200">{activity.carbs_g_per_kg} g/kg</span>
+          </Row>
+          <Row label="Protein">
+            <span className="text-sm text-right text-zinc-200">{activity.protein_g_per_kg} g/kg</span>
+          </Row>
+          <Row label="Fat">
+            <span className="flex items-center gap-1.5 text-sm text-zinc-500">
+              Auto-calculated
+              <InfoButton onClick={onToggleFatInfo} />
+            </span>
+          </Row>
+          {fatInfoOpen && (
+            <div className="bg-black/50 rounded-xl px-4 py-3 border border-white/5 mt-1 mb-1">
+              <p className="text-zinc-500 text-xs leading-relaxed">{FAT_INFO_TEXT}</p>
+            </div>
+          )}
+          <Row label="Pre-activity">
+            <span className="text-sm text-right text-zinc-200">
+              {activity.pre_activity.timing_hours_before} hrs before — {activity.pre_activity.focus}
+            </span>
+          </Row>
+          <Row label="During">
+            <span className="text-sm text-right text-zinc-200">
+              {activity.during_activity
                 ? `${activity.during_activity.carbs_per_hour}g carbs/hr — ${activity.during_activity.description}`
-                : "No during-activity fuelling"
-            }
-          />
-          <Row
-            label="Post-activity"
-            value={
-              `Within ${activity.post_activity.timing_minutes_after} min — ` +
-              `${activity.post_activity.protein_g_per_kg}g/kg protein, ` +
-              `${activity.post_activity.carbs_g_per_kg}g/kg carbs — ` +
-              activity.post_activity.focus
-            }
-          />
+                : "No during-activity fuelling"}
+            </span>
+          </Row>
+          <Row label="Post-activity">
+            <span className="text-sm text-right text-zinc-200">
+              {`Within ${activity.post_activity.timing_minutes_after} min — ` +
+                `${activity.post_activity.protein_g_per_kg}g/kg protein, ` +
+                `${activity.post_activity.carbs_g_per_kg}g/kg carbs — ` +
+                activity.post_activity.focus}
+            </span>
+          </Row>
         </div>
       )}
     </div>
@@ -98,8 +141,14 @@ export default function ProtocolReadable({
   const router = useRouter();
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [savedTemplate,  setSavedTemplate]  = useState(false);
+  // Shared state: which fat info popup is open. null = none, "rest" = rest day, number = activity index
+  const [fatInfoOpen, setFatInfoOpen] = useState<string | number | null>(null);
 
-  const { rest_day, activity_types, race_week } = protocol;
+  const { rest_day, activity_types } = protocol;
+
+  function toggleFatInfo(id: string | number) {
+    setFatInfoOpen((prev) => (prev === id ? null : id));
+  }
 
   async function handleSaveAsTemplate() {
     setSavingTemplate(true);
@@ -122,19 +171,34 @@ export default function ProtocolReadable({
         {protocol.description && (
           <p className="text-zinc-300 text-sm pb-2 border-b border-zinc-800 mb-0">{protocol.description}</p>
         )}
-        <Row
-          label="Activated"
-          value={activatedAt.toLocaleDateString("en-GB", {
-            day: "numeric", month: "short", year: "numeric",
-          })}
-        />
+        <Row label="Activated">
+          <span className="text-sm text-right text-zinc-200">
+            {activatedAt.toLocaleDateString("en-GB", {
+              day: "numeric", month: "short", year: "numeric",
+            })}
+          </span>
+        </Row>
       </Section>
 
       {/* Rest day */}
       <Section title="Rest day macros">
-        <Row label="Carbs"    value={`${rest_day.carbs_g_per_kg} g/kg`} />
-        <Row label="Protein"  value={`${rest_day.protein_g_per_kg} g/kg`} />
-        <Row label="Fat"      value="Auto-calculated" valueClassName="text-zinc-500" />
+        <Row label="Carbs">
+          <span className="text-sm text-right text-zinc-200">{rest_day.carbs_g_per_kg} g/kg</span>
+        </Row>
+        <Row label="Protein">
+          <span className="text-sm text-right text-zinc-200">{rest_day.protein_g_per_kg} g/kg</span>
+        </Row>
+        <Row label="Fat">
+          <span className="flex items-center gap-1.5 text-sm text-zinc-500">
+            Auto-calculated
+            <InfoButton onClick={() => toggleFatInfo("rest")} />
+          </span>
+        </Row>
+        {fatInfoOpen === "rest" && (
+          <div className="bg-black/50 rounded-xl px-4 py-3 border border-white/5 mt-1">
+            <p className="text-zinc-500 text-xs leading-relaxed">{FAT_INFO_TEXT}</p>
+          </div>
+        )}
       </Section>
 
       {/* Activity types */}
@@ -144,21 +208,15 @@ export default function ProtocolReadable({
         </p>
         <div className="space-y-2">
           {activity_types.map((at, i) => (
-            <ActivityCard key={i} activity={at} />
+            <ActivityCard
+              key={i}
+              activity={at}
+              fatInfoOpen={fatInfoOpen === i}
+              onToggleFatInfo={() => toggleFatInfo(i)}
+            />
           ))}
         </div>
       </div>
-
-      {/* Race week */}
-      <Section title="Race week">
-        <Row label="Carb load starts" value={`${race_week.carb_load_days_before} days before`} />
-        <Row label="Carb load target" value={`${race_week.carb_load_g_per_kg} g/kg`} />
-        <Row
-          label="Race morning"
-          value={`${race_week.race_morning_carbs_g_per_kg} g/kg, ${race_week.race_morning_hours_before} hrs before`}
-        />
-        <Row label="Strategy" value={race_week.strategy_notes} />
-      </Section>
 
       {/* Save to my templates — only if not already a template */}
       {!isTemplate && !savedTemplate && (
@@ -180,7 +238,7 @@ export default function ProtocolReadable({
             <path d="M3 2h8l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
             <path d="M5 2v4h6V2M5 11h6" />
           </svg>
-          {savingTemplate ? "Saving…" : "Save to my templates"}
+          {savingTemplate ? "Saving\u2026" : "Save to my templates"}
         </button>
       )}
 
