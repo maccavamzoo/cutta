@@ -35,7 +35,7 @@ export default function ProtocolPageShell({
         {/* Template picker */}
         <section className="space-y-3">
           <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-            Choose a template
+            Choose a protocol
           </p>
           <TemplatePicker
             activeProtocolName={activeProtocolName}

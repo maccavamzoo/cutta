@@ -218,7 +218,7 @@ export default function ProtocolReadable({
         </div>
       </div>
 
-      {/* Save to my templates — only if not already a template */}
+      {/* Save to my protocols — only if not already a template */}
       {!isTemplate && !savedTemplate && (
         <button
           type="button"
@@ -238,7 +238,7 @@ export default function ProtocolReadable({
             <path d="M3 2h8l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" />
             <path d="M5 2v4h6V2M5 11h6" />
           </svg>
-          {savingTemplate ? "Saving\u2026" : "Save to my templates"}
+          {savingTemplate ? "Saving\u2026" : "Save to my protocols"}
         </button>
       )}
 
