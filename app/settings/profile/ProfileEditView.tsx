@@ -16,6 +16,8 @@ export interface ProfileData {
   weightLossRate:               string | null;
   targetSetAt:                  string | null;
   estimatedMaintenanceCalories: number | null;
+  restDayCarbsGPerKg:           number;
+  restDayProteinGPerKg:         number;
 }
 
 // ─── calorie calculation (Mifflin-St Jeor) ────────────────────────────────────
@@ -116,6 +118,11 @@ export default function ProfileEditView({
     return 0.5;
   });
 
+  // ── rest day macros ──────────────────────────────────────────────────────
+  const [restDayCarbsStr,   setRestDayCarbsStr]   = useState(String(initial.restDayCarbsGPerKg));
+  const [restDayProteinStr, setRestDayProteinStr] = useState(String(initial.restDayProteinGPerKg));
+  const [fatInfoOpen,       setFatInfoOpen]       = useState(false);
+
   // ── maintenance calories (auto-calc + optional override) ─────────────────
   const currentWeightKgParsed = currentWeightStr ? displayToKg(parseFloat(currentWeightStr), unitSystem) : null;
   const calculatedCals = useMemo(
@@ -163,9 +170,11 @@ export default function ProfileEditView({
     if (currentRateSave  !== initRateSave)      return true;
     if (overrideActive && overrideCalsStr !== initOverrideCals)  return true;
     if (!overrideActive && initOverrideCals !== "" && overrideCalsStr !== initOverrideCals) return true;
+    if (restDayCarbsStr   !== String(initial.restDayCarbsGPerKg))   return true;
+    if (restDayProteinStr !== String(initial.restDayProteinGPerKg)) return true;
     return false;
   }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, maintainMode, rateKgPerWeek,
-      overrideActive, overrideCalsStr, initial, unitSystem]);
+      overrideActive, overrideCalsStr, restDayCarbsStr, restDayProteinStr, initial, unitSystem]);
 
   async function handleSave() {
     // Validate weights
@@ -205,6 +214,8 @@ export default function ProfileEditView({
       weightLossRate: maintainMode ? "0" : String(rateKgPerWeek),
       ...(goalChanged ? { targetSetAt: new Date().toISOString() } : {}),
       estimatedMaintenanceCalories,
+      restDayCarbsGPerKg:   parseFloat(restDayCarbsStr)   || 3,
+      restDayProteinGPerKg: parseFloat(restDayProteinStr) || 2,
     };
 
     try {
@@ -482,6 +493,60 @@ export default function ProfileEditView({
           </div>
         )}
 
+      </Section>
+
+      <div className="border-t border-zinc-800" />
+
+      {/* 4 — Rest day macros */}
+      <Section title="Rest day macros">
+        <p className="text-zinc-500 text-xs -mt-1">Macro targets for days with no training. Fat is auto-calculated.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Carbs (g/kg)">
+            <div className="relative">
+              <input
+                type="number" inputMode="decimal" step="0.5" min="0" max="15"
+                placeholder="e.g. 3"
+                value={restDayCarbsStr} onChange={(e) => setRestDayCarbsStr(e.target.value)}
+                className="w-full bg-zinc-900 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-14 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">g/kg</span>
+            </div>
+          </Field>
+          <Field label="Protein (g/kg)">
+            <div className="relative">
+              <input
+                type="number" inputMode="decimal" step="0.1" min="0" max="5"
+                placeholder="e.g. 2"
+                value={restDayProteinStr} onChange={(e) => setRestDayProteinStr(e.target.value)}
+                className="w-full bg-zinc-900 text-white placeholder-zinc-600 rounded-xl px-4 py-3 pr-14 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 border border-zinc-800"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs pointer-events-none">g/kg</span>
+            </div>
+          </Field>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-zinc-500 text-sm">Fat</span>
+          <span className="text-zinc-500 text-sm">Auto-calculated</span>
+          <button
+            type="button"
+            onClick={() => setFatInfoOpen((o) => !o)}
+            className="w-5 h-5 flex items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+            aria-label="Why is fat auto-calculated?"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M7 6.5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="7" cy="4.25" r="0.8" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+        {fatInfoOpen && (
+          <div className="bg-black/50 rounded-xl px-4 py-3 border border-white/5">
+            <p className="text-zinc-500 text-xs leading-relaxed">
+              Fat is the flex macro. Protein and carbs are set from your targets — fat fills the remaining calories to hit your daily goal. This means fat adjusts automatically based on your activity level and calorie goal.
+            </p>
+          </div>
+        )}
       </Section>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}

@@ -50,6 +50,10 @@ export const userProfiles = pgTable(
     weightLossRate: varchar("weight_loss_rate", { length: 20 }),
     targetSetAt: timestamp("target_set_at"),
 
+    // Rest-day macros (moved from protocol JSONB)
+    restDayCarbsGPerKg:   numeric("rest_day_carbs_g_per_kg", { precision: 4, scale: 1 }).default("3").notNull(),
+    restDayProteinGPerKg: numeric("rest_day_protein_g_per_kg", { precision: 4, scale: 1 }).default("2").notNull(),
+
     // Onboarding complete flag
     onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
 
@@ -67,7 +71,37 @@ export const userProfiles = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Protocols
+// User Activity Types
+// Replaces the activity_types array inside the protocol JSONB.
+// ---------------------------------------------------------------------------
+export const userActivityTypes = pgTable(
+  "user_activity_types",
+  {
+    id:                    serial("id").primaryKey(),
+    clerkUserId:           varchar("clerk_user_id", { length: 255 }).notNull(),
+
+    name:                  varchar("name", { length: 255 }).notNull(),
+    description:           text("description").notNull().default(""),
+    burnRateKcalPerMin:    numeric("burn_rate_kcal_per_min", { precision: 5, scale: 1 }).notNull().default("8"),
+    carbsGPerKg:           numeric("carbs_g_per_kg", { precision: 4, scale: 1 }).notNull().default("5"),
+    proteinGPerKg:         numeric("protein_g_per_kg", { precision: 4, scale: 1 }).notNull().default("1.8"),
+    preActivity:           jsonb("pre_activity").notNull().default({ timing_hours_before: 2, focus: "Moderate carbs, low fibre" }),
+    duringActivity:        jsonb("during_activity").default({ carbs_per_hour: 40, description: "Drink mix or gels" }),
+    postActivity:          jsonb("post_activity").notNull().default({ timing_minutes_after: 30, focus: "Protein and carbs for recovery", protein_g_per_kg: 0.3, carbs_g_per_kg: 0.8 }),
+    defaultDurationMinutes: integer("default_duration_minutes").notNull().default(60),
+    isRace:                boolean("is_race").notNull().default(false),
+    sortOrder:             integer("sort_order").notNull().default(0),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    clerkUserIdIdx: index("user_activity_types_clerk_user_id_idx").on(t.clerkUserId),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Protocols (DEPRECATED — kept for migration reference, no longer actively used)
 // User-defined fuelling rulebook (JSON). Multiple allowed; one is active.
 // ---------------------------------------------------------------------------
 export const protocols = pgTable(

@@ -25,6 +25,8 @@ export default async function ProfileEditPage() {
       targetSetAt:                  userProfiles.targetSetAt,
       estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
       unitSystem:                   userProfiles.unitSystem,
+      restDayCarbsGPerKg:           userProfiles.restDayCarbsGPerKg,
+      restDayProteinGPerKg:         userProfiles.restDayProteinGPerKg,
     })
     .from(userProfiles)
     .where(eq(userProfiles.clerkUserId, userId))
@@ -43,6 +45,8 @@ export default async function ProfileEditPage() {
     weightLossRate:               profile.weightLossRate  ?? null,
     targetSetAt:                  profile.targetSetAt ? profile.targetSetAt.toISOString() : null,
     estimatedMaintenanceCalories: profile.estimatedMaintenanceCalories ?? null,
+    restDayCarbsGPerKg:           profile.restDayCarbsGPerKg ? Number(profile.restDayCarbsGPerKg) : 3,
+    restDayProteinGPerKg:         profile.restDayProteinGPerKg ? Number(profile.restDayProteinGPerKg) : 2,
   };
 
   return (

@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { userProfiles } from "@/lib/db/schema";
+import { userProfiles, userActivityTypes } from "@/lib/db/schema";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -29,6 +30,9 @@ export async function POST(request: Request) {
     trackStoolHealth: body.trackStoolHealth === true,
     foodExclusions:   (body.foodExclusions as string[]) ?? [],
     preferredFoods:   (body.preferredFoods as string[]) ?? [],
+    // Rest day macros
+    restDayCarbsGPerKg:   String(body.restDayCarbsGPerKg ?? 3),
+    restDayProteinGPerKg: String(body.restDayProteinGPerKg ?? 2),
     // Mark onboarding complete
     onboardingComplete: true as const,
     updatedAt: new Date(),
@@ -51,10 +55,28 @@ export async function POST(request: Request) {
         trackStoolHealth: values.trackStoolHealth,
         foodExclusions:   values.foodExclusions,
         preferredFoods:   values.preferredFoods,
+        restDayCarbsGPerKg:   values.restDayCarbsGPerKg,
+        restDayProteinGPerKg: values.restDayProteinGPerKg,
         onboardingComplete: true,
         updatedAt: new Date(),
       },
     });
+
+  // Seed a default activity type if the user doesn't have one yet
+  const existing = await db
+    .select({ id: userActivityTypes.id })
+    .from(userActivityTypes)
+    .where(eq(userActivityTypes.clerkUserId, userId))
+    .limit(1);
+
+  if (existing.length === 0) {
+    await db.insert(userActivityTypes).values({
+      clerkUserId: userId,
+      name: "Default",
+      description: "Moderate intensity activity",
+      sortOrder: 0,
+    });
+  }
 
   return NextResponse.json({ success: true });
 }

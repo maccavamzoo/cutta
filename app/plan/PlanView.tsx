@@ -391,7 +391,6 @@ export default function PlanView({
   hasWeeklyStrategy,
   dataLastChangedAt,
   activityTypes,
-  protocolName,
   targetWeightKg,
   arrivalStr,
   timezone,
@@ -404,7 +403,6 @@ export default function PlanView({
   hasWeeklyStrategy: boolean;
   dataLastChangedAt: string | null;
   activityTypes:     ActivityTypeOption[];
-  protocolName:      string | null;
   targetWeightKg:    number | null;
   arrivalStr:        string | null;
   timezone:          string;
@@ -555,13 +553,6 @@ export default function PlanView({
             Target {kgToDisplay(targetWeightKg, unitSystem).toFixed(1)}{weightLabel(unitSystem)} · est. arrival {arrivalStr}
           </p>
         )}
-        {hasActiveProtocol && protocolName && (
-          <p className="text-zinc-600 text-xs mt-1">
-            <span className="inline-block px-2 py-0.5 bg-zinc-900 border border-zinc-800 rounded-full">
-              {protocolName}
-            </span>
-          </p>
-        )}
         <div className="flex items-center gap-2 mt-1">
           <button
             type="button"
@@ -583,13 +574,13 @@ export default function PlanView({
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 space-y-3">
           <p className="text-zinc-400 text-lg font-semibold">No protocol set</p>
           <p className="text-zinc-600 text-sm leading-relaxed max-w-xs">
-            Select a fuelling protocol to start generating your plan.
+            Add an activity type to start generating your plan.
           </p>
           <Link
-            href="/settings/protocol"
+            href="/settings/activities"
             className="mt-2 inline-block px-5 py-2.5 bg-lime-400 text-black text-sm font-semibold rounded-full hover:bg-lime-300 transition-colors"
           >
-            Set up protocol →
+            Set up activity types →
           </Link>
         </div>
       )}

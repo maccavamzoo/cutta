@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
-import type { ProtocolFile } from "@/lib/protocol";
 
 // SpeechRecognition types (not guaranteed in lib.dom.d.ts)
 interface SpeechRecognitionAlternative {
@@ -53,9 +52,7 @@ interface Message {
 interface ApiResponse {
   reply:                   string;
   systemPrompt:            string;
-  proposedProtocolUpdate:  ProtocolFile | null;
   proposedStrategyUpdate:  { ingredientPool: string[]; shoppingItems: unknown[] } | null;
-  protocolValidationError: string | null;
   strategyValidationError: string | null;
 }
 
@@ -82,12 +79,6 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   const [input,     setInput]     = useState("");
   const [loading,   setLoading]   = useState(false);
 
-  // Protocol update flow
-  const [pendingProtocol,  setPendingProtocol]  = useState<ProtocolFile | null>(null);
-  const [showNamingCard,   setShowNamingCard]   = useState(false);
-  const [proposedName,     setProposedName]      = useState("");
-  const [savingProtocol,   setSavingProtocol]   = useState(false);
-
   // Strategy update flow
   const [pendingStrategy,  setPendingStrategy]  = useState<{ ingredientPool: string[]; shoppingItems: unknown[] } | null>(null);
   const [applyingStrategy, setApplyingStrategy] = useState(false);
@@ -103,7 +94,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
   // Navigation guard
   const [pendingNav, setPendingNav] = useState<string | null>(null);
 
-  const hasPending = pendingProtocol !== null || pendingStrategy !== null;
+  const hasPending = pendingStrategy !== null;
 
   // Mic / speech recognition
   const [hasSpeech,  setHasSpeech]  = useState(false);
@@ -207,9 +198,7 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
   async function handleClearChat() {
     setMessages([]);
-    setPendingProtocol(null);
     setPendingStrategy(null);
-    setShowNamingCard(false);
     await saveHistory([]);
   }
 
@@ -303,14 +292,6 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
 
       void saveHistory([...historyForApi, { role: "user", content: text }, { role: "assistant", content: holdingMessage, isHolding: true }, realMsg]);
 
-      if (step2Data.proposedProtocolUpdate) {
-        setPendingProtocol(step2Data.proposedProtocolUpdate);
-        setShowNamingCard(false);
-        setProposedName(`${step2Data.proposedProtocolUpdate.protocol_name} (modified)`);
-      }
-      if (step2Data.protocolValidationError) {
-        setMessages((prev) => [...prev, { role: "assistant", content: `Note: protocol update couldn't be validated — ${step2Data.protocolValidationError}` }]);
-      }
       if (step2Data.proposedStrategyUpdate) {
         setPendingStrategy(step2Data.proposedStrategyUpdate);
       }
@@ -322,45 +303,6 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
     } finally {
       setLoading(false);
     }
-  }
-
-  // ── Protocol update flow ────────────────────────────────────────────────
-
-  function handleApplyProtocolClick() {
-    setShowNamingCard(true);
-  }
-
-  async function handleConfirmProtocolSave() {
-    if (!pendingProtocol || !proposedName.trim()) return;
-    setSavingProtocol(true);
-    try {
-      const res = await fetch("/api/protocol", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...pendingProtocol, protocol_name: proposedName.trim(), saveAsTemplate: true }),
-      });
-      if (res.ok) {
-        setPendingProtocol(null);
-        setShowNamingCard(false);
-        setMessages((prev) => [...prev, { role: "assistant", content: `Protocol saved as "${proposedName.trim()}". Your plans will use the new rules next time they generate.` }]);
-        router.refresh();
-      } else {
-        const data = await res.json() as { error?: string };
-        setMessages((prev) => [...prev, { role: "assistant", content: `Failed to save: ${data.error ?? "unknown error"}` }]);
-        setShowNamingCard(false);
-      }
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Network error while saving." }]);
-      setShowNamingCard(false);
-    } finally {
-      setSavingProtocol(false);
-    }
-  }
-
-  function handleRejectProtocol() {
-    setPendingProtocol(null);
-    setShowNamingCard(false);
-    setMessages((prev) => [...prev, { role: "assistant", content: "Protocol change rejected — unchanged." }]);
   }
 
   // ── Strategy update flow ────────────────────────────────────────────────
@@ -498,55 +440,6 @@ export default function AdvisorView({ initialChatHistory = [] }: { initialChatHi
                 </div>
               </div>
             ))}
-
-            {/* Protocol update card */}
-            {pendingProtocol && !showNamingCard && (
-              <div className="rounded-xl border border-lime-400/30 bg-zinc-800/60 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-lime-400 shrink-0" />
-                  <p className="text-zinc-200 text-sm font-semibold">Protocol update proposed</p>
-                </div>
-                <p className="text-zinc-400 text-xs">Applying will replace your current active protocol.</p>
-                <div className="flex gap-2">
-                  <button onClick={handleApplyProtocolClick} className="flex-1 py-2 rounded-lg bg-lime-400 text-black text-sm font-semibold">
-                    Apply changes
-                  </button>
-                  <button onClick={handleRejectProtocol} className="flex-1 py-2 rounded-lg bg-zinc-700 text-zinc-300 text-sm font-semibold">
-                    Reject
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Protocol naming card */}
-            {pendingProtocol && showNamingCard && (
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/60 p-4 space-y-3">
-                <p className="text-zinc-200 text-sm font-semibold">Name this protocol</p>
-                <input
-                  type="text"
-                  value={proposedName}
-                  onChange={(e) => setProposedName(e.target.value)}
-                  placeholder="Protocol name…"
-                  className="w-full bg-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:ring-1 focus:ring-zinc-500"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleConfirmProtocolSave}
-                    disabled={savingProtocol || !proposedName.trim()}
-                    className="flex-1 py-2 rounded-lg bg-lime-400 text-black text-sm font-semibold disabled:opacity-50"
-                  >
-                    {savingProtocol ? "Saving…" : "Save"}
-                  </button>
-                  <button
-                    onClick={() => setShowNamingCard(false)}
-                    disabled={savingProtocol}
-                    className="flex-1 py-2 rounded-lg bg-zinc-700 text-zinc-300 text-sm font-semibold disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Strategy update card */}
             {pendingStrategy && (

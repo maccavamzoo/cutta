@@ -6,7 +6,7 @@ import {
   fuellingPlans,
   calendarEvents,
   userProfiles,
-  protocols,
+  userActivityTypes,
   weightLog,
   weeklyStrategies,
 } from "@/lib/db/schema";
@@ -18,12 +18,6 @@ import type { ActivityTypeOption } from "./AddEventSheet";
 import BottomNav from "@/components/BottomNav";
 import { arrivalDate } from "@/lib/weight-projection";
 import { getUserToday } from "@/lib/dates";
-
-function isNewFormatProtocol(content: unknown): boolean {
-  if (typeof content !== "object" || content === null) return false;
-  const c = content as Record<string, unknown>;
-  return Array.isArray(c.activity_types) && (c.activity_types as unknown[]).length > 0;
-}
 
 export default async function PlanPage() {
   const { userId } = await auth();
@@ -46,7 +40,7 @@ export default async function PlanPage() {
   const day10 = new Date(today.getTime() + 10 * 86_400_000);
 
   // ── Fetch all data ─────────────────────────────────────────────────────────
-  const [planRows, eventRows, profileRows, protocolRows, latestWeightRows, strategyRows] =
+  const [planRows, eventRows, profileRows, activityTypeRows, latestWeightRows, strategyRows] =
     await Promise.all([
       db
         .select()
@@ -86,10 +80,15 @@ export default async function PlanPage() {
         .limit(1),
 
       db
-        .select({ name: protocols.name, content: protocols.content, updatedAt: protocols.updatedAt })
-        .from(protocols)
-        .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
-        .limit(1),
+        .select({
+          name:                     userActivityTypes.name,
+          description:              userActivityTypes.description,
+          defaultDurationMinutes:   userActivityTypes.defaultDurationMinutes,
+          updatedAt:                userActivityTypes.updatedAt,
+        })
+        .from(userActivityTypes)
+        .where(eq(userActivityTypes.clerkUserId, userId))
+        .orderBy(userActivityTypes.sortOrder),
 
       db
         .select({ weightKg: weightLog.weightKg, weighedAt: weightLog.weighedAt })
@@ -106,12 +105,10 @@ export default async function PlanPage() {
     ]);
 
   const profileRow  = profileRows[0] ?? null;
-  const protocolRow = protocolRows[0] ?? null;
   const unitSystem  = (profileRow?.unitSystem ?? "metric") as "metric" | "imperial";
 
-  // Protocol status
-  const hasActiveProtocol = protocolRow !== null && isNewFormatProtocol(protocolRow.content);
-  const protocolName      = hasActiveProtocol ? (protocolRow?.name ?? null) : null;
+  // Activity types status
+  const hasActivityTypes  = activityTypeRows.length > 0;
   const hasWeeklyStrategy = strategyRows.length > 0;
 
   // Weight & projection
@@ -136,7 +133,7 @@ export default async function PlanPage() {
   // Data-change timestamp for per-day staleness detection
   const changeDates: Date[] = [
     profileRows[0]?.updatedAt,
-    protocolRows[0]?.updatedAt,
+    ...activityTypeRows.map((r) => r.updatedAt),
     latestWeightRows[0]?.weighedAt,
     strategyRows[0]?.updatedAt,
     ...eventRows.map((e) => e.updatedAt),
@@ -170,18 +167,11 @@ export default async function PlanPage() {
     notes:           e.notes,
   }));
 
-  const activityTypes: ActivityTypeOption[] = (() => {
-    if (!hasActiveProtocol) return [];
-    const content = protocolRow?.content as Record<string, unknown> | null ?? null;
-    if (!content || !Array.isArray(content.activity_types)) return [];
-    return (content.activity_types as Array<Record<string, unknown>>)
-      .filter((at) => typeof at.name === "string")
-      .map((at) => ({
-        name:                     at.name as string,
-        description:              (at.description as string) ?? "",
-        default_duration_minutes: (at.default_duration_minutes as number) ?? 60,
-      }));
-  })();
+  const activityTypes: ActivityTypeOption[] = activityTypeRows.map((at) => ({
+    name:                     at.name,
+    description:              at.description ?? "",
+    default_duration_minutes: at.defaultDurationMinutes ?? 60,
+  }));
 
   return (
     <>
@@ -192,11 +182,10 @@ export default async function PlanPage() {
             calendarEvents={planCalendarEvents}
             todayStr={todayStr}
             unitSystem={unitSystem}
-            hasActiveProtocol={hasActiveProtocol}
+            hasActiveProtocol={hasActivityTypes}
             hasWeeklyStrategy={hasWeeklyStrategy}
             dataLastChangedAt={dataLastChangedAt}
             activityTypes={activityTypes}
-            protocolName={protocolName}
             targetWeightKg={targetWeightKg}
             arrivalStr={arrivalStr}
             timezone={timezone}
