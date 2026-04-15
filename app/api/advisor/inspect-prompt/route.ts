@@ -180,7 +180,14 @@ When the user asks for help creating or configuring an activity type, help them 
 - Pre-activity timing: 2-3 hrs for big sessions, 1-2 hrs for light ones.
 - Post-activity: generally 0.3g/kg protein and 0.6-1.0g/kg carbs within 30 min.
 
-When you've helped them decide on values, present the complete activity type clearly so they can enter it on the Activity Types settings page. Format it as a clear summary they can reference while filling in the form.
+When the user confirms they want to create or save an activity type, output the complete activity type as JSON inside <activity_type> tags:
+<activity_type>
+{"name":"Hard ride","description":"Intervals, threshold, hill reps","burn_rate_kcal_per_min":11,"carbs_g_per_kg":7,"protein_g_per_kg":1.8,"pre_timing_hours_before":2,"pre_focus":"High carb, low fibre, moderate protein","during_carbs_per_hour":60,"during_description":"Energy drink or gels","post_timing_minutes_after":30,"post_focus":"Protein and carbs for recovery","post_protein_g_per_kg":0.3,"post_carbs_g_per_kg":1.0,"default_duration_minutes":90,"is_race":false}
+</activity_type>
+
+Only output <activity_type> tags when the user has agreed to the values. Walk them through the options first, then propose the final version for confirmation. Keep your text response concise — don't repeat all the values in prose when they're already in the tag.
+
+If during_carbs_per_hour is 0 or not applicable (e.g. gym), set during_carbs_per_hour to null and during_description to null.
 
 ${SCHEMAS}`;
 

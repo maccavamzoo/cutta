@@ -50,10 +50,12 @@ interface Message {
 }
 
 interface ApiResponse {
-  reply:                   string;
-  systemPrompt:            string;
-  proposedStrategyUpdate:  { ingredientPool: string[]; shoppingItems: unknown[] } | null;
-  strategyValidationError: string | null;
+  reply:                       string;
+  systemPrompt:                string;
+  proposedStrategyUpdate:      { ingredientPool: string[]; shoppingItems: unknown[] } | null;
+  strategyValidationError:     string | null;
+  proposedActivityType:        Record<string, unknown> | null;
+  activityTypeValidationError: string | null;
 }
 
 // ─── Loading dots ────────────────────────────────────────────────────────────
@@ -83,6 +85,10 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
   const [pendingStrategy,  setPendingStrategy]  = useState<{ ingredientPool: string[]; shoppingItems: unknown[] } | null>(null);
   const [applyingStrategy, setApplyingStrategy] = useState(false);
 
+  // Activity type proposal flow
+  const [pendingActivityType,  setPendingActivityType]  = useState<Record<string, unknown> | null>(null);
+  const [savingActivityType,   setSavingActivityType]   = useState(false);
+
   // Debug mode — cycles normal → inspect → live → normal
   const [debugMode, setDebugMode] = useState<"normal" | "inspect" | "live">("normal");
   const [inspectData, setInspectData] = useState<{ systemPrompt: string; userMessage: string } | null>(null);
@@ -94,7 +100,7 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
   // Navigation guard
   const [pendingNav, setPendingNav] = useState<string | null>(null);
 
-  const hasPending = pendingStrategy !== null;
+  const hasPending = pendingStrategy !== null || pendingActivityType !== null;
 
   // Mic / speech recognition
   const [hasSpeech,  setHasSpeech]  = useState(false);
@@ -209,6 +215,7 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
   async function handleClearChat() {
     setMessages([]);
     setPendingStrategy(null);
+    setPendingActivityType(null);
     await saveHistory([]);
   }
 
@@ -308,6 +315,12 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
       if (step2Data.strategyValidationError) {
         setMessages((prev) => [...prev, { role: "assistant", content: `Note: shopping update couldn't be validated — ${step2Data.strategyValidationError}` }]);
       }
+      if (step2Data.proposedActivityType) {
+        setPendingActivityType(step2Data.proposedActivityType);
+      }
+      if (step2Data.activityTypeValidationError) {
+        setMessages((prev) => [...prev, { role: "assistant", content: `Note: activity type couldn't be validated — ${step2Data.activityTypeValidationError}` }]);
+      }
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", content: "Network error. Please try again." }]);
     } finally {
@@ -337,6 +350,61 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
   function handleRejectStrategy() {
     setPendingStrategy(null);
     setMessages((prev) => [...prev, { role: "assistant", content: "Shopping change rejected — unchanged." }]);
+  }
+
+  // ── Activity type proposal flow ────────────────────────────────────────
+
+  async function handleApplyActivityType() {
+    if (!pendingActivityType) return;
+    setSavingActivityType(true);
+    try {
+      // Transform flat snake_case AI output to the nested camelCase shape the API expects
+      const body = {
+        name:                  pendingActivityType.name,
+        description:           pendingActivityType.description ?? "",
+        burnRateKcalPerMin:    pendingActivityType.burn_rate_kcal_per_min,
+        carbsGPerKg:           pendingActivityType.carbs_g_per_kg,
+        proteinGPerKg:         pendingActivityType.protein_g_per_kg,
+        preActivity: {
+          timing_hours_before: pendingActivityType.pre_timing_hours_before ?? 2,
+          focus:               pendingActivityType.pre_focus ?? "Moderate carbs, low fibre",
+        },
+        duringActivity: pendingActivityType.during_carbs_per_hour != null
+          ? { carbs_per_hour: pendingActivityType.during_carbs_per_hour, description: pendingActivityType.during_description ?? "Drink mix or gels" }
+          : null,
+        postActivity: {
+          timing_minutes_after: pendingActivityType.post_timing_minutes_after ?? 30,
+          focus:                pendingActivityType.post_focus ?? "Protein and carbs for recovery",
+          protein_g_per_kg:     pendingActivityType.post_protein_g_per_kg ?? 0.3,
+          carbs_g_per_kg:       pendingActivityType.post_carbs_g_per_kg ?? 0.8,
+        },
+        defaultDurationMinutes: pendingActivityType.default_duration_minutes ?? 60,
+        isRace:                 pendingActivityType.is_race ?? false,
+      };
+
+      const res = await fetch("/api/activity-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setPendingActivityType(null);
+        const name = String(pendingActivityType.name ?? "Activity type");
+        setMessages((prev) => [...prev, { role: "assistant", content: `"${name}" has been saved to your activity types.` }]);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessages((prev) => [...prev, { role: "assistant", content: `Failed to save: ${(data as { error?: string }).error ?? "unknown error"}` }]);
+      }
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Network error while saving activity type." }]);
+    } finally {
+      setSavingActivityType(false);
+    }
+  }
+
+  function handleRejectActivityType() {
+    setPendingActivityType(null);
+    setMessages((prev) => [...prev, { role: "assistant", content: "Activity type discarded." }]);
   }
 
   // ── Navigation guard ────────────────────────────────────────────────────
@@ -475,6 +543,45 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
                     className="flex-1 py-2 rounded-lg bg-zinc-700 text-zinc-300 text-sm font-semibold disabled:opacity-50"
                   >
                     Reject
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Activity type proposal card */}
+            {pendingActivityType && (
+              <div className="rounded-xl border border-lime-400/30 bg-zinc-800/60 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-lime-400 shrink-0" />
+                  <p className="text-zinc-200 text-sm font-semibold">
+                    New activity type: {String(pendingActivityType.name ?? "Unnamed")}
+                  </p>
+                </div>
+                <div className="text-zinc-400 text-xs space-y-0.5">
+                  {!!pendingActivityType.description && (
+                    <p>{String(pendingActivityType.description)}</p>
+                  )}
+                  <p>Burn rate: {String(pendingActivityType.burn_rate_kcal_per_min)} kcal/min</p>
+                  <p>Carbs: {String(pendingActivityType.carbs_g_per_kg)} g/kg &middot; Protein: {String(pendingActivityType.protein_g_per_kg)} g/kg</p>
+                  {pendingActivityType.during_carbs_per_hour != null && (
+                    <p>During: {String(pendingActivityType.during_carbs_per_hour)}g carbs/hr</p>
+                  )}
+                  <p>Duration: {String(pendingActivityType.default_duration_minutes)} min</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleApplyActivityType}
+                    disabled={savingActivityType}
+                    className="flex-1 py-2 rounded-lg bg-lime-400 text-black text-sm font-semibold disabled:opacity-50"
+                  >
+                    {savingActivityType ? "Saving\u2026" : "Save activity type"}
+                  </button>
+                  <button
+                    onClick={handleRejectActivityType}
+                    disabled={savingActivityType}
+                    className="flex-1 py-2 rounded-lg bg-zinc-700 text-zinc-300 text-sm font-semibold disabled:opacity-50"
+                  >
+                    Discard
                   </button>
                 </div>
               </div>
