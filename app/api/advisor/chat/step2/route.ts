@@ -191,6 +191,8 @@ When the user asks for help creating or configuring an activity type, help them 
 - Pre-activity timing: 2-3 hrs for big sessions, 1-2 hrs for light ones.
 - Post-activity: generally 0.3g/kg protein and 0.6-1.0g/kg carbs within 30 min.
 
+Activity type values are in g/kg — they do not depend on the user's body weight. Do not ask for or reference body weight when creating activity types.
+
 When the user confirms they want to create or save an activity type, output the complete activity type as JSON inside <activity_type> tags:
 <activity_type>
 {"name":"Hard ride","description":"Intervals, threshold, hill reps","burn_rate_kcal_per_min":11,"carbs_g_per_kg":7,"protein_g_per_kg":1.8,"pre_timing_hours_before":2,"pre_focus":"High carb, low fibre, moderate protein","during_carbs_per_hour":60,"during_description":"Energy drink or gels","post_timing_minutes_after":30,"post_focus":"Protein and carbs for recovery","post_protein_g_per_kg":0.3,"post_carbs_g_per_kg":1.0,"default_duration_minutes":90,"is_race":false}
