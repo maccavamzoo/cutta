@@ -57,12 +57,12 @@ export default async function SettingsPage() {
           </Link>
 
           <Link
-            href="/settings/protocol"
+            href="/settings/activities"
             className="flex items-center justify-between px-4 py-3.5 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-colors"
           >
             <div>
-              <p className="text-white text-sm font-medium">Fuelling protocol</p>
-              <p className="text-zinc-600 text-xs mt-0.5">View or update your fuelling protocol</p>
+              <p className="text-white text-sm font-medium">Activity types</p>
+              <p className="text-zinc-600 text-xs mt-0.5">Training activity types and fuelling rules</p>
             </div>
             <span className="text-zinc-500 text-sm">→</span>
           </Link>

@@ -12,8 +12,8 @@ interface ChatMessage {
 const STEP1_SYSTEM = `You are Cutta, an AI performance fuelling advisor for an endurance cyclist.
 
 The following data is available for you to request:
-- Profile: body stats, weight goal, eating style, food exclusions
-- Protocol: active fuelling protocol with macro targets and activity rules
+- Profile: body stats, weight goal, eating style, food exclusions, rest day macros
+- Activity types: user's activity types with macro targets and fuelling rules
 - Shopping: weekly ingredient pool and shopping list
 - Calendar: upcoming 7 days of training events
 - Feedback: recent compliance check-ins and ride/gut/hunger ratings
@@ -29,7 +29,7 @@ requestedData must only contain items from the available list above. Only reques
 
 const FALLBACK = {
   holdingMessage: "Bear with me…",
-  requestedData: ["Profile", "Protocol", "Calendar", "Feedback", "Weight", "Shopping"],
+  requestedData: ["Profile", "Activity types", "Calendar", "Feedback", "Weight", "Shopping"],
 };
 
 export async function POST(req: NextRequest) {

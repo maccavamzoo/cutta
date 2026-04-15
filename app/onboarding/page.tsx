@@ -30,6 +30,8 @@ export default async function OnboardingPage() {
     weightLossRate:               null,
     targetSetAt:                  null,
     estimatedMaintenanceCalories: null,
+    restDayCarbsGPerKg:           3,
+    restDayProteinGPerKg:         2,
   };
 
   return (

@@ -4,7 +4,7 @@ import { eq, and, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   userProfiles,
-  protocols,
+  userActivityTypes,
   calendarEvents,
   fuellingPlans,
   complianceLog,
@@ -13,16 +13,8 @@ import {
 } from "@/lib/db/schema";
 import { computeDayBrief, resolveActivityType, type PlanEngineInput } from "@/lib/plan-engine";
 import { buildDayPlanPrompt } from "@/lib/ai/buildDayPlanPrompt";
-import type { ProtocolFile } from "@/lib/protocol";
+import { rowToActivityType } from "@/lib/protocol";
 import { parseRate } from "@/lib/weight-projection";
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-function isNewFormatProtocol(content: unknown): content is ProtocolFile {
-  if (typeof content !== "object" || content === null) return false;
-  const c = content as Record<string, unknown>;
-  return Array.isArray(c.activity_types) && (c.activity_types as unknown[]).length > 0;
-}
 
 // ── route handler ─────────────────────────────────────────────────────────────
 
@@ -77,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   // ── 4. Fetch all required data in parallel ────────────────────────────────
   let profileRows:        (typeof userProfiles.$inferSelect)[];
-  let protocolRows:       (typeof protocols.$inferSelect)[];
+  let activityTypeRows:   (typeof userActivityTypes.$inferSelect)[];
   let todayEventRows:     (typeof calendarEvents.$inferSelect)[];
   let tomorrowEventRows:  (typeof calendarEvents.$inferSelect)[];
   let yesterdayEventRows: (typeof calendarEvents.$inferSelect)[];
@@ -89,7 +81,7 @@ export async function POST(req: NextRequest) {
   try {
     [
       profileRows,
-      protocolRows,
+      activityTypeRows,
       todayEventRows,
       tomorrowEventRows,
       yesterdayEventRows,
@@ -100,9 +92,7 @@ export async function POST(req: NextRequest) {
     ] = await Promise.all([
       db.select().from(userProfiles).where(eq(userProfiles.clerkUserId, userId)).limit(1),
 
-      db.select().from(protocols).where(
-        and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true))
-      ).limit(1),
+      db.select().from(userActivityTypes).where(eq(userActivityTypes.clerkUserId, userId)).orderBy(userActivityTypes.sortOrder),
 
       db.select().from(calendarEvents).where(
         and(
@@ -154,7 +144,7 @@ export async function POST(req: NextRequest) {
         .limit(1),
     ]) as [
       typeof profileRows,
-      typeof protocolRows,
+      typeof activityTypeRows,
       typeof todayEventRows,
       typeof tomorrowEventRows,
       typeof yesterdayEventRows,
@@ -186,21 +176,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const activeProtocol = protocolRows[0];
-  if (!activeProtocol) {
+  if (activityTypeRows.length === 0) {
     return NextResponse.json(
-      { error: "No active fuelling protocol found. Go to Settings → Protocol and select one." },
+      { error: "No activity types found. Go to Settings → Activity types and add at least one." },
       { status: 422 }
     );
   }
-  if (!isNewFormatProtocol(activeProtocol.content)) {
-    return NextResponse.json(
-      { error: "Your active protocol is in an outdated format. Go to Settings → Protocol and select a new template." },
-      { status: 422 }
-    );
-  }
-
-  const protocol = activeProtocol.content;
 
   if (!profile.estimatedMaintenanceCalories) {
     return NextResponse.json(
@@ -209,7 +190,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── 6. Compute guardrail counts from feedback ─────────────────────────────
+  // ── 6. Convert DB rows to ActivityType[] ─────────────────────────────────
+  const activityTypes = activityTypeRows.map(rowToActivityType);
+
+  const restDayMacros = {
+    carbs_g_per_kg:   Number(profile.restDayCarbsGPerKg) || 3,
+    protein_g_per_kg: Number(profile.restDayProteinGPerKg) || 2,
+  };
+
+  // ── 7. Compute guardrail counts from feedback ────────────────────────────
   const hungerEntries = feedbackRows.filter((f) => f.feedbackType === "hunger");
   const energyEntries = feedbackRows.filter((f) => f.feedbackType === "ride_energy");
   const stoolEntries  = feedbackRows.filter((f) => f.feedbackType === "stool_health");
@@ -222,7 +211,7 @@ export async function POST(req: NextRequest) {
     lowComplianceDays: complianceRows.filter((c) => c.compliance === "no").length,
   };
 
-  // ── 7. Build PlanEngineInput ──────────────────────────────────────────────
+  // ── 8. Build PlanEngineInput ──────────────────────────────────────────────
   const yesterdayPlan     = yesterdayPlanRows[0] ?? null;
   const yesterdayMeals    = (yesterdayPlan?.meals as { name: string }[] | null)
     ?.map((m) => m.name) ?? [];
@@ -236,8 +225,8 @@ export async function POST(req: NextRequest) {
     ? tomorrowEventRows.reduce((a, b) => (b.durationMinutes ?? 0) > (a.durationMinutes ?? 0) ? b : a)
     : null;
 
-  const todayActivityType    = todayPrimaryRow    ? resolveActivityType(protocol, todayPrimaryRow.eventType)    : null;
-  const tomorrowActivityType = tomorrowPrimaryRow ? resolveActivityType(protocol, tomorrowPrimaryRow.eventType) : null;
+  const todayActivityType    = todayPrimaryRow    ? resolveActivityType(activityTypes, todayPrimaryRow.eventType)    : null;
+  const tomorrowActivityType = tomorrowPrimaryRow ? resolveActivityType(activityTypes, tomorrowPrimaryRow.eventType) : null;
 
   const input: PlanEngineInput = {
     currentWeightKg:        Number(profile.currentWeightKg ?? 75),
@@ -246,7 +235,7 @@ export async function POST(req: NextRequest) {
     foodExclusions:         (profile.foodExclusions as string[] | null) ?? [],
     appetiteProfile:        profile.appetiteProfile ?? null,
     preferredFoods:         (profile.preferredFoods as string[] | null) ?? [],
-    protocol,
+    restDayMacros,
     todayActivityType,
     tomorrowActivityType,
     todayEvent: todayPrimaryRow ? {
@@ -266,7 +255,7 @@ export async function POST(req: NextRequest) {
     previousDayHadTraining,
   };
 
-  // ── 8. Pre-compute the day brief and build the prompt ────────────────────
+  // ── 9. Pre-compute the day brief and build the prompt ────────────────────
   const brief  = computeDayBrief(input, date);
   const prompt = buildDayPlanPrompt(brief);
 

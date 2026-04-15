@@ -1,24 +1,18 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { userProfiles, protocols } from "@/lib/db/schema";
+import { userProfiles, userActivityTypes } from "@/lib/db/schema";
 import CalendarView from "./CalendarView";
 import BottomNav from "@/components/BottomNav";
 import type { ActivityTypeOption } from "@/app/plan/AddEventSheet";
 import type { UnitSystem } from "@/lib/units";
 
-function isNewFormatProtocol(content: unknown): boolean {
-  if (typeof content !== "object" || content === null) return false;
-  const c = content as Record<string, unknown>;
-  return Array.isArray(c.activity_types) && (c.activity_types as unknown[]).length > 0;
-}
-
 export default async function CalendarPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const [profileRows, protocolRows] = await Promise.all([
+  const [profileRows, activityTypeRows] = await Promise.all([
     db
       .select({ timezone: userProfiles.timezone, unitSystem: userProfiles.unitSystem })
       .from(userProfiles)
@@ -26,29 +20,25 @@ export default async function CalendarPage() {
       .limit(1),
 
     db
-      .select({ content: protocols.content })
-      .from(protocols)
-      .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
-      .limit(1),
+      .select({
+        name:                     userActivityTypes.name,
+        description:              userActivityTypes.description,
+        defaultDurationMinutes:   userActivityTypes.defaultDurationMinutes,
+      })
+      .from(userActivityTypes)
+      .where(eq(userActivityTypes.clerkUserId, userId))
+      .orderBy(userActivityTypes.sortOrder),
   ]);
 
   const profileRow  = profileRows[0] ?? null;
-  const protocolRow = protocolRows[0] ?? null;
   const timezone    = profileRow?.timezone ?? "Europe/London";
   const unitSystem  = (profileRow?.unitSystem ?? "metric") as UnitSystem;
 
-  const activityTypes: ActivityTypeOption[] = (() => {
-    if (!protocolRow || !isNewFormatProtocol(protocolRow.content)) return [];
-    const content = protocolRow.content as Record<string, unknown>;
-    if (!Array.isArray(content.activity_types)) return [];
-    return (content.activity_types as Array<Record<string, unknown>>)
-      .filter((at) => typeof at.name === "string")
-      .map((at) => ({
-        name:                     at.name as string,
-        description:              (at.description as string) ?? "",
-        default_duration_minutes: (at.default_duration_minutes as number) ?? 60,
-      }));
-  })();
+  const activityTypes: ActivityTypeOption[] = activityTypeRows.map((at) => ({
+    name:                     at.name,
+    description:              at.description ?? "",
+    default_duration_minutes: at.defaultDurationMinutes ?? 60,
+  }));
 
   const monthStr = new Intl.DateTimeFormat("en-CA", { timeZone: timezone })
     .format(new Date())

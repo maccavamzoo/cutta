@@ -4,14 +4,14 @@ import { eq, and, gte, lt, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   userProfiles,
-  protocols,
+  userActivityTypes,
   weeklyStrategies,
   calendarEvents,
   complianceLog,
   feedbackLog,
   weightLog,
 } from "@/lib/db/schema";
-import type { ProtocolFile } from "@/lib/protocol";
+import { rowToActivityType, type ActivityType } from "@/lib/protocol";
 import type { ShoppingItem } from "@/lib/weekly-strategy-templates";
 
 interface ChatMessage {
@@ -27,21 +27,16 @@ interface InspectRequest {
 // ── Schema reference for the AI ──────────────────────────────────────────────
 
 const SCHEMAS = `
-// PROTOCOL SCHEMA
+// ACTIVITY TYPE SCHEMA
 interface ActivityType {
   name: string; description: string;
   burn_rate_kcal_per_min: number;
   carbs_g_per_kg: number; protein_g_per_kg: number;
-  // fat_g_per_kg is NOT in the protocol — fat is auto-calculated as the flex macro to hit the calorie target
+  // fat_g_per_kg is NOT stored — fat is auto-calculated as the flex macro to hit the calorie target
   pre_activity: { timing_hours_before: number; focus: string; };
   during_activity: { carbs_per_hour: number; description: string; } | null;
   post_activity: { timing_minutes_after: number; focus: string; protein_g_per_kg: number; carbs_g_per_kg: number; };
   default_duration_minutes: number; is_race: boolean;
-}
-interface RestDayRules { carbs_g_per_kg: number; protein_g_per_kg: number; }
-interface ProtocolFile {
-  protocol_name: string; description: string;
-  rest_day: RestDayRules; activity_types: ActivityType[];
 }
 
 // SHOPPING STRATEGY SCHEMA
@@ -76,15 +71,15 @@ function buildSystemPrompt(ctx: {
   profile: Record<string, unknown> | null;
   latestWeightKg: number | null;
   timezone: string;
-  protocolRow: { name: string; content: ProtocolFile } | null;
+  activityTypes: ActivityType[];
+  restDayMacros: { carbs_g_per_kg: number; protein_g_per_kg: number } | null;
   strategyRow: { name: string; ingredientPool: unknown; shoppingItems: unknown } | null;
   upcomingEvents: { scheduledAt: Date; title: string; eventType: string; durationMinutes: number | null }[];
   recentCompliance: { logDate: string; compliance: string }[];
   recentFeedback: { feedbackType: string; rating: number | null; planDate: string }[];
 }): string {
-  const { profile, latestWeightKg, timezone, protocolRow, strategyRow, upcomingEvents, recentCompliance, recentFeedback } = ctx;
+  const { profile, latestWeightKg, timezone, activityTypes, restDayMacros, strategyRow, upcomingEvents, recentCompliance, recentFeedback } = ctx;
 
-  // ── Profile ───────────────────────────────────────────────────────────────
   const preferredFoods = fmtArr(profile?.preferredFoods, "none logged");
   const exclusions  = fmtArr(profile?.foodExclusions, "none");
 
@@ -94,13 +89,12 @@ Target weight: ${fmt(profile.targetWeightKg, "not set")} kg, loss rate: ${fmt(pr
 Height: ${fmt(profile.heightCm, "unknown")} cm | Age: ${fmt(profile.age, "unknown")} | Sex: ${fmt(profile.sex, "unknown")}
 Maintenance calories: ${fmt(profile.estimatedMaintenanceCalories, "not calculated")} kcal/day
 Foods to avoid: ${exclusions}
-Preferred foods: ${preferredFoods}` : "## USER PROFILE\nNo profile data found.";
+Preferred foods: ${preferredFoods}
+Rest day macros: carbs ${restDayMacros?.carbs_g_per_kg ?? 3}g/kg, protein ${restDayMacros?.protein_g_per_kg ?? 2}g/kg, fat auto-calculated` : "## USER PROFILE\nNo profile data found.";
 
-  // ── Protocol ──────────────────────────────────────────────────────────────
-  let protocolSection: string;
-  if (protocolRow) {
-    const p = protocolRow.content;
-    const atLines = p.activity_types.map((at) => {
+  let activitySection: string;
+  if (activityTypes.length > 0) {
+    const atLines = activityTypes.map((at) => {
       const during = at.during_activity
         ? at.during_activity.carbs_per_hour === 0
           ? "during: water/electrolytes only"
@@ -108,22 +102,12 @@ Preferred foods: ${preferredFoods}` : "## USER PROFILE\nNo profile data found.";
         : "during: none";
       return `  - ${at.name}: ${at.description}\n    Macros: ${at.carbs_g_per_kg}g/kg carbs, ${at.protein_g_per_kg}g/kg protein, fat auto-calculated | ${during}\n    Pre: ${at.pre_activity.timing_hours_before}h before — ${at.pre_activity.focus}\n    Post: ${at.post_activity.timing_minutes_after}min after — ${at.post_activity.focus}`;
     }).join("\n");
-    const rd = p.rest_day;
-    protocolSection = `## ACTIVE PROTOCOL: ${protocolRow.name}
-${p.description}
-
-Activity types:
-${atLines}
-
-Rest day: carbs ${rd.carbs_g_per_kg}g/kg, protein ${rd.protein_g_per_kg}g/kg, fat auto-calculated
-
-Full protocol JSON (needed for proposed updates):
-${JSON.stringify(p, null, 2)}`;
+    activitySection = `## ACTIVITY TYPES
+${atLines}`;
   } else {
-    protocolSection = "## ACTIVE PROTOCOL\nNo active protocol set.";
+    activitySection = "## ACTIVITY TYPES\nNo activity types configured.";
   }
 
-  // ── Strategy ──────────────────────────────────────────────────────────────
   let strategySection: string;
   if (strategyRow) {
     const pool  = fmtArr(strategyRow.ingredientPool, "empty");
@@ -139,7 +123,6 @@ ${items}`;
     strategySection = "## WEEKLY SHOPPING STRATEGY\nNo active shopping strategy set.";
   }
 
-  // ── Upcoming week ─────────────────────────────────────────────────────────
   let calendarSection: string;
   if (upcomingEvents.length > 0) {
     const lines = upcomingEvents.map((e) => {
@@ -152,7 +135,6 @@ ${items}`;
     calendarSection = "## UPCOMING WEEK\nNo events scheduled for the next 7 days.";
   }
 
-  // ── Recent feedback ───────────────────────────────────────────────────────
   let feedbackSection = "## RECENT FEEDBACK (last 7 days)\n";
   if (recentCompliance.length === 0 && recentFeedback.length === 0) {
     feedbackSection += "No recent check-ins or feedback.";
@@ -170,18 +152,11 @@ ${items}`;
     }
   }
 
-  // ── Capabilities ──────────────────────────────────────────────────────────
   const capabilitiesSection = `## YOUR CAPABILITIES
 
 You can:
-1. Answer questions about nutrition, fuelling, training-related diet, the user's protocol, their shopping list, or general sports science
-2. Modify the fuelling protocol — add/remove/tweak activity types, change macro targets, adjust fuelling rules
-3. Modify the weekly shopping strategy — change the ingredient pool and shopping list
-
-When modifying the PROTOCOL, output the COMPLETE updated protocol inside <protocol_update> tags:
-<protocol_update>
-{...full ProtocolFile JSON — must match the schema exactly, all fields required...}
-</protocol_update>
+1. Answer questions about nutrition, fuelling, training-related diet, activity types, their shopping list, or general sports science
+2. Modify the weekly shopping strategy — change the ingredient pool and shopping list
 
 When modifying the SHOPPING STRATEGY, output the update inside <strategy_update> tags:
 <strategy_update>
@@ -190,21 +165,19 @@ When modifying the SHOPPING STRATEGY, output the update inside <strategy_update>
 
 Rules:
 - Only include update tags when actually making changes, not when answering questions
-- Protocol updates: output the COMPLETE protocol with ALL activity types — no partial diffs
 - Shopping updates: output the COMPLETE ingredient pool and shopping list
-- Both updates can appear in the same response
 - Keep responses concise and practical — you're talking to a cyclist, not writing a textbook
 - Use UK English
-- When making protocol changes that affect foods needed, mention the shopping list implications
-- When making shopping changes, consider what the protocol's activity types require
+- Activity types and rest day macros are managed by the user in Settings — you can advise on values but cannot directly change them
+- When making shopping changes, consider what the activity types require
 
 ${SCHEMAS}`;
 
-  return `You are Cutta, an AI performance fuelling advisor for an endurance cyclist. You help with nutrition, fuelling protocols, shopping strategy, and training-related nutrition questions.
+  return `You are Cutta, an AI performance fuelling advisor for an endurance cyclist. You help with nutrition, fuelling, shopping strategy, and training-related nutrition questions.
 
 ${profileSection}
 
-${protocolSection}
+${activitySection}
 
 ${strategySection}
 
@@ -237,14 +210,11 @@ export async function POST(req: NextRequest) {
   const sevenDaysAgoStr = new Date(now.getTime() - 7 * 86_400_000).toISOString().split("T")[0];
   const sevenDaysLater  = new Date(now.getTime() + 7 * 86_400_000);
 
-  const [profileRows, protocolRows, strategyRows, eventRows, complianceRows, feedbackRows, weightRows] =
+  const [profileRows, activityTypeRows, strategyRows, eventRows, complianceRows, feedbackRows, weightRows] =
     await Promise.all([
       db.select().from(userProfiles).where(eq(userProfiles.clerkUserId, userId)).limit(1),
 
-      db.select({ name: protocols.name, content: protocols.content })
-        .from(protocols)
-        .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
-        .limit(1),
+      db.select().from(userActivityTypes).where(eq(userActivityTypes.clerkUserId, userId)).orderBy(userActivityTypes.sortOrder),
 
       db.select({ id: weeklyStrategies.id, name: weeklyStrategies.name, ingredientPool: weeklyStrategies.ingredientPool, shoppingItems: weeklyStrategies.shoppingItems })
         .from(weeklyStrategies)
@@ -275,16 +245,13 @@ export async function POST(req: NextRequest) {
     ]);
 
   const profile     = profileRows[0] ?? null;
-  const protocolRow = protocolRows[0] ?? null;
   const strategyRow = strategyRows[0] ?? null;
 
-  let typedProtocol: { name: string; content: ProtocolFile } | null = null;
-  if (protocolRow) {
-    const c = protocolRow.content as Record<string, unknown>;
-    if (Array.isArray(c.activity_types) && (c.activity_types as unknown[]).length > 0) {
-      typedProtocol = { name: protocolRow.name, content: protocolRow.content as ProtocolFile };
-    }
-  }
+  const activityTypes: ActivityType[] = activityTypeRows.map(rowToActivityType);
+  const restDayMacros = profile ? {
+    carbs_g_per_kg:   Number(profile.restDayCarbsGPerKg) || 3,
+    protein_g_per_kg: Number(profile.restDayProteinGPerKg) || 2,
+  } : null;
 
   const latestWeightKg = weightRows[0]?.weightKg ? Number(weightRows[0].weightKg) : null;
   const timezone = (profile?.timezone as string | null) ?? "Europe/London";
@@ -293,7 +260,8 @@ export async function POST(req: NextRequest) {
     profile: profile as Record<string, unknown> | null,
     latestWeightKg,
     timezone,
-    protocolRow: typedProtocol,
+    activityTypes,
+    restDayMacros,
     strategyRow,
     upcomingEvents: eventRows,
     recentCompliance: complianceRows as { logDate: string; compliance: string }[],

@@ -49,6 +49,12 @@ export async function PATCH(req: NextRequest) {
       ? Number(body.estimatedMaintenanceCalories)
       : null;
 
+  if (body.restDayCarbsGPerKg !== undefined)
+    update.restDayCarbsGPerKg = String(body.restDayCarbsGPerKg);
+
+  if (body.restDayProteinGPerKg !== undefined)
+    update.restDayProteinGPerKg = String(body.restDayProteinGPerKg);
+
   const result = await db
     .update(userProfiles)
     .set(update)

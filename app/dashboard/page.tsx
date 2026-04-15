@@ -9,7 +9,7 @@ import {
   complianceLog,
   feedbackLog,
   weightLog,
-  protocols,
+  userActivityTypes,
 } from "@/lib/db/schema";
 import DailyDashboard, {
   type TodayPlan,
@@ -35,7 +35,7 @@ export default async function DashboardPage() {
 
   const { todayStr, todayStart, todayEnd } = getUserToday(timezoneRow?.timezone ?? null);
 
-  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weighInRows, protocolRows] = await Promise.all([
+  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weighInRows, activityTypeRows] = await Promise.all([
     currentUser(),
     db
       .select()
@@ -110,10 +110,14 @@ export default async function DashboardPage() {
       .limit(1),
 
     db
-      .select({ content: protocols.content })
-      .from(protocols)
-      .where(and(eq(protocols.clerkUserId, userId), eq(protocols.isActive, true)))
-      .limit(1),
+      .select({
+        name:                     userActivityTypes.name,
+        description:              userActivityTypes.description,
+        defaultDurationMinutes:   userActivityTypes.defaultDurationMinutes,
+      })
+      .from(userActivityTypes)
+      .where(eq(userActivityTypes.clerkUserId, userId))
+      .orderBy(userActivityTypes.sortOrder),
   ]);
 
   const planRow = planRows[0] ?? null;
@@ -140,18 +144,11 @@ export default async function DashboardPage() {
     notes:           e.notes,
   }));
 
-  const activityTypes: ActivityTypeOption[] = (() => {
-    const content = protocolRows[0]?.content as Record<string, unknown> | null ?? null;
-    if (!content || typeof content !== "object") return [];
-    if (!Array.isArray(content.activity_types)) return [];
-    return (content.activity_types as Array<Record<string, unknown>>)
-      .filter((at) => typeof at.name === "string")
-      .map((at) => ({
-        name:                     at.name as string,
-        description:              (at.description as string) ?? "",
-        default_duration_minutes: (at.default_duration_minutes as number) ?? 60,
-      }));
-  })();
+  const activityTypes: ActivityTypeOption[] = activityTypeRows.map((at) => ({
+    name:                     at.name,
+    description:              at.description ?? "",
+    default_duration_minutes: at.defaultDurationMinutes ?? 60,
+  }));
 
   const profileRow = profileRows[0] ?? null;
   const profile: ProfileSnapshot | null = profileRow

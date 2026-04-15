@@ -2,7 +2,7 @@
 // Pure deterministic module — no AI calls, no DB calls, no side effects.
 // Takes user data + protocol and produces a complete DayBrief for one day.
 
-import type { ProtocolFile, ActivityType } from './protocol';
+import type { ActivityType } from './protocol';
 
 const KCAL_PER_KG_FAT = 7700;
 
@@ -11,29 +11,30 @@ const KCAL_PER_KG_FAT = 7700;
 // Handles both new-style names ("Hard ride") and old-style values ("ride","race").
 
 export function resolveActivityType(
-  protocol: ProtocolFile,
+  activityTypes: ActivityType[],
   eventTypeName: string,
 ): ActivityType | null {
   if (eventTypeName === 'rest') return null;
+  if (activityTypes.length === 0) return null;
 
   // Exact match first
-  const exact = protocol.activity_types.find(at => at.name === eventTypeName);
+  const exact = activityTypes.find(at => at.name === eventTypeName);
   if (exact) return exact;
 
   // Fallback for old event type values
   const lower = eventTypeName.toLowerCase();
   if (lower === 'race') {
-    return protocol.activity_types.find(at => at.is_race)
-      ?? protocol.activity_types[0];
+    return activityTypes.find(at => at.is_race)
+      ?? activityTypes[0];
   }
   if (lower === 'ride') {
-    return protocol.activity_types.find(at => at.name.toLowerCase().includes('easy') && !at.is_race)
-      ?? protocol.activity_types.find(at => !at.is_race)
-      ?? protocol.activity_types[0];
+    return activityTypes.find(at => at.name.toLowerCase().includes('easy') && !at.is_race)
+      ?? activityTypes.find(at => !at.is_race)
+      ?? activityTypes[0];
   }
 
   // Any other unrecognised type → first non-race
-  return protocol.activity_types.find(at => !at.is_race) ?? protocol.activity_types[0];
+  return activityTypes.find(at => !at.is_race) ?? activityTypes[0];
 }
 
 // ─── Input types ─────────────────────────────────────────────────────────────
@@ -47,8 +48,8 @@ export interface PlanEngineInput {
   appetiteProfile: string | null;
   preferredFoods: string[];
 
-  // Protocol
-  protocol: ProtocolFile;
+  // Rest-day macros (from user_profiles)
+  restDayMacros: { carbs_g_per_kg: number; protein_g_per_kg: number };
 
   // Resolved activity type for today (null = rest day)
   todayActivityType: ActivityType | null;
@@ -170,11 +171,11 @@ interface DayMacroRules {
   protein_g_per_kg: number;
 }
 
-function getDayMacroRules(protocol: ProtocolFile, activityType: ActivityType | null): DayMacroRules {
+function getDayMacroRules(restDayMacros: { carbs_g_per_kg: number; protein_g_per_kg: number }, activityType: ActivityType | null): DayMacroRules {
   if (activityType === null) {
     return {
-      carbs_g_per_kg:    protocol.rest_day.carbs_g_per_kg,
-      protein_g_per_kg:  protocol.rest_day.protein_g_per_kg,
+      carbs_g_per_kg:    restDayMacros.carbs_g_per_kg,
+      protein_g_per_kg:  restDayMacros.protein_g_per_kg,
     };
   }
   return {
@@ -604,7 +605,7 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
   const trainingBurn  = estimateTrainingBurn(todayActivityType, eventDuration);
 
   // C. Calorie target
-  const dayRules = getDayMacroRules(input.protocol, todayActivityType);
+  const dayRules = getDayMacroRules(input.restDayMacros, todayActivityType);
   const dailyDeficit = Math.round((input.weightLossRate * KCAL_PER_KG_FAT) / 7);
   const baseCalories = input.maintenanceCalories + trainingBurn - dailyDeficit;
 

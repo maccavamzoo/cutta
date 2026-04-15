@@ -55,22 +55,20 @@
 ## Plan generation
 
 - AI plans are generated one day at a time via Claude Sonnet.
-- Requires an active protocol (JSON) — generation fails silently if none exists.
+- Requires at least one activity type in `user_activity_types` — generation fails if none exist.
 - Daily calorie target = Mifflin-St Jeor BMR × 1.2 (sedentary) + training burn − deficit from `weightLossRate`.
 - `typicalWeeklyHours` was removed — activity burn comes from calendar events, not a static guess.
 - Glycogen battery value comes from the AI plan, not pure math. It only shows when a plan exists for today. When no plan exists, a dimmed empty-state battery is shown.
 - **Past fuelling plans are kept as history** — they are no longer deleted on plan page load. The calendar view uses them to show what you ate on past days.
 
-## Protocol system
+## Activity types & rest day macros
 
-- Protocols are JSON objects stored in the `protocols` table.
-- 1 built-in template in `lib/protocol-templates.ts` ("Default") with a single "Default" activity type. Users add custom activity types via AI.
-- Macro targets are single numbers (not min/max ranges). Fat is not stored — it's auto-calculated as the flex macro to hit the calorie target.
-- Users can save custom templates (`is_template` boolean on the protocols table).
-- Protocol page has a template picker and a readable view of the active protocol.
-- The AI advisor chat can propose protocol edits via `<protocol_update>` tags — user must confirm before saving.
-- When saving a modified protocol, user names it and it's saved as both active + template.
-- Deleting all custom templates auto-activates "Default".
+- Activity types live in the `user_activity_types` table — one row per activity type per user.
+- Rest-day macros (`rest_day_carbs_g_per_kg`, `rest_day_protein_g_per_kg`) live on `user_profiles`.
+- Fat is not stored — it's auto-calculated as the flex macro to hit the calorie target.
+- Onboarding seeds a single "Default" activity type per user.
+- Activity types are viewed/deleted at `/settings/activities`. Adding/customising is done via AI chat.
+- The old `protocols` table still exists but is no longer read. It will be cleaned up in a future migration.
 
 ## Food preferences & profile
 
@@ -79,12 +77,12 @@
 - **`food_profile`** (JSONB) is deprecated for the above fields. It may still contain `supplementReactions` data. Don't write `gutTriggers`, `negative`, or `positive` to it — use the flat columns instead.
 - Audio notes processing writes food reactions directly to `food_exclusions` and `preferred_foods` columns, not to `food_profile`.
 - Food preferences are edited on a standalone settings page at `/settings/food`, NOT on the profile edit page.
-- The profile edit page (`/settings/profile`) covers: body stats, weight target, daily energy.
+- The profile edit page (`/settings/profile`) covers: body stats, weight target, daily energy, rest day macros.
 
 ## AI advisor page
 
 - The AI chat page (`/advisor`) is the central input hub. It has:
-  - Chat with Cutta AI (protocol tweaks, shopping strategy, nutrition questions)
+  - Chat with Cutta AI (nutrition questions, shopping strategy, fuelling advice)
   - Mic button for voice-to-text input (uses browser SpeechRecognition API)
   - Log training button (navigates to `/training/upload`)
 - The mic uses `continuous: false` on mobile to avoid duplication bugs, `continuous: true` on desktop.
@@ -106,14 +104,14 @@
 
 - Edit profile page has a save/discard/cancel modal that intercepts BottomNav navigation and the back link.
 - Food preferences page (`/settings/food`) has the same pattern.
-- Protocol page has the same pattern for pending AI-proposed changes.
+- Advisor page has a navigation guard for pending AI-proposed shopping changes.
 - `beforeunload` was **removed** from edit profile — it fought with the custom modal. Don't add it back.
 - For post-save navigation that needs fresh data, use `window.location.href` not `router.push`.
 
 ## Navigation
 
 - BottomNav has 5 items: Today, Plan, AI, Progress, Settings.
-- Settings → hub for Edit profile, Gut health & food preferences, Protocol, Shopping, plus Account (Clerk UserButton) at the bottom.
+- Settings → hub for Edit profile, Gut health & food preferences, Activity types, Shopping, plus Account (Clerk UserButton) at the bottom.
 - Log training and Record note are accessed from the AI page, not from Settings.
 - Calendar monthly view is accessed from the Plan page via "Monthly view →" link.
 - Any fixed element positioned above BottomNav should use `bottom-16` (64px) — this is the measured height of the nav.
