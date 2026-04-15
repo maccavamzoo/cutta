@@ -189,69 +189,169 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-zinc-500 text-xs uppercase tracking-wider pt-3 pb-1">{children}</p>;
 }
 
+// ─── Intensity presets ───────────────────────────────────────────────────────
+
+type Intensity = "Easy" | "Moderate" | "Hard" | "Race";
+
+const INTENSITY_PRESETS: Record<Intensity, {
+  burn_rate_kcal_per_min: number;
+  carbs_g_per_kg: number;
+  protein_g_per_kg: number;
+  pre_timing_hours_before: number;
+  pre_focus: string;
+  during_carbs_per_hour: number;
+  during_description: string;
+  post_timing_minutes_after: number;
+  post_focus: string;
+  post_protein_g_per_kg: number;
+  post_carbs_g_per_kg: number;
+  default_duration_minutes: number;
+  is_race: boolean;
+  fuel_during: boolean;
+}> = {
+  Easy: {
+    burn_rate_kcal_per_min: 5,
+    carbs_g_per_kg: 3,
+    protein_g_per_kg: 1.8,
+    pre_timing_hours_before: 1.5,
+    pre_focus: "Light meal, easy to digest",
+    during_carbs_per_hour: 0,
+    during_description: "Water and electrolytes only",
+    post_timing_minutes_after: 45,
+    post_focus: "Normal meal timing is fine",
+    post_protein_g_per_kg: 0.3,
+    post_carbs_g_per_kg: 0.6,
+    default_duration_minutes: 60,
+    is_race: false,
+    fuel_during: false,
+  },
+  Moderate: {
+    burn_rate_kcal_per_min: 8,
+    carbs_g_per_kg: 5,
+    protein_g_per_kg: 1.8,
+    pre_timing_hours_before: 2,
+    pre_focus: "Moderate carbs, low fibre",
+    during_carbs_per_hour: 40,
+    during_description: "Drink mix or gels",
+    post_timing_minutes_after: 30,
+    post_focus: "Protein and carbs for recovery",
+    post_protein_g_per_kg: 0.3,
+    post_carbs_g_per_kg: 0.8,
+    default_duration_minutes: 75,
+    is_race: false,
+    fuel_during: true,
+  },
+  Hard: {
+    burn_rate_kcal_per_min: 11,
+    carbs_g_per_kg: 7,
+    protein_g_per_kg: 1.8,
+    pre_timing_hours_before: 2.5,
+    pre_focus: "High carb, low fibre, moderate protein",
+    during_carbs_per_hour: 60,
+    during_description: "Gels, bars, or drink mix",
+    post_timing_minutes_after: 30,
+    post_focus: "Protein and carbs within recovery window",
+    post_protein_g_per_kg: 0.3,
+    post_carbs_g_per_kg: 1.0,
+    default_duration_minutes: 90,
+    is_race: false,
+    fuel_during: true,
+  },
+  Race: {
+    burn_rate_kcal_per_min: 12,
+    carbs_g_per_kg: 9,
+    protein_g_per_kg: 1.6,
+    pre_timing_hours_before: 3,
+    pre_focus: "High carb, low fibre, familiar foods only",
+    during_carbs_per_hour: 80,
+    during_description: "Practised race nutrition",
+    post_timing_minutes_after: 20,
+    post_focus: "Rapid glycogen replenishment",
+    post_protein_g_per_kg: 0.3,
+    post_carbs_g_per_kg: 1.2,
+    default_duration_minutes: 120,
+    is_race: true,
+    fuel_during: true,
+  },
+};
+
+const INTENSITIES: Intensity[] = ["Easy", "Moderate", "Hard", "Race"];
+
 // ─── Creation form ───────────────────────────────────────────────────────────
 
 function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Core fields
+  // Visible fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [intensity, setIntensity] = useState<Intensity | null>(null);
+  const [defaultDuration, setDefaultDuration] = useState("");
+  const [fuelDuring, setFuelDuring] = useState(false);
+  const [duringCarbs, setDuringCarbs] = useState("");
+
+  // Advanced (hidden by default, pre-filled from preset)
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [burnRate, setBurnRate] = useState("");
   const [carbs, setCarbs] = useState("");
   const [protein, setProtein] = useState("");
-
-  // Pre-activity
-  const [preTiming, setPreTiming] = useState("2");
+  const [preTiming, setPreTiming] = useState("");
   const [preFocus, setPreFocus] = useState("");
-
-  // During
-  const [duringEnabled, setDuringEnabled] = useState(true);
-  const [duringCarbs, setDuringCarbs] = useState("");
   const [duringDesc, setDuringDesc] = useState("");
-
-  // Post-activity
-  const [postTiming, setPostTiming] = useState("30");
+  const [postTiming, setPostTiming] = useState("");
   const [postFocus, setPostFocus] = useState("");
-  const [postProtein, setPostProtein] = useState("0.3");
-  const [postCarbs, setPostCarbs] = useState("0.8");
+  const [postProtein, setPostProtein] = useState("");
+  const [postCarbs, setPostCarbs] = useState("");
 
-  // Other
-  const [defaultDuration, setDefaultDuration] = useState("60");
-  const [isRace, setIsRace] = useState(false);
+  function handleIntensityChange(i: Intensity) {
+    setIntensity(i);
+    const p = INTENSITY_PRESETS[i];
+    // Fill all values from preset
+    setDefaultDuration(String(p.default_duration_minutes));
+    setFuelDuring(p.fuel_during);
+    setDuringCarbs(p.fuel_during ? String(p.during_carbs_per_hour) : "");
+    setBurnRate(String(p.burn_rate_kcal_per_min));
+    setCarbs(String(p.carbs_g_per_kg));
+    setProtein(String(p.protein_g_per_kg));
+    setPreTiming(String(p.pre_timing_hours_before));
+    setPreFocus(p.pre_focus);
+    setDuringDesc(p.during_description);
+    setPostTiming(String(p.post_timing_minutes_after));
+    setPostFocus(p.post_focus);
+    setPostProtein(String(p.post_protein_g_per_kg));
+    setPostCarbs(String(p.post_carbs_g_per_kg));
+  }
 
   async function handleSave() {
     setError(null);
 
     if (!name.trim()) { setError("Name is required."); return; }
-    if (!burnRate || isNaN(Number(burnRate))) { setError("Burn rate is required."); return; }
-    if (!carbs || isNaN(Number(carbs))) { setError("Carbs g/kg is required."); return; }
-    if (!protein || isNaN(Number(protein))) { setError("Protein g/kg is required."); return; }
+    if (!intensity) { setError("Pick an intensity."); return; }
 
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
         name: name.trim(),
         description: description.trim(),
-        burnRateKcalPerMin: Number(burnRate),
-        carbsGPerKg: Number(carbs),
-        proteinGPerKg: Number(protein),
+        burnRateKcalPerMin: Number(burnRate) || 8,
+        carbsGPerKg: Number(carbs) || 5,
+        proteinGPerKg: Number(protein) || 1.8,
         preActivity: {
           timing_hours_before: Number(preTiming) || 2,
-          focus: preFocus.trim() || "Moderate carbs, low fibre",
+          focus: preFocus || "Moderate carbs, low fibre",
         },
-        duringActivity: duringEnabled
-          ? { carbs_per_hour: Number(duringCarbs) || 40, description: duringDesc.trim() || "Drink mix or gels" }
+        duringActivity: fuelDuring
+          ? { carbs_per_hour: Number(duringCarbs) || 40, description: duringDesc || "Drink mix or gels" }
           : null,
         postActivity: {
           timing_minutes_after: Number(postTiming) || 30,
-          focus: postFocus.trim() || "Protein and carbs for recovery",
+          focus: postFocus || "Protein and carbs for recovery",
           protein_g_per_kg: Number(postProtein) || 0.3,
           carbs_g_per_kg: Number(postCarbs) || 0.8,
         },
         defaultDurationMinutes: Number(defaultDuration) || 60,
-        isRace,
+        isRace: intensity === "Race",
       };
 
       const res = await fetch("/api/activity-types", {
@@ -274,104 +374,128 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-1">
-      <p className="text-white text-sm font-semibold pb-1">New activity type</p>
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+      <p className="text-white text-sm font-semibold">New activity type</p>
 
-      {/* Core fields */}
-      <SectionLabel>Basics</SectionLabel>
-      <div className="space-y-2">
-        <div>
-          <label className="text-zinc-400 text-sm block mb-1">Name</label>
-          <TextInput value={name} onChange={setName} placeholder="e.g. Hard ride, Gym session" />
-        </div>
-        <div>
-          <label className="text-zinc-400 text-sm block mb-1">Description</label>
-          <TextInput value={description} onChange={setDescription} placeholder="e.g. Intervals, threshold work" />
-        </div>
-      </div>
-
-      <SectionLabel>Day macros</SectionLabel>
-      <FormField label="Burn rate" suffix="kcal/min">
-        <NumInput value={burnRate} onChange={setBurnRate} step="0.5" min="1" max="20" placeholder="8" />
-      </FormField>
-      <FormField label="Carbs" suffix="g/kg">
-        <NumInput value={carbs} onChange={setCarbs} step="0.5" min="1" max="12" placeholder="5" />
-      </FormField>
-      <FormField label="Protein" suffix="g/kg">
-        <NumInput value={protein} onChange={setProtein} step="0.1" min="1" max="3" placeholder="1.8" />
-      </FormField>
-      <div className="flex items-center justify-between py-2">
-        <span className="text-zinc-400 text-sm">Fat</span>
-        <span className="text-zinc-500 text-sm">Auto-calculated</span>
-      </div>
-
-      {/* Pre-activity */}
-      <SectionLabel>Pre-activity</SectionLabel>
-      <FormField label="Timing" suffix="hrs before">
-        <NumInput value={preTiming} onChange={setPreTiming} step="0.5" min="0.5" max="4" />
-      </FormField>
+      {/* Name */}
       <div>
-        <label className="text-zinc-400 text-sm block mb-1">Focus</label>
-        <TextInput value={preFocus} onChange={setPreFocus} placeholder="e.g. High carb, low fibre" />
+        <label className="text-zinc-400 text-sm block mb-1">Name</label>
+        <TextInput value={name} onChange={setName} placeholder="e.g. Hard ride, Gym session" />
       </div>
 
-      {/* During */}
-      <SectionLabel>During activity</SectionLabel>
+      {/* Description */}
+      <div>
+        <label className="text-zinc-400 text-sm block mb-1">Description</label>
+        <TextInput value={description} onChange={setDescription} placeholder="e.g. Intervals, hill reps" />
+      </div>
+
+      {/* Intensity pills */}
+      <div>
+        <label className="text-zinc-400 text-sm block mb-2">Intensity</label>
+        <div className="flex gap-2">
+          {INTENSITIES.map((i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => handleIntensityChange(i)}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                intensity === i
+                  ? "bg-lime-400 text-black"
+                  : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              {i}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Duration */}
+      <FormField label="Default duration" suffix="min">
+        <NumInput value={defaultDuration} onChange={setDefaultDuration} min="10" max="480" inputMode="numeric" placeholder="60" />
+      </FormField>
+
+      {/* Fuel during toggle + carbs/hr */}
       <label className="flex items-center gap-2 py-1 cursor-pointer">
         <input
           type="checkbox"
-          checked={duringEnabled}
-          onChange={(e) => setDuringEnabled(e.target.checked)}
+          checked={fuelDuring}
+          onChange={(e) => setFuelDuring(e.target.checked)}
           className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-lime-400 focus:ring-lime-400/30"
         />
-        <span className="text-zinc-300 text-sm">Fuelling during activity</span>
+        <span className="text-zinc-300 text-sm">Fuel during activity</span>
       </label>
-      {duringEnabled && (
-        <>
-          <FormField label="Carbs" suffix="g/hr">
-            <NumInput value={duringCarbs} onChange={setDuringCarbs} min="0" max="120" placeholder="40" />
-          </FormField>
-          <div>
-            <label className="text-zinc-400 text-sm block mb-1">Description</label>
-            <TextInput value={duringDesc} onChange={setDuringDesc} placeholder="e.g. Gels and drink mix" />
-          </div>
-        </>
+      {fuelDuring && (
+        <FormField label="Carbs during" suffix="g/hr">
+          <NumInput value={duringCarbs} onChange={setDuringCarbs} min="0" max="120" placeholder="40" />
+        </FormField>
       )}
 
-      {/* Post-activity */}
-      <SectionLabel>Post-activity</SectionLabel>
-      <FormField label="Timing" suffix="min after">
-        <NumInput value={postTiming} onChange={setPostTiming} min="10" max="120" inputMode="numeric" />
-      </FormField>
-      <div>
-        <label className="text-zinc-400 text-sm block mb-1">Focus</label>
-        <TextInput value={postFocus} onChange={setPostFocus} placeholder="e.g. Protein and carbs for recovery" />
-      </div>
-      <FormField label="Protein" suffix="g/kg">
-        <NumInput value={postProtein} onChange={setPostProtein} step="0.1" min="0.1" max="1" />
-      </FormField>
-      <FormField label="Carbs" suffix="g/kg">
-        <NumInput value={postCarbs} onChange={setPostCarbs} step="0.1" min="0.1" max="2" />
-      </FormField>
+      {/* Advanced settings */}
+      <button
+        type="button"
+        onClick={() => setAdvancedOpen((o) => !o)}
+        className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors pt-1"
+      >
+        {advancedOpen ? "Hide advanced settings" : "Advanced settings \u2192"}
+      </button>
 
-      {/* Other */}
-      <SectionLabel>Other</SectionLabel>
-      <FormField label="Default duration" suffix="min">
-        <NumInput value={defaultDuration} onChange={setDefaultDuration} min="10" max="480" inputMode="numeric" />
-      </FormField>
-      <label className="flex items-center gap-2 py-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={isRace}
-          onChange={(e) => setIsRace(e.target.checked)}
-          className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-lime-400 focus:ring-lime-400/30"
-        />
-        <span className="text-zinc-300 text-sm">This is a race-type activity</span>
-      </label>
+      {advancedOpen && (
+        <div className="space-y-1 border-t border-zinc-800 pt-2">
+          <SectionLabel>Day macros</SectionLabel>
+          <FormField label="Burn rate" suffix="kcal/min">
+            <NumInput value={burnRate} onChange={setBurnRate} step="0.5" min="1" max="20" placeholder="8" />
+          </FormField>
+          <FormField label="Carbs" suffix="g/kg">
+            <NumInput value={carbs} onChange={setCarbs} step="0.5" min="1" max="12" placeholder="5" />
+          </FormField>
+          <FormField label="Protein" suffix="g/kg">
+            <NumInput value={protein} onChange={setProtein} step="0.1" min="1" max="3" placeholder="1.8" />
+          </FormField>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-zinc-400 text-sm">Fat</span>
+            <span className="text-zinc-500 text-sm">Auto-calculated</span>
+          </div>
+
+          <SectionLabel>Pre-activity</SectionLabel>
+          <FormField label="Timing" suffix="hrs before">
+            <NumInput value={preTiming} onChange={setPreTiming} step="0.5" min="0.5" max="4" />
+          </FormField>
+          <div>
+            <label className="text-zinc-400 text-sm block mb-1">Focus</label>
+            <TextInput value={preFocus} onChange={setPreFocus} placeholder="e.g. High carb, low fibre" />
+          </div>
+
+          {fuelDuring && (
+            <>
+              <SectionLabel>During activity</SectionLabel>
+              <div>
+                <label className="text-zinc-400 text-sm block mb-1">Description</label>
+                <TextInput value={duringDesc} onChange={setDuringDesc} placeholder="e.g. Gels and drink mix" />
+              </div>
+            </>
+          )}
+
+          <SectionLabel>Post-activity</SectionLabel>
+          <FormField label="Timing" suffix="min after">
+            <NumInput value={postTiming} onChange={setPostTiming} min="10" max="120" inputMode="numeric" />
+          </FormField>
+          <div>
+            <label className="text-zinc-400 text-sm block mb-1">Focus</label>
+            <TextInput value={postFocus} onChange={setPostFocus} placeholder="e.g. Protein and carbs for recovery" />
+          </div>
+          <FormField label="Protein" suffix="g/kg">
+            <NumInput value={postProtein} onChange={setPostProtein} step="0.1" min="0.1" max="1" />
+          </FormField>
+          <FormField label="Carbs" suffix="g/kg">
+            <NumInput value={postCarbs} onChange={setPostCarbs} step="0.1" min="0.1" max="2" />
+          </FormField>
+        </div>
+      )}
 
       {error && <p className="text-red-400 text-xs pt-1">{error}</p>}
 
-      <div className="pt-3">
+      <div className="pt-2 space-y-2">
         <button
           type="button"
           onClick={handleSave}
@@ -379,6 +503,13 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
           className="w-full py-2.5 rounded-xl bg-lime-400 text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
         >
           {saving ? "Saving..." : "Save activity type"}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full py-2.5 rounded-xl bg-zinc-800 text-zinc-400 text-sm font-semibold hover:bg-zinc-700 transition-colors"
+        >
+          Cancel
         </button>
       </div>
     </div>
