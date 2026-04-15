@@ -3,22 +3,15 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import type { ProtocolFile, MacroRange, ActivityType } from "@/lib/protocol";
-
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-function formatRange(range: MacroRange, unit: string): string {
-  if (range.min === range.max) return `${range.min} ${unit}`;
-  return `${range.min}\u2013${range.max} ${unit}`;
-}
+import type { ProtocolFile, ActivityType } from "@/lib/protocol";
 
 // ─── primitives ─────────────────────────────────────────────────────────────
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
   return (
     <div className="flex justify-between gap-4 py-2 border-b border-zinc-800 last:border-0">
       <span className="text-zinc-500 text-sm shrink-0">{label}</span>
-      <span className="text-zinc-200 text-sm text-right">{value}</span>
+      <span className={`text-sm text-right ${valueClassName ?? "text-zinc-200"}`}>{value}</span>
     </div>
   );
 }
@@ -61,9 +54,9 @@ function ActivityCard({ activity }: { activity: ActivityType }) {
       {open && (
         <div className="px-4 pb-3 border-t border-zinc-800">
           <Row label="Burn rate"  value={`${activity.burn_rate_kcal_per_min} kcal/min`} />
-          <Row label="Carbs"      value={formatRange(activity.carbs_g_per_kg, "g/kg")} />
-          <Row label="Protein"    value={formatRange(activity.protein_g_per_kg, "g/kg")} />
-          <Row label="Fat"        value={formatRange(activity.fat_g_per_kg, "g/kg")} />
+          <Row label="Carbs"      value={`${activity.carbs_g_per_kg} g/kg`} />
+          <Row label="Protein"    value={`${activity.protein_g_per_kg} g/kg`} />
+          <Row label="Fat"        value="Auto-calculated" valueClassName="text-zinc-500" />
           <Row
             label="Pre-activity"
             value={`${activity.pre_activity.timing_hours_before} hrs before — ${activity.pre_activity.focus}`}
@@ -138,10 +131,10 @@ export default function ProtocolReadable({
       </Section>
 
       {/* Rest day */}
-      <Section title="Rest day">
-        <Row label="Carbs"    value={formatRange(rest_day.carbs_g_per_kg, "g/kg")} />
-        <Row label="Protein"  value={formatRange(rest_day.protein_g_per_kg, "g/kg")} />
-        <Row label="Fat"      value={formatRange(rest_day.fat_g_per_kg, "g/kg")} />
+      <Section title="Rest day macros">
+        <Row label="Carbs"    value={`${rest_day.carbs_g_per_kg} g/kg`} />
+        <Row label="Protein"  value={`${rest_day.protein_g_per_kg} g/kg`} />
+        <Row label="Fat"      value="Auto-calculated" valueClassName="text-zinc-500" />
       </Section>
 
       {/* Activity types */}
@@ -159,7 +152,7 @@ export default function ProtocolReadable({
       {/* Race week */}
       <Section title="Race week">
         <Row label="Carb load starts" value={`${race_week.carb_load_days_before} days before`} />
-        <Row label="Carb load target" value={formatRange(race_week.carb_load_g_per_kg, "g/kg")} />
+        <Row label="Carb load target" value={`${race_week.carb_load_g_per_kg} g/kg`} />
         <Row
           label="Race morning"
           value={`${race_week.race_morning_carbs_g_per_kg} g/kg, ${race_week.race_morning_hours_before} hrs before`}

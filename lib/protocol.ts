@@ -1,11 +1,6 @@
 // Protocol file type and validation.
 // Phase 6A: activity_types array replaces single training_day/pre_ride/on_bike/post_ride.
 
-export interface MacroRange {
-  min: number;
-  max: number;
-}
-
 // ─── Activity-level fuelling rules ──────────────────────────────────────────
 
 export interface DuringActivityRules {
@@ -37,9 +32,8 @@ export interface ActivityType {
   /** Estimated kcal burned per minute for this activity */
   burn_rate_kcal_per_min: number;
   /** Day macro targets (g per kg body weight) */
-  carbs_g_per_kg: MacroRange;
-  protein_g_per_kg: MacroRange;
-  fat_g_per_kg: MacroRange;
+  carbs_g_per_kg: number;
+  protein_g_per_kg: number;
   /** Pre-activity nutrition */
   pre_activity: ActivityPreRules;
   /** During-activity fuelling. Null for activities with no during-fuelling */
@@ -55,16 +49,15 @@ export interface ActivityType {
 // ─── Rest day (always present) ──────────────────────────────────────────────
 
 export interface RestDayRules {
-  carbs_g_per_kg: MacroRange;
-  protein_g_per_kg: MacroRange;
-  fat_g_per_kg: MacroRange;
+  carbs_g_per_kg: number;
+  protein_g_per_kg: number;
 }
 
 // ─── Race week prep ─────────────────────────────────────────────────────────
 
 export interface RaceWeekRules {
   carb_load_days_before: number;
-  carb_load_g_per_kg: MacroRange;
+  carb_load_g_per_kg: number;
   race_morning_carbs_g_per_kg: number;
   race_morning_hours_before: number;
   strategy_notes: string;
@@ -86,28 +79,16 @@ type ValidationOk   = { valid: true;  data: ProtocolFile };
 type ValidationFail = { valid: false; error: string };
 export type ValidationResult = ValidationOk | ValidationFail;
 
-function isMacroRange(v: unknown): v is MacroRange {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    typeof (v as MacroRange).min === "number" &&
-    typeof (v as MacroRange).max === "number"
-  );
-}
-
 function validateRestDay(v: unknown): ValidationResult | null {
   if (typeof v !== "object" || v === null) {
     return { valid: false, error: '"rest_day" must be an object.' };
   }
   const obj = v as Record<string, unknown>;
-  if (!isMacroRange(obj.carbs_g_per_kg)) {
-    return { valid: false, error: '"rest_day.carbs_g_per_kg" must be an object with numeric min and max.' };
+  if (typeof obj.carbs_g_per_kg !== "number") {
+    return { valid: false, error: '"rest_day.carbs_g_per_kg" must be a number.' };
   }
-  if (!isMacroRange(obj.protein_g_per_kg)) {
-    return { valid: false, error: '"rest_day.protein_g_per_kg" must be an object with numeric min and max.' };
-  }
-  if (!isMacroRange(obj.fat_g_per_kg)) {
-    return { valid: false, error: '"rest_day.fat_g_per_kg" must be an object with numeric min and max.' };
+  if (typeof obj.protein_g_per_kg !== "number") {
+    return { valid: false, error: '"rest_day.protein_g_per_kg" must be a number.' };
   }
   return null;
 }
@@ -127,14 +108,11 @@ function validateActivityType(v: unknown, index: number): ValidationResult | nul
   if (typeof a.burn_rate_kcal_per_min !== "number") {
     return { valid: false, error: `activity_types[${index}].burn_rate_kcal_per_min must be a number.` };
   }
-  if (!isMacroRange(a.carbs_g_per_kg)) {
-    return { valid: false, error: `activity_types[${index}].carbs_g_per_kg must be an object with numeric min and max.` };
+  if (typeof a.carbs_g_per_kg !== "number") {
+    return { valid: false, error: `activity_types[${index}].carbs_g_per_kg must be a number.` };
   }
-  if (!isMacroRange(a.protein_g_per_kg)) {
-    return { valid: false, error: `activity_types[${index}].protein_g_per_kg must be an object with numeric min and max.` };
-  }
-  if (!isMacroRange(a.fat_g_per_kg)) {
-    return { valid: false, error: `activity_types[${index}].fat_g_per_kg must be an object with numeric min and max.` };
+  if (typeof a.protein_g_per_kg !== "number") {
+    return { valid: false, error: `activity_types[${index}].protein_g_per_kg must be a number.` };
   }
 
   // pre_activity
@@ -226,8 +204,8 @@ export function validateProtocol(raw: unknown): ValidationResult {
   if (typeof rw.carb_load_days_before !== "number") {
     return { valid: false, error: '"race_week.carb_load_days_before" must be a number.' };
   }
-  if (!isMacroRange(rw.carb_load_g_per_kg)) {
-    return { valid: false, error: '"race_week.carb_load_g_per_kg" must be an object with numeric min and max.' };
+  if (typeof rw.carb_load_g_per_kg !== "number") {
+    return { valid: false, error: '"race_week.carb_load_g_per_kg" must be a number.' };
   }
   if (typeof rw.race_morning_carbs_g_per_kg !== "number") {
     return { valid: false, error: '"race_week.race_morning_carbs_g_per_kg" must be a number.' };

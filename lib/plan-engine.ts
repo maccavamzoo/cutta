@@ -2,7 +2,7 @@
 // Pure deterministic module — no AI calls, no DB calls, no side effects.
 // Takes user data + protocol and produces a complete DayBrief for one day.
 
-import type { ProtocolFile, MacroRange, ActivityType } from './protocol';
+import type { ProtocolFile, ActivityType } from './protocol';
 
 const KCAL_PER_KG_FAT = 7700;
 
@@ -166,9 +166,8 @@ export interface DayBrief {
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 interface DayMacroRules {
-  carbs_g_per_kg: MacroRange;
-  protein_g_per_kg: MacroRange;
-  fat_g_per_kg: MacroRange;
+  carbs_g_per_kg: number;
+  protein_g_per_kg: number;
 }
 
 function getDayMacroRules(protocol: ProtocolFile, activityType: ActivityType | null): DayMacroRules {
@@ -176,18 +175,12 @@ function getDayMacroRules(protocol: ProtocolFile, activityType: ActivityType | n
     return {
       carbs_g_per_kg:    protocol.rest_day.carbs_g_per_kg,
       protein_g_per_kg:  protocol.rest_day.protein_g_per_kg,
-      fat_g_per_kg:      protocol.rest_day.fat_g_per_kg,
     };
   }
   return {
     carbs_g_per_kg:    activityType.carbs_g_per_kg,
     protein_g_per_kg:  activityType.protein_g_per_kg,
-    fat_g_per_kg:      activityType.fat_g_per_kg,
   };
-}
-
-function midpoint(range: MacroRange): number {
-  return (range.min + range.max) / 2;
 }
 
 function formatTime(date: Date): string {
@@ -276,25 +269,15 @@ function computeGuardrails(feedback: PlanEngineInput['recentFeedback']): Guardra
 function computeMacros(
   weightKg: number,
   dayRules: DayMacroRules,
-  isTrainingDay: boolean,
   guardrailCarbsG: number,
   totalCalories: number,
 ): { carbsG: number; proteinG: number; fatG: number } {
-  // Training days bias toward high end of carb range for performance
-  const carbMult = isTrainingDay
-    ? dayRules.carbs_g_per_kg.min * 0.3 + dayRules.carbs_g_per_kg.max * 0.7
-    : midpoint(dayRules.carbs_g_per_kg);
+  const carbsG = Math.round(weightKg * dayRules.carbs_g_per_kg + guardrailCarbsG);
+  const proteinG = Math.round(weightKg * dayRules.protein_g_per_kg);
 
-  const carbsG = Math.round(weightKg * carbMult + guardrailCarbsG);
-  const proteinG = Math.round(weightKg * midpoint(dayRules.protein_g_per_kg));
-  let fatG = Math.round(weightKg * midpoint(dayRules.fat_g_per_kg));
-
-  // Reconcile with calorie target — fat is the flex macro
-  const macroCalories = carbsG * 4 + proteinG * 4 + fatG * 9;
-  const diff = totalCalories - macroCalories;
-  if (Math.abs(diff) > 100) {
-    fatG = Math.max(0, fatG + Math.round(diff / 9));
-  }
+  // Fat is the flex macro — fills remaining calories
+  const usedCalories = carbsG * 4 + proteinG * 4;
+  const fatG = Math.max(0, Math.round((totalCalories - usedCalories) / 9));
 
   return { carbsG, proteinG, fatG };
 }
@@ -635,7 +618,6 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
   const { carbsG, proteinG, fatG } = computeMacros(
     input.currentWeightKg,
     dayRules,
-    dayType !== 'rest',
     guardrailCarbAdj,
     totalCalories,
   );
