@@ -64,12 +64,13 @@
 ## Protocol system
 
 - Protocols are JSON objects stored in the `protocols` table.
-- 4 built-in templates in `lib/protocol-templates.ts` (Endurance Base, Race Week, Weight Loss, General Health).
+- 1 built-in template in `lib/protocol-templates.ts` ("Default") with a single "Default" activity type. Users add custom activity types via AI.
+- Macro targets are single numbers (not min/max ranges). Fat is not stored — it's auto-calculated as the flex macro to hit the calorie target.
 - Users can save custom templates (`is_template` boolean on the protocols table).
 - Protocol page has a template picker and a readable view of the active protocol.
 - The AI advisor chat can propose protocol edits via `<protocol_update>` tags — user must confirm before saving.
 - When saving a modified protocol, user names it and it's saved as both active + template.
-- Deleting all custom templates auto-activates "General Health".
+- Deleting all custom templates auto-activates "Default".
 
 ## Food preferences & profile
 

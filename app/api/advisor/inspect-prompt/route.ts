@@ -28,21 +28,21 @@ interface InspectRequest {
 
 const SCHEMAS = `
 // PROTOCOL SCHEMA
-interface MacroRange { min: number; max: number; }
 interface ActivityType {
   name: string; description: string;
   burn_rate_kcal_per_min: number;
-  carbs_g_per_kg: MacroRange; protein_g_per_kg: MacroRange; fat_g_per_kg: MacroRange;
+  carbs_g_per_kg: number; protein_g_per_kg: number;
+  // fat_g_per_kg is NOT in the protocol — fat is auto-calculated as the flex macro to hit the calorie target
   pre_activity: { timing_hours_before: number; focus: string; };
   during_activity: { carbs_per_hour: number; description: string; } | null;
   post_activity: { timing_minutes_after: number; focus: string; protein_g_per_kg: number; carbs_g_per_kg: number; };
   default_duration_minutes: number; is_race: boolean;
 }
-interface RestDayRules { carbs_g_per_kg: MacroRange; protein_g_per_kg: MacroRange; fat_g_per_kg: MacroRange; }
+interface RestDayRules { carbs_g_per_kg: number; protein_g_per_kg: number; }
 interface ProtocolFile {
   protocol_name: string; description: string;
   rest_day: RestDayRules; activity_types: ActivityType[];
-  race_week: { carb_load_days_before: number; carb_load_g_per_kg: MacroRange; race_morning_carbs_g_per_kg: number; race_morning_hours_before: number; strategy_notes: string; };
+  race_week: { carb_load_days_before: number; carb_load_g_per_kg: number; race_morning_carbs_g_per_kg: number; race_morning_hours_before: number; strategy_notes: string; };
 }
 
 // SHOPPING STRATEGY SCHEMA
@@ -102,15 +102,12 @@ Preferred foods: ${preferredFoods}` : "## USER PROFILE\nNo profile data found.";
   if (protocolRow) {
     const p = protocolRow.content;
     const atLines = p.activity_types.map((at) => {
-      const carbsRange = `${at.carbs_g_per_kg.min}–${at.carbs_g_per_kg.max}g/kg`;
-      const protRange  = `${at.protein_g_per_kg.min}–${at.protein_g_per_kg.max}g/kg`;
-      const fatRange   = `${at.fat_g_per_kg.min}–${at.fat_g_per_kg.max}g/kg`;
       const during = at.during_activity
         ? at.during_activity.carbs_per_hour === 0
           ? "during: water/electrolytes only"
           : `during: ${at.during_activity.carbs_per_hour}g carbs/hr (${at.during_activity.description})`
         : "during: none";
-      return `  - ${at.name}: ${at.description}\n    Macros: ${carbsRange} carbs, ${protRange} protein, ${fatRange} fat | ${during}\n    Pre: ${at.pre_activity.timing_hours_before}h before — ${at.pre_activity.focus}\n    Post: ${at.post_activity.timing_minutes_after}min after — ${at.post_activity.focus}`;
+      return `  - ${at.name}: ${at.description}\n    Macros: ${at.carbs_g_per_kg}g/kg carbs, ${at.protein_g_per_kg}g/kg protein, fat auto-calculated | ${during}\n    Pre: ${at.pre_activity.timing_hours_before}h before — ${at.pre_activity.focus}\n    Post: ${at.post_activity.timing_minutes_after}min after — ${at.post_activity.focus}`;
     }).join("\n");
     const rd = p.rest_day;
     protocolSection = `## ACTIVE PROTOCOL: ${protocolRow.name}
@@ -119,7 +116,7 @@ ${p.description}
 Activity types:
 ${atLines}
 
-Rest day: carbs ${rd.carbs_g_per_kg.min}–${rd.carbs_g_per_kg.max}g/kg, protein ${rd.protein_g_per_kg.min}–${rd.protein_g_per_kg.max}g/kg, fat ${rd.fat_g_per_kg.min}–${rd.fat_g_per_kg.max}g/kg
+Rest day: carbs ${rd.carbs_g_per_kg}g/kg, protein ${rd.protein_g_per_kg}g/kg, fat auto-calculated
 
 Race week: ${p.race_week.strategy_notes}
 

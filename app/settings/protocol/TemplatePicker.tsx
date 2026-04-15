@@ -11,8 +11,8 @@ interface Props {
   onDeleted: () => void;
 }
 
-const GENERAL_HEALTH = PROTOCOL_TEMPLATES.find(
-  (t) => t.protocol_name === "General Health"
+const DEFAULT_TEMPLATE = PROTOCOL_TEMPLATES.find(
+  (t) => t.protocol_name === "Default"
 )!;
 
 export default function TemplatePicker({
@@ -84,14 +84,14 @@ export default function TemplatePicker({
       // Clear selection if we deleted the selected template
       if (deletedTemplate && selected === deletedTemplate.name) setSelected(null);
 
-      // Auto-activate General Health if needed
+      // Auto-activate Default if needed
       if (activateGeneral) {
         await fetch("/api/protocol", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(GENERAL_HEALTH),
+          body:    JSON.stringify(DEFAULT_TEMPLATE),
         });
-        setSelected("General Health");
+        setSelected("Default");
       }
 
       onDeleted();
@@ -105,7 +105,7 @@ export default function TemplatePicker({
   return (
     <div className="space-y-4">
       {/* Built-in templates */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {PROTOCOL_TEMPLATES.map((t) => {
           const isSelected = selected === t.protocol_name;
           return (
@@ -120,9 +120,6 @@ export default function TemplatePicker({
               }`}
             >
               <p className="text-white font-semibold text-sm leading-snug">{t.protocol_name}</p>
-              {t.description && (
-                <p className="text-zinc-500 text-xs mt-1 leading-relaxed">{t.description}</p>
-              )}
             </button>
           );
         })}
