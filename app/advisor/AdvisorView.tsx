@@ -115,12 +115,18 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
     setHasSpeech(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
   }, []);
 
-  // Prefill input from URL param (e.g. from activity types page)
+  // Prefill + auto-send from URL param (e.g. from activity types page)
+  const prefillHandled = useRef(false);
   useEffect(() => {
-    if (prefillMessage && messages.length === 0 && !input) {
-      setInput(prefillMessage);
-      inputRef.current?.focus();
-    }
+    if (!prefillMessage || prefillHandled.current) return;
+    prefillHandled.current = true;
+    // Clear any existing chat
+    setMessages([]);
+    setPendingStrategy(null);
+    setPendingActivityType(null);
+    void saveHistory([]);
+    // Auto-send after a short delay to let state settle
+    setTimeout(() => { sendMessage(prefillMessage); }, 100);
     // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -221,8 +227,8 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
 
   // ── Send message ────────────────────────────────────────────────────────
 
-  async function handleSend() {
-    const text = input.trim();
+  async function sendMessage(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || loading) return;
 
     if (debugMode === "inspect") {
@@ -327,6 +333,8 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
       setLoading(false);
     }
   }
+
+  function handleSend() { sendMessage(); }
 
   // ── Strategy update flow ────────────────────────────────────────────────
 

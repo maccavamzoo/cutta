@@ -582,10 +582,10 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
           </button>
           <button
             type="button"
-            onClick={() => { window.location.href = "/advisor?prefill=" + encodeURIComponent("I want to create a new activity type. Help me figure out the right values."); }}
+            onClick={() => { window.location.href = "/advisor?prefill=" + encodeURIComponent("I want to create a new activity type for my training. Walk me through it \u2014 ask me what kind of activity it is and help me set the right values. When we\u2019re done, save it."); }}
             className="text-xs px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors font-medium"
           >
-            Configure with AI &rarr;
+            + AI &#10022;
           </button>
         </div>
 
