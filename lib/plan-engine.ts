@@ -45,7 +45,6 @@ export interface PlanEngineInput {
   maintenanceCalories: number;
   weightLossRate: number; // kg/week, 0 = maintain
   foodExclusions: string[];
-  appetiteProfile: string | null;
   preferredFoods: string[];
 
   // Rest-day macros (from user_profiles)
@@ -160,7 +159,6 @@ export interface DayBrief {
   yesterdayMeals: string[];
   ingredientPool: string[] | null;
   foodExclusions: string[];
-  appetiteProfile: string | null;
   foodPreferences: string[];
 }
 
@@ -198,11 +196,6 @@ function subtractHours(date: Date, hours: number): Date {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function appetiteHas(profile: string | null, keyword: string): boolean {
-  if (!profile) return false;
-  return profile.toLowerCase().includes(keyword.toLowerCase());
 }
 
 // ─── B. Training burn ─────────────────────────────────────────────────────────
@@ -406,58 +399,14 @@ function buildRestDaySlots(
   totalCarbsG: number,
   totalProteinG: number,
   totalFatG: number,
-  appetiteProfile: string | null,
   carbLoadContext: string | null,
 ): MealSlot[] {
-  const noSnacking  = appetiteHas(appetiteProfile, 'no snack')
-    || appetiteHas(appetiteProfile, '3 big meals')
-    || appetiteHas(appetiteProfile, 'no snacking');
-  const doneBy7     = appetiteHas(appetiteProfile, 'done eating by 7')
-    || appetiteHas(appetiteProfile, 'done by 7pm')
-    || appetiteHas(appetiteProfile, '7pm');
-  const grazing     = appetiteHas(appetiteProfile, 'little and often')
-    || appetiteHas(appetiteProfile, 'grazing');
-  const bigBreakfast = appetiteHas(appetiteProfile, 'big breakfast');
-  const lightMorning = appetiteHas(appetiteProfile, 'light morning');
-
-  if (grazing) {
-    const dinnerTime = doneBy7 ? '18:00' : '19:00';
-    const s = [
-      makeMealSlot('Breakfast',       '07:00', 'Main meal',   totalCarbsG * 0.20, totalProteinG * 0.20, totalFatG * 0.20),
-      makeMealSlot('Mid-morning',     '10:00', 'Light snack', totalCarbsG * 0.15, totalProteinG * 0.15, totalFatG * 0.15),
-      makeMealSlot('Lunch',           '13:00', 'Main meal',   totalCarbsG * 0.25, totalProteinG * 0.25, totalFatG * 0.25),
-      makeMealSlot('Afternoon snack', '16:00', 'Light snack', totalCarbsG * 0.15, totalProteinG * 0.15, totalFatG * 0.15),
-      makeMealSlot('Dinner',          dinnerTime, 'Main meal', totalCarbsG * 0.25, totalProteinG * 0.25, totalFatG * 0.25),
-    ];
-    return carbLoadContext ? applyCarbLoading(s) : s;
-  }
-
-  let bfFrac = 0.25, lunchFrac = 0.35, dinnerFrac = 0.35, snackFrac = 0.05;
-
-  if (bigBreakfast) {
-    bfFrac = 0.35; lunchFrac = 0.35; dinnerFrac = 0.25; snackFrac = 0.05;
-  } else if (lightMorning) {
-    bfFrac = 0.20; lunchFrac = 0.30; dinnerFrac = 0.45; snackFrac = 0.05;
-  }
-
-  const includeSnack = !noSnacking && !doneBy7;
-  if (!includeSnack) {
-    dinnerFrac += snackFrac;
-    snackFrac = 0;
-  }
-
-  const dinnerTime = doneBy7 ? '18:00' : '18:30';
-
   const slots: MealSlot[] = [
-    makeMealSlot('Breakfast', '07:30', 'Main meal', totalCarbsG * bfFrac,    totalProteinG * bfFrac,    totalFatG * bfFrac),
-    makeMealSlot('Lunch',     '12:30', 'Main meal', totalCarbsG * lunchFrac, totalProteinG * lunchFrac, totalFatG * lunchFrac),
-    makeMealSlot('Dinner',    dinnerTime, 'Main meal', totalCarbsG * dinnerFrac, totalProteinG * dinnerFrac, totalFatG * dinnerFrac),
+    makeMealSlot('Breakfast', '07:30', 'Main meal', totalCarbsG * 0.25, totalProteinG * 0.25, totalFatG * 0.25),
+    makeMealSlot('Lunch',     '12:30', 'Main meal', totalCarbsG * 0.35, totalProteinG * 0.35, totalFatG * 0.35),
+    makeMealSlot('Dinner',    '18:30', 'Main meal', totalCarbsG * 0.35, totalProteinG * 0.35, totalFatG * 0.35),
+    makeMealSlot('Evening snack', '20:30', 'Light snack', totalCarbsG * 0.05, totalProteinG * 0.05, totalFatG * 0.05),
   ];
-
-  if (includeSnack) {
-    slots.push(makeMealSlot('Evening snack', '20:30', 'Light snack',
-      totalCarbsG * snackFrac, totalProteinG * snackFrac, totalFatG * snackFrac));
-  }
 
   return carbLoadContext ? applyCarbLoading(slots) : slots;
 }
@@ -636,7 +585,7 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
 
   // H. Meal slots
   const mealSlots = dayType === 'rest' || !todayEvent || !todayActivityType
-    ? buildRestDaySlots(carbsG, proteinG, fatG, input.appetiteProfile, carbLoadContext)
+    ? buildRestDaySlots(carbsG, proteinG, fatG, carbLoadContext)
     : buildTrainingDaySlots(
         todayEvent, todayActivityType,
         carbsG, proteinG, fatG, input.currentWeightKg,
@@ -680,7 +629,6 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
     yesterdayMeals:     input.yesterdayMeals,
     ingredientPool:     input.ingredientPool,
     foodExclusions:  input.foodExclusions,
-    appetiteProfile: input.appetiteProfile,
     foodPreferences: input.preferredFoods,
   };
 }
