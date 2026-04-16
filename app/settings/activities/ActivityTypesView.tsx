@@ -567,26 +567,29 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
           </p>
         </div>
 
-        {/* Action pills */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setFormOpen((o) => !o)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
-              formOpen
-                ? "border-lime-400 bg-lime-400/10 text-lime-400"
-                : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
-            }`}
-          >
-            +
-          </button>
-          <button
-            type="button"
-            onClick={() => { window.location.href = "/advisor?prefill=" + encodeURIComponent("I want to create a new activity type for my training. Walk me through it \u2014 ask me what kind of activity it is and help me set the right values. When we\u2019re done, save it."); }}
-            className="text-xs px-3 py-1.5 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors font-medium"
-          >
-            + AI &#10022;
-          </button>
+        {/* Create new */}
+        <div>
+          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Create new activity type</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setFormOpen((o) => !o)}
+              className={`text-xs px-4 py-1.5 rounded-full border transition-colors font-medium ${
+                formOpen
+                  ? "border-lime-400 bg-lime-400/10 text-lime-400"
+                  : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+            >
+              Manual
+            </button>
+            <button
+              type="button"
+              onClick={() => { window.location.href = "/advisor?prefill=" + encodeURIComponent("I want to create a new activity type for my training. Walk me through it \u2014 ask me what kind of activity it is and help me set the right values. When we\u2019re done, save it."); }}
+              className="text-xs px-4 py-1.5 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors font-medium"
+            >
+              AI &#10022;
+            </button>
+          </div>
         </div>
 
         {/* Creation form */}
