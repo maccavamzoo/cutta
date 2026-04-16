@@ -39,9 +39,6 @@ export const userProfiles = pgTable(
     foodExclusions: text("food_exclusions").array(),
     preferredFoods: text("preferred_foods").array(),
 
-    // Appetite & timing preferences
-    appetiteProfile: text("appetite_profile"),
-
     // Display preferences
     unitSystem: varchar("unit_system", { length: 10 }).default("metric"),
     timezone: varchar("timezone", { length: 100 }),

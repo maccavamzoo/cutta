@@ -106,7 +106,6 @@ export function buildDayPlanPrompt(brief: DayBrief): string {
   lines.push('## FOOD RULES');
   lines.push(`- Exclude: ${brief.foodExclusions.length > 0 ? brief.foodExclusions.join(', ') : 'none'}`);
   lines.push(`- Preferred foods: ${brief.foodPreferences.length > 0 ? brief.foodPreferences.join(', ') : 'no specific preferences'}`);
-  lines.push(`- Eating style: ${brief.appetiteProfile ?? 'no preference'}`);
   if (brief.ingredientPool && brief.ingredientPool.length > 0) {
     lines.push(`- INGREDIENT POOL (use ONLY these ingredients for all meals — do not add items not on this list): ${brief.ingredientPool.join(', ')}`);
   }

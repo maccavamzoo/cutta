@@ -233,7 +233,6 @@ export async function POST(req: NextRequest) {
     maintenanceCalories:    profile.estimatedMaintenanceCalories,
     weightLossRate:         parseRate(profile.weightLossRate),
     foodExclusions:         (profile.foodExclusions as string[] | null) ?? [],
-    appetiteProfile:        profile.appetiteProfile ?? null,
     preferredFoods:         (profile.preferredFoods as string[] | null) ?? [],
     restDayMacros,
     todayActivityType,
