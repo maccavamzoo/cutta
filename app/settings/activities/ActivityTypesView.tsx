@@ -107,8 +107,7 @@ function ActivityCard({
             <button
               type="button"
               onClick={() => onDelete(item.id)}
-              disabled={deleting}
-              className="text-red-400 text-xs hover:text-red-300 transition-colors disabled:opacity-50"
+              className="text-red-400 text-xs hover:text-red-300 transition-colors"
             >
               Delete activity type
             </button>
@@ -523,6 +522,7 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
   const [items, setItems] = useState(initial);
   const [deleting, setDeleting] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -532,7 +532,7 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
   }, [formOpen]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this activity type?")) return;
+    setConfirmDeleteId(null);
     setDeleting(true);
     try {
       const res = await fetch(`/api/activity-types/${id}`, { method: "DELETE" });
@@ -604,7 +604,7 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
 
         <div className="space-y-2">
           {items.map((item) => (
-            <ActivityCard key={item.id} item={item} onDelete={handleDelete} deleting={deleting} />
+            <ActivityCard key={item.id} item={item} onDelete={setConfirmDeleteId} deleting={deleting} />
           ))}
 
           {items.length === 0 && !formOpen && (
@@ -618,6 +618,36 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
       </div>
 
       <BottomNav active="settings" />
+
+      {/* Delete confirmation modal */}
+      {confirmDeleteId !== null && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40" onClick={() => setConfirmDeleteId(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+            <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-6 max-w-sm w-full space-y-4">
+              <p className="text-white font-semibold">Delete activity type?</p>
+              <p className="text-zinc-400 text-sm">
+                {items.find((it) => it.id === confirmDeleteId)?.name ?? "This activity type"} will be permanently deleted.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleDelete(confirmDeleteId)}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-red-500 text-white disabled:opacity-50"
+                >
+                  {deleting ? "Deleting\u2026" : "Delete"}
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-zinc-800 text-zinc-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
