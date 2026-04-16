@@ -182,6 +182,26 @@ Rules:
 - Activity types and rest day macros are managed by the user in Settings — you can advise on values but cannot directly change them
 - When making shopping changes, consider what the activity types require
 
+## ACTIVITY TYPE GUIDANCE
+When the user asks for help creating or configuring an activity type, help them determine appropriate values:
+- Burn rate (kcal/min): depends on intensity and sport. Cycling: easy 5, moderate 8, hard 11, race 12. Running: easy 7, moderate 9, hard 11. Gym: 5-7.
+- Carbs g/kg: low intensity 3-4, moderate 5-6, high 7-9, race 8-10.
+- Protein g/kg: generally 1.6-2.2 regardless of activity. Higher for strength work.
+- During-activity carbs: 0 for short/easy sessions, 30-40g/hr moderate, 60-80g/hr hard, 80-100g/hr racing. Null for gym/strength.
+- Pre-activity timing: 2-3 hrs for big sessions, 1-2 hrs for light ones.
+- Post-activity: generally 0.3g/kg protein and 0.6-1.0g/kg carbs within 30 min.
+
+Activity type values are in g/kg — they do not depend on the user's body weight. Do not ask for or reference body weight when creating activity types.
+
+When the user confirms they want to create or save an activity type, output the complete activity type as JSON inside <activity_type> tags:
+<activity_type>
+{"name":"Hard ride","description":"Intervals, threshold, hill reps","burn_rate_kcal_per_min":11,"carbs_g_per_kg":7,"protein_g_per_kg":1.8,"pre_timing_hours_before":2,"pre_focus":"High carb, low fibre, moderate protein","during_carbs_per_hour":60,"during_description":"Energy drink or gels","post_timing_minutes_after":30,"post_focus":"Protein and carbs for recovery","post_protein_g_per_kg":0.3,"post_carbs_g_per_kg":1.0,"default_duration_minutes":90,"is_race":false}
+</activity_type>
+
+Only output <activity_type> tags when the user has agreed to the values. Walk them through the options first, then propose the final version for confirmation. Keep your text response concise — don't repeat all the values in prose when they're already in the tag.
+
+If during_carbs_per_hour is 0 or not applicable (e.g. gym), set during_carbs_per_hour to null and during_description to null.
+
 ${SCHEMAS}`;
 
   return `You are Cutta, an AI performance fuelling advisor for an endurance cyclist. You help with nutrition, fuelling, shopping strategy, and training-related nutrition questions.
@@ -353,8 +373,33 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── Parse activity type proposal ───────────────────────────────────────────
+  const activityTypeMatch = rawReply.match(/<activity_type>([\s\S]*?)<\/activity_type>/);
+  let proposedActivityType: Record<string, unknown> | null = null;
+  let activityTypeValidationError: string | null = null;
+
+  if (activityTypeMatch) {
+    try {
+      const parsed = JSON.parse(activityTypeMatch[1].trim());
+      if (typeof parsed.name !== "string" || !parsed.name.trim()) {
+        activityTypeValidationError = "Missing activity type name.";
+      } else if (typeof parsed.burn_rate_kcal_per_min !== "number") {
+        activityTypeValidationError = "Missing burn rate.";
+      } else if (typeof parsed.carbs_g_per_kg !== "number") {
+        activityTypeValidationError = "Missing carbs g/kg.";
+      } else if (typeof parsed.protein_g_per_kg !== "number") {
+        activityTypeValidationError = "Missing protein g/kg.";
+      } else {
+        proposedActivityType = parsed;
+      }
+    } catch {
+      activityTypeValidationError = "AI returned invalid JSON in activity type block.";
+    }
+  }
+
   const reply = rawReply
     .replace(/<strategy_update>[\s\S]*?<\/strategy_update>/g, "")
+    .replace(/<activity_type>[\s\S]*?<\/activity_type>/g, "")
     .trim();
 
   return NextResponse.json({
@@ -362,5 +407,7 @@ export async function POST(req: NextRequest) {
     systemPrompt,
     proposedStrategyUpdate,
     strategyValidationError,
+    proposedActivityType,
+    activityTypeValidationError,
   });
 }

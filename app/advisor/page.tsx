@@ -11,9 +11,16 @@ interface Message {
   content: string;
 }
 
-export default async function AdvisorPage() {
+export default async function AdvisorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ prefill?: string }>;
+}) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
+
+  const params = await searchParams;
+  const prefillMessage = params.prefill ?? undefined;
 
   const [profile] = await db
     .select({ advisorChatHistory: userProfiles.advisorChatHistory })
@@ -25,5 +32,5 @@ export default async function AdvisorPage() {
     ? (profile.advisorChatHistory as Message[])
     : [];
 
-  return <AdvisorView initialChatHistory={initialChatHistory} />;
+  return <AdvisorView initialChatHistory={initialChatHistory} prefillMessage={prefillMessage} />;
 }
