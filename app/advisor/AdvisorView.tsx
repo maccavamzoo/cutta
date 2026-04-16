@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import BottomNav from "@/components/BottomNav";
 
 // SpeechRecognition types (not guaranteed in lib.dom.d.ts)
@@ -522,7 +524,41 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
                       {msg.responseTimeMs != null && ` · ${(msg.responseTimeMs / 1000).toFixed(1)}s`}
                     </p>
                   )}
-                  <p className={`whitespace-pre-wrap leading-relaxed${msg.isHolding ? " opacity-70 italic" : ""}`}>{msg.content}</p>
+                  {msg.role === "user" ? (
+                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  ) : (
+                    <div className={`markdown-content leading-relaxed${msg.isHolding ? " opacity-70 italic" : ""}`}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
+                          em: ({ children }) => <em className="text-zinc-300 italic">{children}</em>,
+                          h1: ({ children }) => <h1 className="text-base font-bold text-white mt-3 mb-1.5 first:mt-0">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-sm font-bold text-white mt-3 mb-1.5 first:mt-0">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-semibold text-zinc-100 mt-2.5 mb-1 first:mt-0">{children}</h3>,
+                          ul: ({ children }) => <ul className="space-y-1 my-2 pl-4">{children}</ul>,
+                          ol: ({ children }) => <ol className="space-y-1 my-2 pl-4 list-decimal">{children}</ol>,
+                          li: ({ children }) => <li className="text-zinc-200 leading-relaxed relative before:content-['•'] before:text-lime-400 before:absolute before:-left-3">{children}</li>,
+                          code: ({ children, className }) => {
+                            const isInline = !className;
+                            return isInline
+                              ? <code className="bg-zinc-900 text-lime-400 px-1 py-0.5 rounded text-xs">{children}</code>
+                              : <code className="block bg-zinc-900 text-zinc-100 p-3 rounded-lg my-2 text-xs font-mono whitespace-pre overflow-x-auto">{children}</code>;
+                          },
+                          pre: ({ children }) => <pre className="my-2">{children}</pre>,
+                          blockquote: ({ children }) => <blockquote className="border-l-2 border-zinc-600 pl-3 my-2 text-zinc-400 italic">{children}</blockquote>,
+                          hr: () => <hr className="border-zinc-700 my-3" />,
+                          a: ({ children, href }) => <a href={href} className="text-lime-400 hover:text-lime-300 underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                          table: ({ children }) => <table className="my-2 border-collapse text-xs">{children}</table>,
+                          th: ({ children }) => <th className="border border-zinc-700 px-2 py-1 bg-zinc-900 text-left">{children}</th>,
+                          td: ({ children }) => <td className="border border-zinc-700 px-2 py-1">{children}</td>,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
