@@ -36,11 +36,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function ActivityCard({
   item,
   onDelete,
-  deleting,
 }: {
   item: ActivityTypeItem;
   onDelete: (id: number) => void;
-  deleting: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -604,7 +602,7 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
 
         <div className="space-y-2">
           {items.map((item) => (
-            <ActivityCard key={item.id} item={item} onDelete={setConfirmDeleteId} deleting={deleting} />
+            <ActivityCard key={item.id} item={item} onDelete={setConfirmDeleteId} />
           ))}
 
           {items.length === 0 && !formOpen && (
