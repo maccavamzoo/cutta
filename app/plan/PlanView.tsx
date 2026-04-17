@@ -67,6 +67,30 @@ function getEventBadgeClass(eventType: string): string {
   return "bg-lime-400/10 text-lime-400 border border-lime-400/30";
 }
 
+// Returns the list of non-rest events on a given day that have resolvable activity types.
+function eventsWithActivity(
+  events: { id: number; eventType: string; scheduledDate: string }[],
+  dateStr: string,
+  activityTypes: ActivityTypeOption[],
+): Array<{ id: number; eventType: string; activityType: ActivityTypeOption }> {
+  return events
+    .filter((e) => e.scheduledDate === dateStr && e.eventType !== "rest")
+    .map((e) => {
+      const at = activityTypes.find((a) => a.name === e.eventType);
+      return at ? { id: e.id, eventType: e.eventType, activityType: at } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+}
+
+// True when the day has >1 activity event with differing carbs or protein g/kg values.
+function isDayAmbiguousForMacros(
+  events: ReturnType<typeof eventsWithActivity>,
+): boolean {
+  if (events.length <= 1) return false;
+  const signatures = new Set(events.map((e) => `${e.activityType.carbs_g_per_kg}|${e.activityType.protein_g_per_kg}`));
+  return signatures.size > 1;
+}
+
 // ─── sub-components ───────────────────────────────────────────────────────────
 
 function MacroRow({ cal, carbs, protein, fat }: {
@@ -420,6 +444,10 @@ export default function PlanView({
   const [events, setEvents] = useState<PlanCalendarEvent[]>(calendarEvents);
   const [generatingDates, setGeneratingDates] = useState<Set<string>>(new Set());
   const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
+  const [pickerState, setPickerState] = useState<{
+    dateStr: string;
+    events: Array<{ id: number; eventType: string; activityType: ActivityTypeOption }>;
+  } | null>(null);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -463,12 +491,29 @@ export default function PlanView({
       return;
     }
 
+    // Check for ambiguity: multiple activity events with differing c/p
+    const dayEvents = eventsWithActivity(events, dateStr, activityTypes);
+    if (isDayAmbiguousForMacros(dayEvents)) {
+      // See if there's a stored primary from a prior plan that still matches a current event
+      const storedPrimaryId = plans.get(dateStr)?.calendarEventId ?? null;
+      const storedValid = storedPrimaryId != null && dayEvents.some((e) => e.id === storedPrimaryId);
+      if (!storedValid) {
+        // Ask the user to pick
+        setPickerState({ dateStr, events: dayEvents });
+        return;
+      }
+    }
+
+    await runGenerate(dateStr, null);
+  }
+
+  async function runGenerate(dateStr: string, primaryActivityEventId: number | null) {
     setGeneratingDates((prev) => new Set(prev).add(dateStr));
     try {
       const res = await fetch("/api/fuelling-plan/generate-day", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ date: dateStr }),
+        body:    JSON.stringify({ date: dateStr, primaryActivityEventId }),
       });
       if (res.ok) {
         const data = await res.json() as { plan: StoredPlan };
@@ -621,6 +666,45 @@ export default function PlanView({
               />
             );
           })}
+        </>
+      )}
+
+      {pickerState && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-50" onClick={() => setPickerState(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+            <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-6 max-w-sm w-full space-y-4">
+              <p className="text-white font-semibold">Which activity drives today&apos;s macros?</p>
+              <p className="text-zinc-400 text-sm">
+                You have multiple activities with different carb/protein targets. Pick which one sets the day&apos;s macro rule. All activities count toward total burn.
+              </p>
+              <div className="space-y-2">
+                {pickerState.events.map((e) => (
+                  <button
+                    key={e.id}
+                    onClick={() => {
+                      const chosenId = e.id;
+                      const dateStr = pickerState.dateStr;
+                      setPickerState(null);
+                      void runGenerate(dateStr, chosenId);
+                    }}
+                    className="w-full text-left rounded-xl border border-zinc-800 hover:border-lime-400/50 p-3 transition-colors"
+                  >
+                    <p className="text-white text-sm font-medium">{e.activityType.name}</p>
+                    <p className="text-zinc-500 text-xs mt-0.5">
+                      {e.activityType.carbs_g_per_kg}g/kg carbs · {e.activityType.protein_g_per_kg}g/kg protein
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setPickerState(null)}
+                className="w-full py-2 rounded-xl bg-zinc-800 text-zinc-400 text-sm font-semibold hover:bg-zinc-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </>
       )}
 
