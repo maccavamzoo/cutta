@@ -207,13 +207,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-// ─── B. Training burn ─────────────────────────────────────────────────────────
-
-function estimateTrainingBurn(activityType: ActivityType | null, durationMinutes: number): number {
-  if (!activityType) return 0;
-  return Math.round(activityType.burn_rate_kcal_per_min * durationMinutes);
-}
-
 // ─── D. Guardrail adjustments ─────────────────────────────────────────────────
 
 function computeGuardrails(feedback: PlanEngineInput['recentFeedback']): GuardrailAdjustment[] {
