@@ -36,11 +36,14 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function ActivityCard({
   item,
   onDelete,
+  onSaved,
 }: {
   item: ActivityTypeItem;
   onDelete: (id: number) => void;
+  onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
@@ -65,51 +68,70 @@ function ActivityCard({
 
       {open && (
         <div className="px-4 pb-3 border-t border-zinc-800">
-          <Row label="Burn rate">
-            <span className="text-sm text-right text-zinc-200">{item.burnRateKcalPerMin} kcal/min</span>
-          </Row>
-          <Row label="Carbs">
-            <span className="text-sm text-right text-zinc-200">{item.carbsGPerKg} g/kg</span>
-          </Row>
-          <Row label="Protein">
-            <span className="text-sm text-right text-zinc-200">{item.proteinGPerKg} g/kg</span>
-          </Row>
-          <Row label="Fat">
-            <span className="text-sm text-zinc-500">Auto-calculated</span>
-          </Row>
-          <Row label="Pre-activity">
-            <span className="text-sm text-right text-zinc-200">
-              {item.preActivity.timing_hours_before} hrs before — {item.preActivity.focus}
-            </span>
-          </Row>
-          <Row label="During">
-            <span className="text-sm text-right text-zinc-200">
-              {item.duringActivity
-                ? `${item.duringActivity.carbs_per_hour}g carbs/hr — ${item.duringActivity.description}`
-                : "No during-activity fuelling"}
-            </span>
-          </Row>
-          <Row label="Post-activity">
-            <span className="text-sm text-right text-zinc-200">
-              {`Within ${item.postActivity.timing_minutes_after} min — ` +
-                `${item.postActivity.protein_g_per_kg}g/kg protein, ` +
-                `${item.postActivity.carbs_g_per_kg}g/kg carbs — ` +
-                item.postActivity.focus}
-            </span>
-          </Row>
-          <Row label="Default duration">
-            <span className="text-sm text-right text-zinc-200">{item.defaultDurationMinutes} min</span>
-          </Row>
+          {editing ? (
+            <div className="pt-3">
+              <ActivityForm
+                existing={item}
+                onSaved={onSaved}
+                onClose={() => setEditing(false)}
+              />
+            </div>
+          ) : (
+            <>
+              <Row label="Burn rate">
+                <span className="text-sm text-right text-zinc-200">{item.burnRateKcalPerMin} kcal/min</span>
+              </Row>
+              <Row label="Carbs">
+                <span className="text-sm text-right text-zinc-200">{item.carbsGPerKg} g/kg</span>
+              </Row>
+              <Row label="Protein">
+                <span className="text-sm text-right text-zinc-200">{item.proteinGPerKg} g/kg</span>
+              </Row>
+              <Row label="Fat">
+                <span className="text-sm text-zinc-500">Auto-calculated</span>
+              </Row>
+              <Row label="Pre-activity">
+                <span className="text-sm text-right text-zinc-200">
+                  {item.preActivity.timing_hours_before} hrs before — {item.preActivity.focus}
+                </span>
+              </Row>
+              <Row label="During">
+                <span className="text-sm text-right text-zinc-200">
+                  {item.duringActivity
+                    ? `${item.duringActivity.carbs_per_hour}g carbs/hr — ${item.duringActivity.description}`
+                    : "No during-activity fuelling"}
+                </span>
+              </Row>
+              <Row label="Post-activity">
+                <span className="text-sm text-right text-zinc-200">
+                  {`Within ${item.postActivity.timing_minutes_after} min — ` +
+                    `${item.postActivity.protein_g_per_kg}g/kg protein, ` +
+                    `${item.postActivity.carbs_g_per_kg}g/kg carbs — ` +
+                    item.postActivity.focus}
+                </span>
+              </Row>
+              <Row label="Default duration">
+                <span className="text-sm text-right text-zinc-200">{item.defaultDurationMinutes} min</span>
+              </Row>
 
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => onDelete(item.id)}
-              className="text-red-400 text-xs hover:text-red-300 transition-colors"
-            >
-              Delete activity type
-            </button>
-          </div>
+              <div className="pt-2 flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="text-lime-400 text-xs hover:text-lime-300 transition-colors"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(item.id)}
+                  className="text-red-400 text-xs hover:text-red-300 transition-colors"
+                >
+                  Delete activity type
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -274,32 +296,55 @@ const INTENSITY_PRESETS: Record<Intensity, {
 
 const INTENSITIES: Intensity[] = ["Easy", "Moderate", "Hard", "Race"];
 
-// ─── Creation form ───────────────────────────────────────────────────────────
+// ─── Activity form (create or edit) ──────────────────────────────────────────
 
-function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: () => void }) {
+function ActivityForm({
+  existing,
+  onSaved,
+  onClose,
+}: {
+  existing?: ActivityTypeItem;
+  onSaved: () => void;
+  onClose: () => void;
+}) {
+  const isEdit = existing !== undefined;
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Visible fields
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(existing?.name ?? "");
+  const [description, setDescription] = useState(existing?.description ?? "");
   const [intensity, setIntensity] = useState<Intensity | null>(null);
-  const [defaultDuration, setDefaultDuration] = useState("");
-  const [fuelDuring, setFuelDuring] = useState(false);
-  const [duringCarbs, setDuringCarbs] = useState("");
+  const [defaultDuration, setDefaultDuration] = useState(
+    existing ? String(existing.defaultDurationMinutes) : ""
+  );
+  const [fuelDuring, setFuelDuring] = useState(existing ? existing.duringActivity !== null : false);
+  const [duringCarbs, setDuringCarbs] = useState(
+    existing?.duringActivity ? String(existing.duringActivity.carbs_per_hour) : ""
+  );
+  const [isRace, setIsRace] = useState(existing?.isRace ?? false);
 
-  // Advanced (hidden by default, pre-filled from preset)
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [burnRate, setBurnRate] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [protein, setProtein] = useState("");
-  const [preTiming, setPreTiming] = useState("");
-  const [preFocus, setPreFocus] = useState("");
-  const [duringDesc, setDuringDesc] = useState("");
-  const [postTiming, setPostTiming] = useState("");
-  const [postFocus, setPostFocus] = useState("");
-  const [postProtein, setPostProtein] = useState("");
-  const [postCarbs, setPostCarbs] = useState("");
+  // Advanced (hidden by default for create, pre-filled from preset; open for edit)
+  const [advancedOpen, setAdvancedOpen] = useState(isEdit);
+  const [burnRate, setBurnRate] = useState(existing ? String(existing.burnRateKcalPerMin) : "");
+  const [carbs, setCarbs] = useState(existing ? String(existing.carbsGPerKg) : "");
+  const [protein, setProtein] = useState(existing ? String(existing.proteinGPerKg) : "");
+  const [preTiming, setPreTiming] = useState(
+    existing ? String(existing.preActivity.timing_hours_before) : ""
+  );
+  const [preFocus, setPreFocus] = useState(existing?.preActivity.focus ?? "");
+  const [duringDesc, setDuringDesc] = useState(existing?.duringActivity?.description ?? "");
+  const [postTiming, setPostTiming] = useState(
+    existing ? String(existing.postActivity.timing_minutes_after) : ""
+  );
+  const [postFocus, setPostFocus] = useState(existing?.postActivity.focus ?? "");
+  const [postProtein, setPostProtein] = useState(
+    existing ? String(existing.postActivity.protein_g_per_kg) : ""
+  );
+  const [postCarbs, setPostCarbs] = useState(
+    existing ? String(existing.postActivity.carbs_g_per_kg) : ""
+  );
 
   function handleIntensityChange(i: Intensity) {
     setIntensity(i);
@@ -308,6 +353,7 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
     setDefaultDuration(String(p.default_duration_minutes));
     setFuelDuring(p.fuel_during);
     setDuringCarbs(p.fuel_during ? String(p.during_carbs_per_hour) : "");
+    setIsRace(p.is_race);
     setBurnRate(String(p.burn_rate_kcal_per_min));
     setCarbs(String(p.carbs_g_per_kg));
     setProtein(String(p.protein_g_per_kg));
@@ -324,7 +370,7 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
     setError(null);
 
     if (!name.trim()) { setError("Name is required."); return; }
-    if (!intensity) { setError("Pick an intensity."); return; }
+    if (!isEdit && !intensity) { setError("Pick an intensity."); return; }
 
     setSaving(true);
     try {
@@ -348,14 +394,17 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
           carbs_g_per_kg: Number(postCarbs) || 0.8,
         },
         defaultDurationMinutes: Number(defaultDuration) || 60,
-        isRace: intensity === "Race",
+        isRace,
       };
 
-      const res = await fetch("/api/activity-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const res = await fetch(
+        isEdit ? `/api/activity-types/${existing.id}` : "/api/activity-types",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -363,16 +412,20 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
         return;
       }
 
-      onCreated();
+      onSaved();
       onClose();
     } finally {
       setSaving(false);
     }
   }
 
+  const wrapperClass = isEdit
+    ? "space-y-3"
+    : "rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3";
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
-      <p className="text-white text-sm font-semibold">New activity type</p>
+    <div className={wrapperClass}>
+      {!isEdit && <p className="text-white text-sm font-semibold">New activity type</p>}
 
       {/* Name */}
       <div>
@@ -386,26 +439,41 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
         <TextInput value={description} onChange={setDescription} placeholder="e.g. Intervals, hill reps" />
       </div>
 
-      {/* Intensity pills */}
-      <div>
-        <label className="text-zinc-400 text-sm block mb-2">Intensity</label>
-        <div className="flex gap-2">
-          {INTENSITIES.map((i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => handleIntensityChange(i)}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                intensity === i
-                  ? "bg-lime-400 text-black"
-                  : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              {i}
-            </button>
-          ))}
+      {/* Intensity pills — create only */}
+      {!isEdit && (
+        <div>
+          <label className="text-zinc-400 text-sm block mb-2">Intensity</label>
+          <div className="flex gap-2">
+            {INTENSITIES.map((i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleIntensityChange(i)}
+                className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  intensity === i
+                    ? "bg-lime-400 text-black"
+                    : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {i}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Race event — edit only */}
+      {isEdit && (
+        <label className="flex items-center gap-2 py-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isRace}
+            onChange={(e) => setIsRace(e.target.checked)}
+            className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-lime-400 focus:ring-lime-400/30"
+          />
+          <span className="text-zinc-300 text-sm">Race event</span>
+        </label>
+      )}
 
       {/* Duration */}
       <FormField label="Default duration" suffix="min">
@@ -499,7 +567,7 @@ function CreateForm({ onCreated, onClose }: { onCreated: () => void; onClose: ()
           disabled={saving}
           className="w-full py-2.5 rounded-xl bg-lime-400 text-black text-sm font-semibold disabled:opacity-50 transition-opacity"
         >
-          {saving ? "Saving..." : "Save activity type"}
+          {saving ? "Saving..." : isEdit ? "Save changes" : "Save activity type"}
         </button>
         <button
           type="button"
@@ -593,8 +661,8 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
         {/* Creation form */}
         {formOpen && (
           <div ref={formRef}>
-            <CreateForm
-              onCreated={handleCreated}
+            <ActivityForm
+              onSaved={handleCreated}
               onClose={() => setFormOpen(false)}
             />
           </div>
@@ -602,7 +670,7 @@ export default function ActivityTypesView({ initial }: { initial: ActivityTypeIt
 
         <div className="space-y-2">
           {items.map((item) => (
-            <ActivityCard key={item.id} item={item} onDelete={setConfirmDeleteId} />
+            <ActivityCard key={item.id} item={item} onDelete={setConfirmDeleteId} onSaved={handleCreated} />
           ))}
 
           {items.length === 0 && !formOpen && (
