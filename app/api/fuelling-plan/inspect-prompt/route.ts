@@ -27,9 +27,14 @@ export async function POST(req: NextRequest) {
 
   // ── 2. Parse and validate date ────────────────────────────────────────────
   let date: string;
+  let primaryActivityEventId: number | null = null;
   try {
     const body = await req.json();
     date = body.date;
+    if (body.primaryActivityEventId != null) {
+      const n = Number(body.primaryActivityEventId);
+      if (!Number.isNaN(n)) primaryActivityEventId = n;
+    }
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
@@ -218,9 +223,28 @@ export async function POST(req: NextRequest) {
   const previousGlycogen      = yesterdayPlan?.glycogenBattery ?? null;
   const previousDayHadTraining = yesterdayEventRows.some((e) => e.eventType !== "rest");
 
-  const todayPrimaryRow = todayEventRows.length > 0
-    ? todayEventRows.reduce((a, b) => (b.durationMinutes ?? 0) > (a.durationMinutes ?? 0) ? b : a)
-    : null;
+  // Resolve today's events with their activity types. Exclude rest events (no activity type).
+  const todayEventsWithTypes = todayEventRows
+    .map((row) => {
+      const at = resolveActivityType(activityTypes, row.eventType);
+      return at ? { row, activityType: at } : null;
+    })
+    .filter((x): x is { row: typeof todayEventRows[number]; activityType: typeof activityTypes[number] } => x !== null);
+
+  // Determine the primary event (drives macro rule, meals, pre/during/post).
+  // Priority: explicit param from client > fallback to longest event.
+  let todayPrimaryRow: typeof todayEventRows[number] | null = null;
+  if (primaryActivityEventId != null) {
+    const match = todayEventsWithTypes.find((e) => e.row.id === primaryActivityEventId);
+    if (match) todayPrimaryRow = match.row;
+  }
+  if (!todayPrimaryRow && todayEventsWithTypes.length > 0) {
+    todayPrimaryRow = todayEventsWithTypes.reduce((a, b) =>
+      (b.row.durationMinutes ?? 0) > (a.row.durationMinutes ?? 0) ? b : a
+    ).row;
+  }
+
+  // Tomorrow: keep existing longest-wins behaviour (only used for carb-loading check)
   const tomorrowPrimaryRow = tomorrowEventRows.length > 0
     ? tomorrowEventRows.reduce((a, b) => (b.durationMinutes ?? 0) > (a.durationMinutes ?? 0) ? b : a)
     : null;
@@ -247,6 +271,15 @@ export async function POST(req: NextRequest) {
       durationMinutes: tomorrowPrimaryRow.durationMinutes,
       scheduledAt:     tomorrowPrimaryRow.scheduledAt.toISOString(),
     } : null,
+    todayEvents: todayEventsWithTypes.map(({ row, activityType }) => ({
+      event: {
+        id:              row.id,
+        title:           row.title,
+        scheduledAt:     row.scheduledAt.toISOString(),
+        durationMinutes: row.durationMinutes,
+      },
+      activityType,
+    })),
     yesterdayMeals,
     ingredientPool:         (strategyRows[0]?.ingredientPool as string[] | null) ?? null,
     recentFeedback,

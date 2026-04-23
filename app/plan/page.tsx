@@ -84,6 +84,8 @@ export default async function PlanPage() {
           name:                     userActivityTypes.name,
           description:              userActivityTypes.description,
           defaultDurationMinutes:   userActivityTypes.defaultDurationMinutes,
+          carbsGPerKg:              userActivityTypes.carbsGPerKg,
+          proteinGPerKg:            userActivityTypes.proteinGPerKg,
           updatedAt:                userActivityTypes.updatedAt,
         })
         .from(userActivityTypes)
@@ -171,6 +173,8 @@ export default async function PlanPage() {
     name:                     at.name,
     description:              at.description ?? "",
     default_duration_minutes: at.defaultDurationMinutes ?? 60,
+    carbs_g_per_kg:           Number(at.carbsGPerKg),
+    protein_g_per_kg:         Number(at.proteinGPerKg),
   }));
 
   return (

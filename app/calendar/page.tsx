@@ -24,6 +24,8 @@ export default async function CalendarPage() {
         name:                     userActivityTypes.name,
         description:              userActivityTypes.description,
         defaultDurationMinutes:   userActivityTypes.defaultDurationMinutes,
+        carbsGPerKg:              userActivityTypes.carbsGPerKg,
+        proteinGPerKg:            userActivityTypes.proteinGPerKg,
       })
       .from(userActivityTypes)
       .where(eq(userActivityTypes.clerkUserId, userId))
@@ -38,6 +40,8 @@ export default async function CalendarPage() {
     name:                     at.name,
     description:              at.description ?? "",
     default_duration_minutes: at.defaultDurationMinutes ?? 60,
+    carbs_g_per_kg:           Number(at.carbsGPerKg),
+    protein_g_per_kg:         Number(at.proteinGPerKg),
   }));
 
   const monthStr = new Intl.DateTimeFormat("en-CA", { timeZone: timezone })

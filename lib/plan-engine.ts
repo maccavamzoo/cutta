@@ -70,6 +70,15 @@ export interface PlanEngineInput {
     scheduledAt: string;
   } | null;
 
+  // All scheduled events for today (used to sum training burn across a multi-event day).
+  // Empty array = rest day. For single-event days, contains one entry equal to the primary.
+  // The primary event (the one driving macro rule / meals / pre-during-post) is also
+  // exposed via `todayEvent` / `todayActivityType` above.
+  todayEvents: Array<{
+    event: { id: number; title: string; scheduledAt: string; durationMinutes: number | null };
+    activityType: ActivityType;
+  }>;
+
   // Yesterday's plan meals (for variety)
   yesterdayMeals: string[];
 
@@ -196,13 +205,6 @@ function subtractHours(date: Date, hours: number): Date {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-// ─── B. Training burn ─────────────────────────────────────────────────────────
-
-function estimateTrainingBurn(activityType: ActivityType | null, durationMinutes: number): number {
-  if (!activityType) return 0;
-  return Math.round(activityType.burn_rate_kcal_per_min * durationMinutes);
 }
 
 // ─── D. Guardrail adjustments ─────────────────────────────────────────────────
@@ -549,9 +551,12 @@ export function computeDayBrief(input: PlanEngineInput, date: string): DayBrief 
     todayActivityType === null ? 'rest' :
     todayActivityType.is_race  ? 'race' : 'training';
 
-  // B. Training burn
+  // B. Training burn — summed across ALL scheduled events on the day
   const eventDuration = todayEvent?.durationMinutes ?? todayActivityType?.default_duration_minutes ?? 60;
-  const trainingBurn  = estimateTrainingBurn(todayActivityType, eventDuration);
+  const trainingBurn = input.todayEvents.reduce((sum, { event, activityType }) => {
+    const dur = event.durationMinutes ?? activityType.default_duration_minutes;
+    return sum + Math.round(activityType.burn_rate_kcal_per_min * dur);
+  }, 0);
 
   // C. Calorie target
   const dayRules = getDayMacroRules(input.restDayMacros, todayActivityType);

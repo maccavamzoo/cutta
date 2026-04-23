@@ -15,6 +15,8 @@ export interface ActivityTypeOption {
   name:                     string;
   description:              string;
   default_duration_minutes: number;
+  carbs_g_per_kg:           number;
+  protein_g_per_kg:         number;
 }
 
 interface Props {

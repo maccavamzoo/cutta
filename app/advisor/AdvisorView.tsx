@@ -65,10 +65,13 @@ interface ApiResponse {
 function LoadingDots() {
   return (
     <div className="flex justify-start">
-      <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5 items-center">
-        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:0ms]" />
-        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:150ms]" />
-        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:300ms]" />
+      <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-2 items-center">
+        <span className="flex gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:0ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:150ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:300ms]" />
+        </span>
+        <span className="text-zinc-400 text-sm">Working on it…</span>
       </div>
     </div>
   );
@@ -290,9 +293,6 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
         return;
       }
 
-      // Append holding bubble
-      setMessages((prev) => [...prev, { role: "assistant", content: holdingMessage, isHolding: true, timestamp: Date.now() }]);
-
       // Step 2 — fetch data + real answer
       const step2Res = await fetch("/api/advisor/chat/step2", {
         method:  "POST",
@@ -315,7 +315,7 @@ export default function AdvisorView({ initialChatHistory = [], prefillMessage }:
         setLiveCallLog((prev) => [...prev, { index: prev.length + 1, system: step2Data.systemPrompt, messages: step2Messages }]);
       }
 
-      void saveHistory([...historyForApi, { role: "user", content: text }, { role: "assistant", content: holdingMessage, isHolding: true }, realMsg]);
+      void saveHistory([...historyForApi, { role: "user", content: text }, realMsg]);
 
       if (step2Data.proposedStrategyUpdate) {
         setPendingStrategy(step2Data.proposedStrategyUpdate);

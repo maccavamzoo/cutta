@@ -114,6 +114,8 @@ export default async function DashboardPage() {
         name:                     userActivityTypes.name,
         description:              userActivityTypes.description,
         defaultDurationMinutes:   userActivityTypes.defaultDurationMinutes,
+        carbsGPerKg:              userActivityTypes.carbsGPerKg,
+        proteinGPerKg:            userActivityTypes.proteinGPerKg,
       })
       .from(userActivityTypes)
       .where(eq(userActivityTypes.clerkUserId, userId))
@@ -148,6 +150,8 @@ export default async function DashboardPage() {
     name:                     at.name,
     description:              at.description ?? "",
     default_duration_minutes: at.defaultDurationMinutes ?? 60,
+    carbs_g_per_kg:           Number(at.carbsGPerKg),
+    protein_g_per_kg:         Number(at.proteinGPerKg),
   }));
 
   const profileRow = profileRows[0] ?? null;
