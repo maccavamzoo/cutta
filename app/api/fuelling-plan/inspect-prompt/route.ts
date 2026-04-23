@@ -16,6 +16,7 @@ import { buildDayPlanPrompt } from "@/lib/ai/buildDayPlanPrompt";
 import { rowToActivityType } from "@/lib/protocol";
 import { parseRate } from "@/lib/weight-projection";
 import { getCurrentWeightKg, NoWeightLogError } from "@/lib/weight";
+import { aggregateRecentFeedback } from "@/lib/recent-feedback";
 
 // ── route handler ─────────────────────────────────────────────────────────────
 
@@ -218,17 +219,7 @@ export async function POST(req: NextRequest) {
   };
 
   // ── 7. Compute guardrail counts from feedback ────────────────────────────
-  const hungerEntries = feedbackRows.filter((f) => f.feedbackType === "hunger");
-  const energyEntries = feedbackRows.filter((f) => f.feedbackType === "ride_energy");
-  const stoolEntries  = feedbackRows.filter((f) => f.feedbackType === "stool_health");
-
-  const recentFeedback: PlanEngineInput["recentFeedback"] = {
-    highHungerDays:    hungerEntries.filter((f) => f.rating >= 4).length,
-    lowEnergyDays:     energyEntries.filter((f) => f.rating <= 2).length,
-    looseStoolDays:    stoolEntries.filter((f)  => f.rating <= 2).length,
-    constipatedDays:   stoolEntries.filter((f)  => f.rating >= 4).length,
-    lowComplianceDays: complianceRows.filter((c) => c.compliance === "no").length,
-  };
+  const recentFeedback = aggregateRecentFeedback(feedbackRows, complianceRows);
 
   // ── 8. Build PlanEngineInput ──────────────────────────────────────────────
   const yesterdayPlan     = yesterdayPlanRows[0] ?? null;

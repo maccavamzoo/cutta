@@ -1,14 +1,20 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
-import AddEventSheet, { type CalendarEvent, type ActivityTypeOption } from "./AddEventSheet";
+import AddEventSheet, { type CalendarEvent } from "./AddEventSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import type { UnitSystem } from "@/lib/units";
 import { kgToDisplay, weightLabel } from "@/lib/units";
-import { parseRate } from "@/lib/weight-projection";
+import {
+  computeDayBrief,
+  resolveActivityType,
+  type DayBrief,
+  type PlanEngineInput,
+} from "@/lib/plan-engine";
+import type { ActivityType } from "@/lib/protocol";
 
 // ─── exported types ───────────────────────────────────────────────────────────
 
@@ -35,6 +41,21 @@ export interface PlanCalendarEvent {
   scheduledAt: string;   // ISO
   durationMinutes: number | null;
   notes: string | null;
+}
+
+// Everything computeDayBrief needs that doesn't vary per visible day.
+// Per-day fields (events, primary event, glycogen carry-forward) are derived
+// on the client from calendarEvents and the yesterday plan.
+export interface PlanEngineData {
+  currentWeightKg:     number | null;
+  maintenanceCalories: number | null;
+  weightLossRate:      number;
+  foodExclusions:      string[];
+  preferredFoods:      string[];
+  restDayMacros:       { carbs_g_per_kg: number; protein_g_per_kg: number };
+  activityTypes:       ActivityType[];
+  ingredientPool:      string[] | null;
+  recentFeedback:      PlanEngineInput["recentFeedback"];
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -72,8 +93,8 @@ function getEventBadgeClass(eventType: string): string {
 function eventsWithActivity(
   events: { id: number; eventType: string; scheduledDate: string }[],
   dateStr: string,
-  activityTypes: ActivityTypeOption[],
-): Array<{ id: number; eventType: string; activityType: ActivityTypeOption }> {
+  activityTypes: ActivityType[],
+): Array<{ id: number; eventType: string; activityType: ActivityType }> {
   return events
     .filter((e) => e.scheduledDate === dateStr && e.eventType !== "rest")
     .map((e) => {
@@ -194,7 +215,7 @@ interface DayCardProps {
   isStale:          boolean;
   hasActiveProtocol: boolean;
   unitSystem:       UnitSystem;
-  activityTypes:    ActivityTypeOption[];
+  activityTypes:    ActivityType[];
   timezone:         string;
   onGenerate:       () => void;
   onEventAdded:     (event: CalendarEvent) => void;
@@ -415,10 +436,9 @@ export default function PlanView({
   hasActiveProtocol,
   hasWeeklyStrategy,
   dataLastChangedAt,
-  activityTypes,
-  currentWeightKg,
+  engineData,
+  yesterdayPlan,
   targetWeightKg,
-  weightLossRate,
   timezone,
 }: {
   initialPlans:      StoredPlan[];
@@ -428,13 +448,13 @@ export default function PlanView({
   hasActiveProtocol: boolean;
   hasWeeklyStrategy: boolean;
   dataLastChangedAt: string | null;
-  activityTypes:     ActivityTypeOption[];
-  currentWeightKg:   number | null;
+  engineData:        PlanEngineData;
+  yesterdayPlan:     { glycogenBattery: number | null } | null;
   targetWeightKg:    number | null;
-  weightLossRate:    string | null;
   timezone:          string;
 }) {
   const router = useRouter();
+  const { activityTypes } = engineData;
 
   const [inspectMode, setInspectMode] = useState(false);
   const [inspectPrompt, setInspectPrompt] = useState<string | null>(null);
@@ -449,7 +469,7 @@ export default function PlanView({
   const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
   const [pickerState, setPickerState] = useState<{
     dateStr: string;
-    events: Array<{ id: number; eventType: string; activityType: ActivityTypeOption }>;
+    events: Array<{ id: number; eventType: string; activityType: ActivityType }>;
   } | null>(null);
 
   useEffect(() => {
@@ -468,6 +488,112 @@ export default function PlanView({
   }, []);
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
+
+  // ── Client-side DayBrief per visible day ─────────────────────────────────
+  // Recomputes whenever events change (add / edit / delete) or engineData shifts.
+  // Briefs are built in date order so each day's glycogen flows into the next.
+  const dayBriefs = useMemo(() => {
+    const map = new Map<string, DayBrief>();
+    if (
+      engineData.currentWeightKg == null ||
+      engineData.maintenanceCalories == null ||
+      engineData.activityTypes.length === 0
+    ) {
+      return map;
+    }
+
+    // Index events by date for fast per-day lookup.
+    const byDate = new Map<string, PlanCalendarEvent[]>();
+    for (const ev of events) {
+      const arr = byDate.get(ev.scheduledDate) ?? [];
+      arr.push(ev);
+      byDate.set(ev.scheduledDate, arr);
+    }
+
+    // Resolve all events on `dateStr` to { event, activityType } pairs.
+    // Rest events don't resolve (no activity type) and are dropped from the
+    // engine's todayEvents list, matching the fuelling-plan API behaviour.
+    function resolveDayEvents(dateStr: string) {
+      const list = byDate.get(dateStr) ?? [];
+      return list
+        .map((ev) => {
+          const at = resolveActivityType(engineData.activityTypes, ev.eventType);
+          return at ? { event: ev, activityType: at } : null;
+        })
+        .filter((x): x is { event: PlanCalendarEvent; activityType: ActivityType } => x !== null);
+    }
+
+    // Primary event = longest duration, same rule the /generate-day route uses.
+    function pickPrimary<T extends { event: { durationMinutes: number | null } }>(list: T[]): T | null {
+      if (list.length === 0) return null;
+      return list.reduce((a, b) =>
+        (b.event.durationMinutes ?? 0) > (a.event.durationMinutes ?? 0) ? b : a
+      );
+    }
+
+    const yesterdayStr = addDays(todayStr, -1);
+    const yesterdayEvents = byDate.get(yesterdayStr) ?? [];
+
+    let previousGlycogen: number | null = yesterdayPlan?.glycogenBattery ?? null;
+    let previousDayHadTraining = yesterdayEvents.some((e) => e.eventType !== "rest");
+
+    const briefDates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
+    for (const dateStr of briefDates) {
+      const dayList      = resolveDayEvents(dateStr);
+      const tomorrowList = resolveDayEvents(addDays(dateStr, 1));
+      const primary      = pickPrimary(dayList);
+      const tomorrowPrim = pickPrimary(tomorrowList);
+
+      const input: PlanEngineInput = {
+        currentWeightKg:      engineData.currentWeightKg,
+        maintenanceCalories:  engineData.maintenanceCalories,
+        weightLossRate:       engineData.weightLossRate,
+        foodExclusions:       engineData.foodExclusions,
+        preferredFoods:       engineData.preferredFoods,
+        restDayMacros:        engineData.restDayMacros,
+        todayActivityType:    primary?.activityType ?? null,
+        tomorrowActivityType: tomorrowPrim?.activityType ?? null,
+        todayEvent: primary ? {
+          id:              primary.event.id,
+          title:           primary.event.title,
+          scheduledAt:     primary.event.scheduledAt,
+          durationMinutes: primary.event.durationMinutes,
+        } : null,
+        tomorrowEvent: tomorrowPrim ? {
+          durationMinutes: tomorrowPrim.event.durationMinutes,
+          scheduledAt:     tomorrowPrim.event.scheduledAt,
+        } : null,
+        todayEvents: dayList.map(({ event, activityType }) => ({
+          event: {
+            id:              event.id,
+            title:           event.title,
+            scheduledAt:     event.scheduledAt,
+            durationMinutes: event.durationMinutes,
+          },
+          activityType,
+        })),
+        // Free-tier brief doesn't consume yesterdayMeals; leave empty.
+        yesterdayMeals:         [],
+        ingredientPool:         engineData.ingredientPool,
+        recentFeedback:         engineData.recentFeedback,
+        previousGlycogen,
+        previousDayHadTraining,
+      };
+
+      const brief = computeDayBrief(input, dateStr);
+      map.set(dateStr, brief);
+      console.log("[DayBrief]", dateStr, brief);
+
+      // Carry-forward for the next day's input.
+      previousGlycogen       = brief.glycogenBattery;
+      previousDayHadTraining = (byDate.get(dateStr) ?? []).some((e) => e.eventType !== "rest");
+    }
+
+    return map;
+  }, [events, engineData, yesterdayPlan, todayStr]);
+
+  // Referenced via the map for now; later prompts wire this into DayCard.
+  void dayBriefs;
 
   // ── Per-day generation ───────────────────────────────────────────────────
 
@@ -596,10 +722,11 @@ export default function PlanView({
       {/* Page header */}
       <div className="mb-5">
         <h1 className="text-xl font-bold tracking-tight text-white">Plan</h1>
-        {targetWeightKg != null && currentWeightKg != null && (() => {
-          const wl       = weightLabel(unitSystem);
-          const curDisp  = `${kgToDisplay(currentWeightKg, unitSystem).toFixed(1)}${wl}`;
-          const rate     = parseRate(weightLossRate);
+        {targetWeightKg != null && engineData.currentWeightKg != null && (() => {
+          const wl             = weightLabel(unitSystem);
+          const currentWeightKg = engineData.currentWeightKg;
+          const curDisp        = `${kgToDisplay(currentWeightKg, unitSystem).toFixed(1)}${wl}`;
+          const rate           = engineData.weightLossRate;
 
           // rate === 0: maintaining, regardless of how current compares to target.
           if (rate === 0) {
