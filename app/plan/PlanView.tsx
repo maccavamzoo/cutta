@@ -204,12 +204,101 @@ function OnBikeCard({ fuelling }: { fuelling: NonNullable<DayPlanOutput["on_bike
   );
 }
 
+// ─── MathsView ────────────────────────────────────────────────────────────────
+// Renders the deterministic numbers from DayBrief inside the expanded card.
+// Sits above any AI-generated content; no AI involvement in anything shown here.
+
+function MathsView({
+  brief,
+  timezone,
+  hasAiContent,
+}: {
+  brief:         DayBrief;
+  timezone:      string;
+  hasAiContent:  boolean;
+}) {
+  const { calorieBreakdown, guardrails, trainingEvent, dayType, carbLoadContext } = brief;
+
+  function eventLine(): string {
+    if (!trainingEvent) return "Rest day";
+    const time = new Date(trainingEvent.scheduledAt).toLocaleTimeString("en-GB", {
+      hour: "2-digit", minute: "2-digit", timeZone: timezone,
+    });
+    const core = `${trainingEvent.activityTypeName} · ${time} · ${trainingEvent.durationMinutes}min`;
+    return dayType === "race" ? `Race — ${core}` : core;
+  }
+
+  function signed(value: number): string {
+    return value > 0 ? `+${value}` : `${value}`;
+  }
+
+  return (
+    <div className={`space-y-3 ${hasAiContent ? "border-b border-zinc-800 pb-4" : ""}`}>
+      {/* Stats grid */}
+      <div className="text-xs tabular-nums">
+        {/* Total line */}
+        <div className="flex items-baseline gap-2 py-0.5 flex-wrap">
+          <span className="text-zinc-500">Total &mdash;</span>
+          <span className="text-white font-semibold">{brief.totalCalories} kcal</span>
+          <span className="text-zinc-300">
+            {brief.totalCarbsG}g<span className="text-zinc-500"> C</span>
+            <span className="text-zinc-500"> · </span>
+            {brief.totalProteinG}g<span className="text-zinc-500"> P</span>
+            <span className="text-zinc-500"> · </span>
+            {brief.totalFatG}g<span className="text-zinc-500"> F</span>
+          </span>
+        </div>
+
+        {/* Breakdown rows */}
+        <div className="flex justify-between py-0.5">
+          <span className="text-zinc-500">Maintenance</span>
+          <span className="text-zinc-300">{calorieBreakdown.maintenance} kcal</span>
+        </div>
+        {calorieBreakdown.trainingBurn > 0 && (
+          <div className="flex justify-between py-0.5">
+            <span className="text-zinc-500">Training burn</span>
+            <span className="text-zinc-300">+{calorieBreakdown.trainingBurn} kcal</span>
+          </div>
+        )}
+        {calorieBreakdown.deficit > 0 && (
+          <div className="flex justify-between py-0.5">
+            <span className="text-zinc-500">Deficit</span>
+            <span className="text-zinc-300">-{calorieBreakdown.deficit} kcal</span>
+          </div>
+        )}
+        {calorieBreakdown.guardrailAdjustment !== 0 && (
+          <div className="flex justify-between py-0.5">
+            <span className="text-zinc-500">Guardrail adj.</span>
+            <span className="text-zinc-300">{signed(calorieBreakdown.guardrailAdjustment)} kcal</span>
+          </div>
+        )}
+      </div>
+
+      {/* Glycogen */}
+      <div className="flex justify-between text-xs tabular-nums">
+        <span className="text-zinc-500">Glycogen</span>
+        <span className="text-zinc-300">{brief.glycogenBattery}/100</span>
+      </div>
+
+      {/* Context notes */}
+      <div className="space-y-1 text-xs text-zinc-400">
+        <p>{eventLine()}</p>
+        {carbLoadContext && <p>{carbLoadContext}</p>}
+        {guardrails.map((g, i) => (
+          <p key={i}>• {g.description}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── DayCard ──────────────────────────────────────────────────────────────────
 
 interface DayCardProps {
   dateStr:          string;
   isToday:          boolean;
   plan:             StoredPlan | null;
+  brief:            DayBrief;
   events:           PlanCalendarEvent[];
   isGenerating:     boolean;
   isStale:          boolean;
@@ -227,6 +316,7 @@ function DayCard({
   dateStr,
   isToday,
   plan,
+  brief,
   events,
   isGenerating,
   isStale,
@@ -289,17 +379,15 @@ function DayCard({
                 }
               </div>
 
-              {/* Macro summary */}
-              {hasPlan && (
-                <div className="mt-1.5">
-                  <MacroRow
-                    cal={plan.totalCalories}
-                    carbs={plan.totalCarbsG}
-                    protein={plan.totalProteinG}
-                    fat={plan.totalFatG}
-                  />
-                </div>
-              )}
+              {/* Macro summary — falls back to client-computed brief when no saved plan */}
+              <div className="mt-1.5">
+                <MacroRow
+                  cal={plan?.totalCalories   ?? brief.totalCalories}
+                  carbs={plan?.totalCarbsG   ?? brief.totalCarbsG}
+                  protein={plan?.totalProteinG ?? brief.totalProteinG}
+                  fat={plan?.totalFatG       ?? brief.totalFatG}
+                />
+              </div>
             </div>
 
             {/* Right: generate button + arrow */}
@@ -337,6 +425,9 @@ function DayCard({
         {/* Expanded content */}
         {expanded && (
           <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
+
+            {/* Maths view — deterministic numbers from the engine, always shown */}
+            <MathsView brief={brief} timezone={timezone} hasAiContent={hasPlan} />
 
             {/* Activity details */}
             {hasEvents && (
@@ -582,7 +673,6 @@ export default function PlanView({
 
       const brief = computeDayBrief(input, dateStr);
       map.set(dateStr, brief);
-      console.log("[DayBrief]", dateStr, brief);
 
       // Carry-forward for the next day's input.
       previousGlycogen       = brief.glycogenBattery;
@@ -591,9 +681,6 @@ export default function PlanView({
 
     return map;
   }, [events, engineData, yesterdayPlan, todayStr]);
-
-  // Referenced via the map for now; later prompts wire this into DayCard.
-  void dayBriefs;
 
   // ── Per-day generation ───────────────────────────────────────────────────
 
@@ -804,15 +891,24 @@ export default function PlanView({
             </Link>
           )}
 
-          {/* Day cards */}
-          {dates.map((dateStr, i) => {
-            const plan = plans.get(dateStr) ?? null;
+          {/* Day cards — skipped when the engine can't compute a brief (missing
+              weight or maintenance); the user is nudged to finish setup first. */}
+          {dayBriefs.size === 0 && (
+            <p className="text-zinc-500 text-sm px-1 py-4">
+              Log a weigh-in and set your body stats to see your plan.
+            </p>
+          )}
+          {dayBriefs.size > 0 && dates.map((dateStr, i) => {
+            const plan  = plans.get(dateStr) ?? null;
+            const brief = dayBriefs.get(dateStr);
+            if (!brief) return null;
             return (
               <DayCard
                 key={dateStr}
                 dateStr={dateStr}
                 isToday={i === 0}
                 plan={plan}
+                brief={brief}
                 events={eventsByDate.get(dateStr) ?? []}
                 isGenerating={generatingDates.has(dateStr)}
                 isStale={plan !== null && isStale(plan)}
