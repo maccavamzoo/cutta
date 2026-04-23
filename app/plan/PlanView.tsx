@@ -125,7 +125,7 @@ function MacroRow({ cal, carbs, protein, fat }: {
     <p className="text-xs tabular-nums leading-snug">
       <span className="text-zinc-500">Consume: </span>
       <span className="text-white font-semibold">{cal} kcal</span>
-      <span className="text-zinc-500"> today &mdash; (macros: C </span>
+      <span className="text-zinc-500"> today (macros: C </span>
       <span className="text-zinc-300">{carbs}g</span>
       <span className="text-zinc-500"> · P </span>
       <span className="text-zinc-300">{protein}g</span>
@@ -246,7 +246,7 @@ function MathsView({
       <div className="text-xs tabular-nums">
         {/* Total line */}
         <div className="flex items-baseline gap-2 py-0.5 flex-wrap">
-          <span className="text-zinc-500">Total &mdash;</span>
+          <span className="text-zinc-500">Total</span>
           <span className="text-white font-semibold">{brief.totalCalories} kcal</span>
           <span className="text-zinc-500">
             C <span className="text-zinc-300">{brief.totalCarbsG}g</span>
