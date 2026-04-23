@@ -1,13 +1,20 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
-import AddEventSheet, { type CalendarEvent, type ActivityTypeOption } from "./AddEventSheet";
+import AddEventSheet, { type CalendarEvent } from "./AddEventSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import type { UnitSystem } from "@/lib/units";
 import { kgToDisplay, weightLabel } from "@/lib/units";
+import {
+  computeDayBrief,
+  resolveActivityType,
+  type DayBrief,
+  type PlanEngineInput,
+} from "@/lib/plan-engine";
+import type { ActivityType } from "@/lib/protocol";
 
 // ─── exported types ───────────────────────────────────────────────────────────
 
@@ -34,6 +41,21 @@ export interface PlanCalendarEvent {
   scheduledAt: string;   // ISO
   durationMinutes: number | null;
   notes: string | null;
+}
+
+// Everything computeDayBrief needs that doesn't vary per visible day.
+// Per-day fields (events, primary event, glycogen carry-forward) are derived
+// on the client from calendarEvents and the yesterday plan.
+export interface PlanEngineData {
+  currentWeightKg:     number | null;
+  maintenanceCalories: number | null;
+  weightLossRate:      number;
+  foodExclusions:      string[];
+  preferredFoods:      string[];
+  restDayMacros:       { carbs_g_per_kg: number; protein_g_per_kg: number };
+  activityTypes:       ActivityType[];
+  ingredientPool:      string[] | null;
+  recentFeedback:      PlanEngineInput["recentFeedback"];
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -71,8 +93,8 @@ function getEventBadgeClass(eventType: string): string {
 function eventsWithActivity(
   events: { id: number; eventType: string; scheduledDate: string }[],
   dateStr: string,
-  activityTypes: ActivityTypeOption[],
-): Array<{ id: number; eventType: string; activityType: ActivityTypeOption }> {
+  activityTypes: ActivityType[],
+): Array<{ id: number; eventType: string; activityType: ActivityType }> {
   return events
     .filter((e) => e.scheduledDate === dateStr && e.eventType !== "rest")
     .map((e) => {
@@ -96,13 +118,21 @@ function isDayAmbiguousForMacros(
 function MacroRow({ cal, carbs, protein, fat }: {
   cal: number | null; carbs: number | null; protein: number | null; fat: number | null;
 }) {
+  if (cal == null || carbs == null || protein == null || fat == null) return null;
+  // Inline text (not flex) so wrapping happens at word boundaries rather than
+  // between spans — keeps the "—" next to its neighbour when space is tight.
   return (
-    <div className="flex gap-3 text-xs tabular-nums flex-wrap">
-      {cal     != null && <span className="text-white font-semibold">{cal} kcal</span>}
-      {carbs   != null && <span className="text-zinc-500">C <span className="text-zinc-300">{carbs}g</span></span>}
-      {protein != null && <span className="text-zinc-500">P <span className="text-zinc-300">{protein}g</span></span>}
-      {fat     != null && <span className="text-zinc-500">F <span className="text-zinc-300">{fat}g</span></span>}
-    </div>
+    <p className="text-xs tabular-nums leading-snug">
+      <span className="text-zinc-500">Consume: </span>
+      <span className="text-white font-semibold">{cal} kcal</span>
+      <span className="text-zinc-500"> today &mdash; (macros: C </span>
+      <span className="text-zinc-300">{carbs}g</span>
+      <span className="text-zinc-500"> · P </span>
+      <span className="text-zinc-300">{protein}g</span>
+      <span className="text-zinc-500"> · F </span>
+      <span className="text-zinc-300">{fat}g</span>
+      <span className="text-zinc-500">)</span>
+    </p>
   );
 }
 
@@ -182,18 +212,107 @@ function OnBikeCard({ fuelling }: { fuelling: NonNullable<DayPlanOutput["on_bike
   );
 }
 
+// ─── MathsView ────────────────────────────────────────────────────────────────
+// Renders the deterministic numbers from DayBrief inside the expanded card.
+// Sits above any AI-generated content; no AI involvement in anything shown here.
+
+function MathsView({
+  brief,
+  timezone,
+  hasAiContent,
+}: {
+  brief:         DayBrief;
+  timezone:      string;
+  hasAiContent:  boolean;
+}) {
+  const { calorieBreakdown, guardrails, trainingEvent, dayType, carbLoadContext } = brief;
+
+  function eventLine(): string {
+    if (!trainingEvent) return "Rest day";
+    const time = new Date(trainingEvent.scheduledAt).toLocaleTimeString("en-GB", {
+      hour: "2-digit", minute: "2-digit", timeZone: timezone,
+    });
+    const core = `${trainingEvent.activityTypeName} · ${time} · ${trainingEvent.durationMinutes}min`;
+    return dayType === "race" ? `Race — ${core}` : core;
+  }
+
+  function signed(value: number): string {
+    return value > 0 ? `+${value}` : `${value}`;
+  }
+
+  return (
+    <div className={`space-y-3 ${hasAiContent ? "border-b border-zinc-800 pb-4" : ""}`}>
+      {/* Stats grid */}
+      <div className="text-xs tabular-nums">
+        {/* Total line */}
+        <div className="flex items-baseline gap-2 py-0.5 flex-wrap">
+          <span className="text-zinc-500">Total &mdash;</span>
+          <span className="text-white font-semibold">{brief.totalCalories} kcal</span>
+          <span className="text-zinc-500">
+            C <span className="text-zinc-300">{brief.totalCarbsG}g</span>
+            <span> · </span>
+            P <span className="text-zinc-300">{brief.totalProteinG}g</span>
+            <span> · </span>
+            F <span className="text-zinc-300">{brief.totalFatG}g</span>
+          </span>
+        </div>
+
+        {/* Breakdown rows */}
+        <div className="flex justify-between py-0.5">
+          <span className="text-zinc-500">Maintenance</span>
+          <span className="text-zinc-300">{calorieBreakdown.maintenance} kcal</span>
+        </div>
+        {calorieBreakdown.trainingBurn > 0 && (
+          <div className="flex justify-between py-0.5">
+            <span className="text-zinc-500">Training burn</span>
+            <span className="text-zinc-300">+{calorieBreakdown.trainingBurn} kcal</span>
+          </div>
+        )}
+        {calorieBreakdown.deficit > 0 && (
+          <div className="flex justify-between py-0.5">
+            <span className="text-zinc-500">Deficit</span>
+            <span className="text-zinc-300">-{calorieBreakdown.deficit} kcal</span>
+          </div>
+        )}
+        {calorieBreakdown.guardrailAdjustment !== 0 && (
+          <div className="flex justify-between py-0.5">
+            <span className="text-zinc-500">Guardrail adj.</span>
+            <span className="text-zinc-300">{signed(calorieBreakdown.guardrailAdjustment)} kcal</span>
+          </div>
+        )}
+      </div>
+
+      {/* Glycogen */}
+      <div className="flex justify-between text-xs tabular-nums">
+        <span className="text-zinc-500">Glycogen</span>
+        <span className="text-zinc-300">{brief.glycogenBattery}/100</span>
+      </div>
+
+      {/* Context notes */}
+      <div className="space-y-1 text-xs text-zinc-400">
+        <p>{eventLine()}</p>
+        {carbLoadContext && <p>{carbLoadContext}</p>}
+        {guardrails.map((g, i) => (
+          <p key={i}>• {g.description}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── DayCard ──────────────────────────────────────────────────────────────────
 
 interface DayCardProps {
   dateStr:          string;
   isToday:          boolean;
   plan:             StoredPlan | null;
+  brief:            DayBrief;
   events:           PlanCalendarEvent[];
   isGenerating:     boolean;
   isStale:          boolean;
   hasActiveProtocol: boolean;
   unitSystem:       UnitSystem;
-  activityTypes:    ActivityTypeOption[];
+  activityTypes:    ActivityType[];
   timezone:         string;
   onGenerate:       () => void;
   onEventAdded:     (event: CalendarEvent) => void;
@@ -205,6 +324,7 @@ function DayCard({
   dateStr,
   isToday,
   plan,
+  brief,
   events,
   isGenerating,
   isStale,
@@ -267,17 +387,15 @@ function DayCard({
                 }
               </div>
 
-              {/* Macro summary */}
-              {hasPlan && (
-                <div className="mt-1.5">
-                  <MacroRow
-                    cal={plan.totalCalories}
-                    carbs={plan.totalCarbsG}
-                    protein={plan.totalProteinG}
-                    fat={plan.totalFatG}
-                  />
-                </div>
-              )}
+              {/* Macro summary — falls back to client-computed brief when no saved plan */}
+              <div className="mt-1.5">
+                <MacroRow
+                  cal={plan?.totalCalories   ?? brief.totalCalories}
+                  carbs={plan?.totalCarbsG   ?? brief.totalCarbsG}
+                  protein={plan?.totalProteinG ?? brief.totalProteinG}
+                  fat={plan?.totalFatG       ?? brief.totalFatG}
+                />
+              </div>
             </div>
 
             {/* Right: generate button + arrow */}
@@ -315,6 +433,9 @@ function DayCard({
         {/* Expanded content */}
         {expanded && (
           <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
+
+            {/* Maths view — deterministic numbers from the engine, always shown */}
+            <MathsView brief={brief} timezone={timezone} hasAiContent={hasPlan} />
 
             {/* Activity details */}
             {hasEvents && (
@@ -414,9 +535,9 @@ export default function PlanView({
   hasActiveProtocol,
   hasWeeklyStrategy,
   dataLastChangedAt,
-  activityTypes,
+  engineData,
+  yesterdayPlan,
   targetWeightKg,
-  arrivalStr,
   timezone,
 }: {
   initialPlans:      StoredPlan[];
@@ -426,12 +547,13 @@ export default function PlanView({
   hasActiveProtocol: boolean;
   hasWeeklyStrategy: boolean;
   dataLastChangedAt: string | null;
-  activityTypes:     ActivityTypeOption[];
+  engineData:        PlanEngineData;
+  yesterdayPlan:     { glycogenBattery: number | null } | null;
   targetWeightKg:    number | null;
-  arrivalStr:        string | null;
   timezone:          string;
 }) {
   const router = useRouter();
+  const { activityTypes } = engineData;
 
   const [inspectMode, setInspectMode] = useState(false);
   const [inspectPrompt, setInspectPrompt] = useState<string | null>(null);
@@ -446,7 +568,7 @@ export default function PlanView({
   const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
   const [pickerState, setPickerState] = useState<{
     dateStr: string;
-    events: Array<{ id: number; eventType: string; activityType: ActivityTypeOption }>;
+    events: Array<{ id: number; eventType: string; activityType: ActivityType }>;
   } | null>(null);
 
   useEffect(() => {
@@ -465,6 +587,108 @@ export default function PlanView({
   }, []);
 
   const dates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
+
+  // ── Client-side DayBrief per visible day ─────────────────────────────────
+  // Recomputes whenever events change (add / edit / delete) or engineData shifts.
+  // Briefs are built in date order so each day's glycogen flows into the next.
+  const dayBriefs = useMemo(() => {
+    const map = new Map<string, DayBrief>();
+    if (
+      engineData.currentWeightKg == null ||
+      engineData.maintenanceCalories == null ||
+      engineData.activityTypes.length === 0
+    ) {
+      return map;
+    }
+
+    // Index events by date for fast per-day lookup.
+    const byDate = new Map<string, PlanCalendarEvent[]>();
+    for (const ev of events) {
+      const arr = byDate.get(ev.scheduledDate) ?? [];
+      arr.push(ev);
+      byDate.set(ev.scheduledDate, arr);
+    }
+
+    // Resolve all events on `dateStr` to { event, activityType } pairs.
+    // Rest events don't resolve (no activity type) and are dropped from the
+    // engine's todayEvents list, matching the fuelling-plan API behaviour.
+    function resolveDayEvents(dateStr: string) {
+      const list = byDate.get(dateStr) ?? [];
+      return list
+        .map((ev) => {
+          const at = resolveActivityType(engineData.activityTypes, ev.eventType);
+          return at ? { event: ev, activityType: at } : null;
+        })
+        .filter((x): x is { event: PlanCalendarEvent; activityType: ActivityType } => x !== null);
+    }
+
+    // Primary event = longest duration, same rule the /generate-day route uses.
+    function pickPrimary<T extends { event: { durationMinutes: number | null } }>(list: T[]): T | null {
+      if (list.length === 0) return null;
+      return list.reduce((a, b) =>
+        (b.event.durationMinutes ?? 0) > (a.event.durationMinutes ?? 0) ? b : a
+      );
+    }
+
+    const yesterdayStr = addDays(todayStr, -1);
+    const yesterdayEvents = byDate.get(yesterdayStr) ?? [];
+
+    let previousGlycogen: number | null = yesterdayPlan?.glycogenBattery ?? null;
+    let previousDayHadTraining = yesterdayEvents.some((e) => e.eventType !== "rest");
+
+    const briefDates = Array.from({ length: 7 }, (_, i) => addDays(todayStr, i));
+    for (const dateStr of briefDates) {
+      const dayList      = resolveDayEvents(dateStr);
+      const tomorrowList = resolveDayEvents(addDays(dateStr, 1));
+      const primary      = pickPrimary(dayList);
+      const tomorrowPrim = pickPrimary(tomorrowList);
+
+      const input: PlanEngineInput = {
+        currentWeightKg:      engineData.currentWeightKg,
+        maintenanceCalories:  engineData.maintenanceCalories,
+        weightLossRate:       engineData.weightLossRate,
+        foodExclusions:       engineData.foodExclusions,
+        preferredFoods:       engineData.preferredFoods,
+        restDayMacros:        engineData.restDayMacros,
+        todayActivityType:    primary?.activityType ?? null,
+        tomorrowActivityType: tomorrowPrim?.activityType ?? null,
+        todayEvent: primary ? {
+          id:              primary.event.id,
+          title:           primary.event.title,
+          scheduledAt:     primary.event.scheduledAt,
+          durationMinutes: primary.event.durationMinutes,
+        } : null,
+        tomorrowEvent: tomorrowPrim ? {
+          durationMinutes: tomorrowPrim.event.durationMinutes,
+          scheduledAt:     tomorrowPrim.event.scheduledAt,
+        } : null,
+        todayEvents: dayList.map(({ event, activityType }) => ({
+          event: {
+            id:              event.id,
+            title:           event.title,
+            scheduledAt:     event.scheduledAt,
+            durationMinutes: event.durationMinutes,
+          },
+          activityType,
+        })),
+        // Free-tier brief doesn't consume yesterdayMeals; leave empty.
+        yesterdayMeals:         [],
+        ingredientPool:         engineData.ingredientPool,
+        recentFeedback:         engineData.recentFeedback,
+        previousGlycogen,
+        previousDayHadTraining,
+      };
+
+      const brief = computeDayBrief(input, dateStr);
+      map.set(dateStr, brief);
+
+      // Carry-forward for the next day's input.
+      previousGlycogen       = brief.glycogenBattery;
+      previousDayHadTraining = (byDate.get(dateStr) ?? []).some((e) => e.eventType !== "rest");
+    }
+
+    return map;
+  }, [events, engineData, yesterdayPlan, todayStr]);
 
   // ── Per-day generation ───────────────────────────────────────────────────
 
@@ -593,11 +817,43 @@ export default function PlanView({
       {/* Page header */}
       <div className="mb-5">
         <h1 className="text-xl font-bold tracking-tight text-white">Plan</h1>
-        {targetWeightKg != null && arrivalStr && (
-          <p className="text-zinc-500 text-sm mt-1">
-            Target {kgToDisplay(targetWeightKg, unitSystem).toFixed(1)}{weightLabel(unitSystem)} · est. arrival {arrivalStr}
-          </p>
-        )}
+        {targetWeightKg != null && engineData.currentWeightKg != null && (() => {
+          const wl             = weightLabel(unitSystem);
+          const currentWeightKg = engineData.currentWeightKg;
+          const curDisp        = `${kgToDisplay(currentWeightKg, unitSystem).toFixed(1)}${wl}`;
+          const rate           = engineData.weightLossRate;
+
+          // rate === 0: maintaining, regardless of how current compares to target.
+          if (rate === 0) {
+            return (
+              <p className="text-zinc-500 text-sm mt-1">
+                Current weight {curDisp} — maintaining
+              </p>
+            );
+          }
+
+          // At or below target.
+          if (currentWeightKg <= targetWeightKg) {
+            const tgtDisp = `${kgToDisplay(targetWeightKg, unitSystem).toFixed(1)}${wl}`;
+            return (
+              <p className="text-zinc-500 text-sm mt-1">
+                Current weight {curDisp} — you are below your target weight of {tgtDisp}
+              </p>
+            );
+          }
+
+          // Above target, actively losing: ETA = today + ceil(gap / daily rate).
+          const days = Math.ceil((currentWeightKg - targetWeightKg) / (rate / 7));
+          // Anchor "today" to the user's local date (noon avoids DST edge cases).
+          const todayRef = new Date(`${todayStr}T12:00:00`);
+          const arrival  = new Date(todayRef.getTime() + days * 86_400_000);
+          const dateStr  = arrival.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+          return (
+            <p className="text-zinc-500 text-sm mt-1">
+              Current weight {curDisp} — you&rsquo;ll hit your target in approx. {days} days on {dateStr}
+            </p>
+          );
+        })()}
         <div className="flex items-center gap-2 mt-1">
           <button
             type="button"
@@ -643,15 +899,24 @@ export default function PlanView({
             </Link>
           )}
 
-          {/* Day cards */}
-          {dates.map((dateStr, i) => {
-            const plan = plans.get(dateStr) ?? null;
+          {/* Day cards — skipped when the engine can't compute a brief (missing
+              weight or maintenance); the user is nudged to finish setup first. */}
+          {dayBriefs.size === 0 && (
+            <p className="text-zinc-500 text-sm px-1 py-4">
+              Log a weigh-in and set your body stats to see your plan.
+            </p>
+          )}
+          {dayBriefs.size > 0 && dates.map((dateStr, i) => {
+            const plan  = plans.get(dateStr) ?? null;
+            const brief = dayBriefs.get(dateStr);
+            if (!brief) return null;
             return (
               <DayCard
                 key={dateStr}
                 dateStr={dateStr}
                 isToday={i === 0}
                 plan={plan}
+                brief={brief}
                 events={eventsByDate.get(dateStr) ?? []}
                 isGenerating={generatingDates.has(dateStr)}
                 isStale={plan !== null && isStale(plan)}
