@@ -118,12 +118,27 @@ function isDayAmbiguousForMacros(
 function MacroRow({ cal, carbs, protein, fat }: {
   cal: number | null; carbs: number | null; protein: number | null; fat: number | null;
 }) {
+  if (cal == null && carbs == null && protein == null && fat == null) return null;
   return (
-    <div className="flex gap-3 text-xs tabular-nums flex-wrap">
-      {cal     != null && <span className="text-white font-semibold">{cal} kcal</span>}
-      {carbs   != null && <span className="text-zinc-500">C <span className="text-zinc-300">{carbs}g</span></span>}
-      {protein != null && <span className="text-zinc-500">P <span className="text-zinc-300">{protein}g</span></span>}
-      {fat     != null && <span className="text-zinc-500">F <span className="text-zinc-300">{fat}g</span></span>}
+    <div className="flex items-baseline gap-1.5 text-xs tabular-nums flex-wrap">
+      {cal != null && (
+        <>
+          <span className="text-zinc-500">Consume:</span>
+          <span className="text-white font-semibold">{cal} kcal</span>
+          <span className="text-zinc-500">today &mdash;</span>
+        </>
+      )}
+      {(carbs != null || protein != null || fat != null) && (
+        <span className="text-zinc-500">
+          (macros:
+          {carbs   != null && <> C <span className="text-zinc-300">{carbs}g</span></>}
+          {carbs   != null && protein != null && " · "}
+          {protein != null && <> P <span className="text-zinc-300">{protein}g</span></>}
+          {(carbs != null || protein != null) && fat != null && " · "}
+          {fat     != null && <> F <span className="text-zinc-300">{fat}g</span></>}
+          )
+        </span>
+      )}
     </div>
   );
 }
