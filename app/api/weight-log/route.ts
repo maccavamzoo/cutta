@@ -4,6 +4,7 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { weightLog, userProfiles } from "@/lib/db/schema";
 import { getUserToday } from "@/lib/dates";
+import { recalculateMaintenanceCalories } from "@/lib/weight";
 
 // POST /api/weight-log — upsert today's weigh-in (one entry per user per day)
 export async function POST(req: Request) {
@@ -50,11 +51,8 @@ export async function POST(req: Request) {
       },
     });
 
-  // Keep profile current weight in sync
-  await db
-    .update(userProfiles)
-    .set({ currentWeightKg: weightKg.toFixed(1), updatedAt: now })
-    .where(eq(userProfiles.clerkUserId, userId));
+  // Recompute maintenance calories using the user's chosen mode (latest / rolling_7d)
+  await recalculateMaintenanceCalories(userId);
 
   return NextResponse.json({ ok: true });
 }

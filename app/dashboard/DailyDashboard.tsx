@@ -33,7 +33,6 @@ export interface TodayEvent {
 }
 
 export interface ProfileSnapshot {
-  currentWeightKg:     number | null;
   targetWeightKg:      number | null;
   maintenanceCalories: number | null;
 }

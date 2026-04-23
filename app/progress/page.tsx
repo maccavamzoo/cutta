@@ -28,7 +28,6 @@ export default async function ProgressPage() {
     db
       .select({
         targetWeightKg:  userProfiles.targetWeightKg,
-        currentWeightKg: userProfiles.currentWeightKg,
         weightLossRate:  userProfiles.weightLossRate,
         targetSetAt:     userProfiles.targetSetAt,
         unitSystem:      userProfiles.unitSystem,
@@ -95,8 +94,8 @@ export default async function ProgressPage() {
       // All entries are after the goal date — use earliest available (closest to goal)
       planStartWeight = Number(weightRows[0].weightKg);
     } else {
-      // No weight entries at all — fall back to profile's recorded weight
-      planStartWeight = profileRow?.currentWeightKg ? Number(profileRow.currentWeightKg) : null;
+      // No weight entries at all — chart can't render a plan line yet
+      planStartWeight = null;
     }
   } else {
     // No goal set date — anchor from the earliest weight entry.
@@ -105,7 +104,7 @@ export default async function ProgressPage() {
       planStartWeight = Number(weightRows[0].weightKg);
     } else {
       planStartDate   = new Date();
-      planStartWeight = profileRow?.currentWeightKg ? Number(profileRow.currentWeightKg) : null;
+      planStartWeight = null;
     }
   }
 
