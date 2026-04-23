@@ -240,12 +240,12 @@ function MathsView({
         <div className="flex items-baseline gap-2 py-0.5 flex-wrap">
           <span className="text-zinc-500">Total &mdash;</span>
           <span className="text-white font-semibold">{brief.totalCalories} kcal</span>
-          <span className="text-zinc-300">
-            {brief.totalCarbsG}g<span className="text-zinc-500"> C</span>
-            <span className="text-zinc-500"> · </span>
-            {brief.totalProteinG}g<span className="text-zinc-500"> P</span>
-            <span className="text-zinc-500"> · </span>
-            {brief.totalFatG}g<span className="text-zinc-500"> F</span>
+          <span className="text-zinc-500">
+            C <span className="text-zinc-300">{brief.totalCarbsG}g</span>
+            <span> · </span>
+            P <span className="text-zinc-300">{brief.totalProteinG}g</span>
+            <span> · </span>
+            F <span className="text-zinc-300">{brief.totalFatG}g</span>
           </span>
         </div>
 
