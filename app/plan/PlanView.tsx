@@ -8,6 +8,7 @@ import AddEventSheet, { type CalendarEvent, type ActivityTypeOption } from "./Ad
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import type { UnitSystem } from "@/lib/units";
 import { kgToDisplay, weightLabel } from "@/lib/units";
+import { parseRate } from "@/lib/weight-projection";
 
 // ─── exported types ───────────────────────────────────────────────────────────
 
@@ -415,8 +416,9 @@ export default function PlanView({
   hasWeeklyStrategy,
   dataLastChangedAt,
   activityTypes,
+  currentWeightKg,
   targetWeightKg,
-  arrivalStr,
+  weightLossRate,
   timezone,
 }: {
   initialPlans:      StoredPlan[];
@@ -427,8 +429,9 @@ export default function PlanView({
   hasWeeklyStrategy: boolean;
   dataLastChangedAt: string | null;
   activityTypes:     ActivityTypeOption[];
+  currentWeightKg:   number | null;
   targetWeightKg:    number | null;
-  arrivalStr:        string | null;
+  weightLossRate:    string | null;
   timezone:          string;
 }) {
   const router = useRouter();
@@ -593,11 +596,42 @@ export default function PlanView({
       {/* Page header */}
       <div className="mb-5">
         <h1 className="text-xl font-bold tracking-tight text-white">Plan</h1>
-        {targetWeightKg != null && arrivalStr && (
-          <p className="text-zinc-500 text-sm mt-1">
-            Target {kgToDisplay(targetWeightKg, unitSystem).toFixed(1)}{weightLabel(unitSystem)} · est. arrival {arrivalStr}
-          </p>
-        )}
+        {targetWeightKg != null && currentWeightKg != null && (() => {
+          const wl       = weightLabel(unitSystem);
+          const curDisp  = `${kgToDisplay(currentWeightKg, unitSystem).toFixed(1)}${wl}`;
+          const rate     = parseRate(weightLossRate);
+
+          // rate === 0: maintaining, regardless of how current compares to target.
+          if (rate === 0) {
+            return (
+              <p className="text-zinc-500 text-sm mt-1">
+                Current weight {curDisp} — maintaining
+              </p>
+            );
+          }
+
+          // At or below target.
+          if (currentWeightKg <= targetWeightKg) {
+            const tgtDisp = `${kgToDisplay(targetWeightKg, unitSystem).toFixed(1)}${wl}`;
+            return (
+              <p className="text-zinc-500 text-sm mt-1">
+                Current weight {curDisp} — you are below your target weight of {tgtDisp}
+              </p>
+            );
+          }
+
+          // Above target, actively losing: ETA = today + ceil(gap / daily rate).
+          const days = Math.ceil((currentWeightKg - targetWeightKg) / (rate / 7));
+          // Anchor "today" to the user's local date (noon avoids DST edge cases).
+          const todayRef = new Date(`${todayStr}T12:00:00`);
+          const arrival  = new Date(todayRef.getTime() + days * 86_400_000);
+          const dateStr  = arrival.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+          return (
+            <p className="text-zinc-500 text-sm mt-1">
+              Current weight {curDisp} — you&rsquo;ll hit your target in approx. {days} days on {dateStr}
+            </p>
+          );
+        })()}
         <div className="flex items-center gap-2 mt-1">
           <button
             type="button"

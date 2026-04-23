@@ -16,7 +16,6 @@ import type { StoredPlan, PlanCalendarEvent } from "./PlanView";
 const PlanView = dynamic(() => import("./PlanView"), { ssr: false });
 import type { ActivityTypeOption } from "./AddEventSheet";
 import BottomNav from "@/components/BottomNav";
-import { arrivalDate } from "@/lib/weight-projection";
 import { getUserToday } from "@/lib/dates";
 
 export default async function PlanPage() {
@@ -122,13 +121,6 @@ export default async function PlanPage() {
     ? Number(profileRow.targetWeightKg)
     : null;
 
-  const arrival    = (currentWeightKg != null && targetWeightKg != null)
-    ? arrivalDate(currentWeightKg, targetWeightKg, weightLossRate, today)
-    : null;
-  const arrivalStr = arrival
-    ? arrival.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
-    : null;
-
   // Data-change timestamp for per-day staleness detection
   const changeDates: Date[] = [
     profileRows[0]?.updatedAt,
@@ -187,8 +179,9 @@ export default async function PlanPage() {
             hasWeeklyStrategy={hasWeeklyStrategy}
             dataLastChangedAt={dataLastChangedAt}
             activityTypes={activityTypes}
+            currentWeightKg={currentWeightKg}
             targetWeightKg={targetWeightKg}
-            arrivalStr={arrivalStr}
+            weightLossRate={weightLossRate}
             timezone={timezone}
           />
         </div>
