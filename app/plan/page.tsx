@@ -69,7 +69,6 @@ export default async function PlanPage() {
       db
         .select({
           estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
-          currentWeightKg:              userProfiles.currentWeightKg,
           targetWeightKg:               userProfiles.targetWeightKg,
           weightLossRate:               userProfiles.weightLossRate,
           unitSystem:                   userProfiles.unitSystem,
@@ -113,12 +112,10 @@ export default async function PlanPage() {
   const hasActivityTypes  = activityTypeRows.length > 0;
   const hasWeeklyStrategy = strategyRows.length > 0;
 
-  // Weight & projection
+  // Weight & projection — weight_log is the source of truth.
   const weightLossRate  = profileRow?.weightLossRate ?? null;
   const currentWeightKg = latestWeightRows[0]?.weightKg
     ? Number(latestWeightRows[0].weightKg)
-    : profileRow?.currentWeightKg
-    ? Number(profileRow.currentWeightKg)
     : null;
 
   const targetWeightKg = profileRow?.targetWeightKg

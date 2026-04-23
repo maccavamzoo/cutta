@@ -7,6 +7,8 @@ import BottomNav from "@/components/BottomNav";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
+export type MaintenanceRecalcMode = "latest" | "rolling_7d";
+
 export interface ProfileData {
   currentWeightKg:              number | null;
   targetWeightKg:               number | null;
@@ -16,6 +18,7 @@ export interface ProfileData {
   weightLossRate:               string | null;
   targetSetAt:                  string | null;
   estimatedMaintenanceCalories: number | null;
+  maintenanceRecalcMode:        MaintenanceRecalcMode;
   restDayCarbsGPerKg:           number;
   restDayProteinGPerKg:         number;
 }
@@ -123,6 +126,32 @@ export default function ProfileEditView({
   const [restDayProteinStr, setRestDayProteinStr] = useState(String(initial.restDayProteinGPerKg));
   const [fatInfoOpen,       setFatInfoOpen]       = useState(false);
 
+  // ── maintenance recalc mode ──────────────────────────────────────────────
+  const [recalcMode,    setRecalcMode]    = useState<MaintenanceRecalcMode>(initial.maintenanceRecalcMode);
+  const [recalcInfoOpen, setRecalcInfoOpen] = useState(false);
+  const [recalcSaving,   setRecalcSaving]   = useState(false);
+
+  async function handleRecalcModeChange(next: MaintenanceRecalcMode) {
+    if (next === recalcMode || recalcSaving) return;
+    const previous = recalcMode;
+    setRecalcMode(next);
+    if (mode === "onboarding") return; // onboarding flow saves via the main button
+    setRecalcSaving(true);
+    try {
+      const res = await fetch("/api/user-profile/profile", {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maintenanceRecalcMode: next }),
+      });
+      if (!res.ok) throw new Error("Failed to update recalc mode.");
+      router.refresh();
+    } catch {
+      setRecalcMode(previous);
+    } finally {
+      setRecalcSaving(false);
+    }
+  }
+
   // ── maintenance calories (auto-calc + optional override) ─────────────────
   const currentWeightKgParsed = currentWeightStr ? displayToKg(parseFloat(currentWeightStr), unitSystem) : null;
   const calculatedCals = useMemo(
@@ -172,6 +201,7 @@ export default function ProfileEditView({
     if (!overrideActive && initOverrideCals !== "" && overrideCalsStr !== initOverrideCals) return true;
     if (restDayCarbsStr   !== String(initial.restDayCarbsGPerKg))   return true;
     if (restDayProteinStr !== String(initial.restDayProteinGPerKg)) return true;
+    // recalcMode is persisted immediately on toggle (edit mode), so it's never "dirty" here.
     return false;
   }, [currentWeightStr, targetWeightStr, heightStr, ageStr, sex, maintainMode, rateKgPerWeek,
       overrideActive, overrideCalsStr, restDayCarbsStr, restDayProteinStr, initial, unitSystem]);
@@ -214,6 +244,7 @@ export default function ProfileEditView({
       weightLossRate: maintainMode ? "0" : String(rateKgPerWeek),
       ...(goalChanged ? { targetSetAt: new Date().toISOString() } : {}),
       estimatedMaintenanceCalories,
+      maintenanceRecalcMode:        recalcMode,
       restDayCarbsGPerKg:   parseFloat(restDayCarbsStr)   || 3,
       restDayProteinGPerKg: parseFloat(restDayProteinStr) || 2,
     };
@@ -455,6 +486,44 @@ export default function ProfileEditView({
               ? "Calculated using the Mifflin-St Jeor equation (BMR × 1.2 sedentary multiplier). Training burn is added per activity from your calendar."
               : "Fill in weight, height, age and sex to calculate"}
           </p>
+        </div>
+
+        {/* Recalculate-from selector */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <label className="text-white text-sm font-medium">Recalculate from</label>
+            <button
+              type="button"
+              onClick={() => setRecalcInfoOpen((o) => !o)}
+              className="w-5 h-5 flex items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+              aria-label="Why does this matter?"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M7 6.5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="7" cy="4.25" r="0.8" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <Pill
+              label="7-day rolling average"
+              active={recalcMode === "rolling_7d"}
+              onClick={() => handleRecalcModeChange("rolling_7d")}
+            />
+            <Pill
+              label="Latest weigh-in"
+              active={recalcMode === "latest"}
+              onClick={() => handleRecalcModeChange("latest")}
+            />
+          </div>
+          {recalcInfoOpen && (
+            <div className="bg-black/50 rounded-xl px-4 py-3 border border-white/5">
+              <p className="text-zinc-500 text-xs leading-relaxed">
+                Your maintenance calories depend on your weight, so they update whenever you weigh in. Daily weight can swing by 1kg or more from hydration and food alone, which would jitter your calorie target. The 7-day rolling average smooths out that noise and tracks your real trend. Use &ldquo;Latest weigh-in&rdquo; if you&rsquo;d rather react to every reading.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Override toggle */}

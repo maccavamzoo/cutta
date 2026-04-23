@@ -62,7 +62,6 @@ export default async function DashboardPage() {
 
     db
       .select({
-        currentWeightKg:              userProfiles.currentWeightKg,
         targetWeightKg:               userProfiles.targetWeightKg,
         estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
         trackStoolHealth:             userProfiles.trackStoolHealth,
@@ -157,9 +156,6 @@ export default async function DashboardPage() {
   const profileRow = profileRows[0] ?? null;
   const profile: ProfileSnapshot | null = profileRow
     ? {
-        currentWeightKg: profileRow.currentWeightKg
-          ? Number(profileRow.currentWeightKg)
-          : null,
         targetWeightKg: profileRow.targetWeightKg
           ? Number(profileRow.targetWeightKg)
           : null,

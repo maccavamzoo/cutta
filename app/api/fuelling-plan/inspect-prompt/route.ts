@@ -15,6 +15,7 @@ import { computeDayBrief, resolveActivityType, type PlanEngineInput } from "@/li
 import { buildDayPlanPrompt } from "@/lib/ai/buildDayPlanPrompt";
 import { rowToActivityType } from "@/lib/protocol";
 import { parseRate } from "@/lib/weight-projection";
+import { getCurrentWeightKg, NoWeightLogError } from "@/lib/weight";
 
 // ── route handler ─────────────────────────────────────────────────────────────
 
@@ -195,6 +196,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let currentWeightKg: number;
+  try {
+    currentWeightKg = await getCurrentWeightKg(userId);
+  } catch (err) {
+    if (err instanceof NoWeightLogError) {
+      return NextResponse.json(
+        { error: "Log a weigh-in before generating a plan." },
+        { status: 422 }
+      );
+    }
+    throw err;
+  }
+
   // ── 6. Convert DB rows to ActivityType[] ─────────────────────────────────
   const activityTypes = activityTypeRows.map(rowToActivityType);
 
@@ -253,7 +267,7 @@ export async function POST(req: NextRequest) {
   const tomorrowActivityType = tomorrowPrimaryRow ? resolveActivityType(activityTypes, tomorrowPrimaryRow.eventType) : null;
 
   const input: PlanEngineInput = {
-    currentWeightKg:        Number(profile.currentWeightKg ?? 75),
+    currentWeightKg,
     maintenanceCalories:    profile.estimatedMaintenanceCalories,
     weightLossRate:         parseRate(profile.weightLossRate),
     foodExclusions:         (profile.foodExclusions as string[] | null) ?? [],

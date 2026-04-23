@@ -34,6 +34,11 @@ export const userProfiles = pgTable(
     // Calorie baseline
     estimatedMaintenanceCalories: integer("estimated_maintenance_calories"),
 
+    // How to derive weight when recomputing maintenance calories: 'latest' or 'rolling_7d'.
+    maintenanceRecalcMode: varchar("maintenance_recalc_mode", { length: 20 })
+      .default("rolling_7d")
+      .notNull(),
+
     // Diet & gut
     trackStoolHealth: boolean("track_stool_health").default(false).notNull(),
     foodExclusions: text("food_exclusions").array(),
