@@ -478,7 +478,7 @@ function DayCard({
                     {plan.meals.map((meal, i) => <MealCard key={i} meal={meal} index={i} />)}
                   </div>
                 )}
-                {plan.onBikeFuelling && <OnBikeCard fuelling={plan.onBikeFuelling} />}
+                {plan.onBikeFuelling && brief.dayType !== "rest" && <OnBikeCard fuelling={plan.onBikeFuelling} />}
               </>
             )}
 
