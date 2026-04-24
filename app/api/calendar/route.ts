@@ -109,7 +109,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const updates: Partial<typeof calendarEvents.$inferInsert> = {};
+  const updates: Partial<typeof calendarEvents.$inferInsert> = { updatedAt: new Date() };
   if (body.title       !== undefined) updates.title           = body.title.trim();
   if (body.eventType   !== undefined) updates.eventType       = body.eventType;
   if (body.scheduledAt !== undefined) updates.scheduledAt     = new Date(body.scheduledAt);

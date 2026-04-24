@@ -11,7 +11,8 @@ import {
   trainingLog,
   userProfiles,
 } from "@/lib/db/schema";
-import { getDayBounds } from "@/lib/dates";
+import { getDayBounds, getUserToday } from "@/lib/dates";
+import { isPlanStale, getLastDataChange } from "@/lib/plan-staleness";
 import type { StoredPlan } from "@/app/plan/PlanView";
 
 export async function GET(request: Request) {
@@ -110,9 +111,24 @@ export async function GET(request: Request) {
         .limit(1),
     ]);
 
-  // Build plan response (only meal names + timings)
+  // Build plan response (only meal names + timings). For today, drop the plan
+  // when it's stale so the day-detail sheet matches /plan and /dashboard.
+  // Past/future days render their stored plan as-is — staleness only applies
+  // to today, where the user might still act on it.
   const planRow = planRows[0] ?? null;
-  const plan = planRow
+  const { todayStr } = getUserToday(timezone);
+  let planIsStaleForToday = false;
+  if (planRow && date === todayStr) {
+    const lastDataChange = await getLastDataChange(userId);
+    planIsStaleForToday = isPlanStale({
+      planGeneratedAt:   planRow.generatedAt,
+      planHasOnBike:     planRow.onBikeFuelling != null,
+      lastDataChange,
+      currentIsTraining: eventRows.some((e) => e.eventType !== "rest"),
+    });
+  }
+
+  const plan = planRow && !planIsStaleForToday
     ? {
         meals:           ((planRow.meals as StoredPlan["meals"]) ?? []).map((m) => ({ name: m.name, timing: m.timing })),
         totalCalories:   planRow.totalCalories,

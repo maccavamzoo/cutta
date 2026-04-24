@@ -20,7 +20,7 @@ import DailyDashboard, {
 import type { ExistingCheckIn } from "./CheckInSheet";
 import type { ActivityTypeOption } from "@/app/plan/AddEventSheet";
 import { getUserToday } from "@/lib/dates";
-import { isPlanStale } from "@/lib/plan-staleness";
+import { isPlanStale, getLastDataChange } from "@/lib/plan-staleness";
 import {
   computeDayBrief,
   resolveActivityType,
@@ -105,7 +105,6 @@ export default async function DashboardPage() {
         estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
         trackStoolHealth:             userProfiles.trackStoolHealth,
         unitSystem:                   userProfiles.unitSystem,
-        updatedAt:                    userProfiles.updatedAt,
         weightLossRate:               userProfiles.weightLossRate,
         foodExclusions:               userProfiles.foodExclusions,
         preferredFoods:               userProfiles.preferredFoods,
@@ -160,10 +159,7 @@ export default async function DashboardPage() {
       .orderBy(userActivityTypes.sortOrder),
 
     db
-      .select({
-        updatedAt:      weeklyStrategies.updatedAt,
-        ingredientPool: weeklyStrategies.ingredientPool,
-      })
+      .select({ ingredientPool: weeklyStrategies.ingredientPool })
       .from(weeklyStrategies)
       .where(and(eq(weeklyStrategies.clerkUserId, userId), eq(weeklyStrategies.isActive, true)))
       .limit(1),
@@ -226,16 +222,9 @@ export default async function DashboardPage() {
   const planRow    = planRows[0]    ?? null;
   const profileRow = profileRows[0] ?? null;
 
-  // Staleness — single shared rule, both routes call the same helper server-side.
-  const changeDates: Date[] = [
-    profileRow?.updatedAt,
-    ...activityTypeRows.map((r) => r.updatedAt),
-    strategyRows[0]?.updatedAt,
-    ...eventRows.map((e) => e.updatedAt),
-  ].filter((d): d is Date => d instanceof Date);
-  const lastDataChange = changeDates.length > 0
-    ? new Date(Math.max(...changeDates.map((d) => d.getTime())))
-    : null;
+  // Staleness — single shared rule, both routes call the same helper
+  // server-side so their lastDataChange inputs cannot drift.
+  const lastDataChange = await getLastDataChange(userId);
 
   const planIsStale = isPlanStale({
     planGeneratedAt:   planRow?.generatedAt ?? null,
