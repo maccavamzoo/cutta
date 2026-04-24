@@ -10,6 +10,7 @@ import WeighInSheet from "./WeighInSheet";
 import EditEventSheet, { type EditableEvent } from "@/components/EditEventSheet";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 import type { ActivityTypeOption } from "@/app/plan/AddEventSheet";
+import type { DayBrief } from "@/lib/plan-engine";
 
 // ─── exported types (used by page.tsx) ───────────────────────────────────────
 
@@ -447,19 +448,96 @@ function MealCard({
   );
 }
 
+// ─── deterministic maths (shown in no-plan state) ────────────────────────────
+
+function signed(value: number): string {
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
+function BriefMaths({ brief }: { brief: DayBrief }) {
+  const { calorieBreakdown, guardrails } = brief;
+  return (
+    <div className="space-y-3">
+      {/* Total kcal + macro grid */}
+      {brief.totalCalories != null && (
+        <div className="flex items-center gap-4 px-1">
+          <div className="text-center">
+            <p className="text-white text-xl font-bold tabular-nums">{brief.totalCalories}</p>
+            <p className="text-zinc-600 text-xs">kcal</p>
+          </div>
+          <div className="flex-1 grid grid-cols-3 gap-2">
+            {[
+              { label: "Carbs",   val: brief.totalCarbsG,   colour: "text-lime-400"  },
+              { label: "Protein", val: brief.totalProteinG, colour: "text-blue-400"  },
+              { label: "Fat",     val: brief.totalFatG,     colour: "text-amber-400" },
+            ].map(({ label, val, colour }) => (
+              <div key={label} className="bg-zinc-900 rounded-xl px-2 py-2 text-center">
+                <p className={`text-sm font-bold tabular-nums ${colour}`}>{val}g</p>
+                <p className="text-zinc-600 text-xs">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Calorie breakdown */}
+      <div className="bg-zinc-900 rounded-xl border border-zinc-800 px-4 py-3 space-y-1.5 text-xs tabular-nums">
+        <p className="text-zinc-500 uppercase tracking-wider text-[10px] font-semibold mb-1">
+          Calorie breakdown
+        </p>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">Maintenance</span>
+          <span className="text-zinc-300">{calorieBreakdown.maintenance} kcal</span>
+        </div>
+        {calorieBreakdown.trainingBurn > 0 && (
+          <div className="flex justify-between">
+            <span className="text-zinc-500">Training burn</span>
+            <span className="text-zinc-300">+{calorieBreakdown.trainingBurn} kcal</span>
+          </div>
+        )}
+        {calorieBreakdown.deficit > 0 && (
+          <div className="flex justify-between">
+            <span className="text-zinc-500">Deficit</span>
+            <span className="text-zinc-300">-{calorieBreakdown.deficit} kcal</span>
+          </div>
+        )}
+        {calorieBreakdown.guardrailAdjustment !== 0 && (
+          <div className="flex justify-between">
+            <span className="text-zinc-500">Guardrails</span>
+            <span className="text-zinc-300">{signed(calorieBreakdown.guardrailAdjustment)} kcal</span>
+          </div>
+        )}
+        {guardrails.length > 0 && (
+          <div className="space-y-1 pt-2 mt-1 border-t border-zinc-800">
+            {guardrails.map((g, i) => (
+              <p key={i} className="text-zinc-500">• {g.description}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── no-plan state ────────────────────────────────────────────────────────────
 
 function NoPlan({
+  brief,
   events,
   timezone,
   onEdit,
 }: {
+  brief:    DayBrief | null;
   events:   TodayEvent[];
   timezone: string;
   onEdit:   (event: TodayEvent) => void;
 }) {
   return (
     <div className="space-y-5">
+      {/* Deterministic maths — totals + breakdown. Hidden if the engine can't
+          run yet (no weigh-in, no activity types, no maintenance). */}
+      {brief && <BriefMaths brief={brief} />}
+
       {/* Training sessions without a plan */}
       {events
         .filter((e) => e.eventType !== "rest")
@@ -481,18 +559,12 @@ function NoPlan({
           </button>
         ))}
 
-      <div className="py-10 text-center space-y-4">
-        <div className="space-y-1.5">
-          <p className="text-zinc-400 font-medium">No fuelling plan for today</p>
-          <p className="text-zinc-600 text-sm max-w-xs mx-auto leading-relaxed">
-            Generate your plan to see exactly what to eat, when, and how much.
-          </p>
-        </div>
+      <div className="py-6 text-center">
         <Link
           href="/plan"
-          className="inline-block mt-2 px-6 py-2.5 bg-lime-400 text-black text-sm font-semibold rounded-full hover:bg-lime-300 transition-colors"
+          className="text-lime-400 text-sm font-medium hover:text-lime-300 transition-colors underline underline-offset-4"
         >
-          Go to plan →
+          Generate today&apos;s plan on the Plan page →
         </Link>
       </div>
     </div>
@@ -546,6 +618,7 @@ function CheckInCard({
 export default function DailyDashboard({
   todayStr,
   todayPlan,
+  todayBrief,
   todayEvents,
   profile,
   existingCheckIn,
@@ -558,6 +631,7 @@ export default function DailyDashboard({
 }: {
   todayStr:           string;
   todayPlan:          TodayPlan | null;
+  todayBrief:         DayBrief | null;
   todayEvents:        TodayEvent[];
   profile:            ProfileSnapshot | null;
   existingCheckIn:    ExistingCheckIn | null;
@@ -668,15 +742,14 @@ export default function DailyDashboard({
           {/* Check-in card */}
           <CheckInCard existing={savedCheckIn} onOpen={() => setCheckInOpen(true)} />
 
-          {/* Glycogen battery — always visible; empty state when no plan */}
-          <GlyBattery
-            value={glycogenValue}
-            todayStr={todayStr}
-            onCalibrate={setGlycogenValue}
-          />
-
           {todayPlan ? (
             <>
+              {/* Glycogen battery — only meaningful with a fresh plan */}
+              <GlyBattery
+                value={glycogenValue}
+                todayStr={todayStr}
+                onCalibrate={setGlycogenValue}
+              />
 
               {/* AI reasoning */}
               {todayPlan.aiReasoning && (
@@ -748,7 +821,12 @@ export default function DailyDashboard({
 
             </>
           ) : (
-            <NoPlan events={events} timezone={timezone} onEdit={setEditingEvent} />
+            <NoPlan
+              brief={todayBrief}
+              events={events}
+              timezone={timezone}
+              onEdit={setEditingEvent}
+            />
           )}
         </div>
       </main>

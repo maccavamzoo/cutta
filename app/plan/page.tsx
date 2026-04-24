@@ -21,6 +21,7 @@ import { rowToActivityType } from "@/lib/protocol";
 import { parseRate } from "@/lib/weight-projection";
 import { getCurrentWeightKg, NoWeightLogError } from "@/lib/weight";
 import { aggregateRecentFeedback } from "@/lib/recent-feedback";
+import { isPlanStale } from "@/lib/plan-staleness";
 
 export default async function PlanPage() {
   const { userId } = await auth();
@@ -169,15 +170,15 @@ export default async function PlanPage() {
   const targetWeightKg = profileRow?.targetWeightKg ? Number(profileRow.targetWeightKg) : null;
   const weightLossRateStr = profileRow?.weightLossRate ?? null;
 
-  // Data-change timestamp for per-day staleness detection
+  // Data-change timestamp — single shared rule with /dashboard via isPlanStale.
   const changeDates: Date[] = [
     profileRow?.updatedAt,
     ...activityTypeRows.map((r) => r.updatedAt),
     strategyRows[0]?.updatedAt,
     ...eventRows.map((e) => e.updatedAt),
   ].filter((d): d is Date => d instanceof Date);
-  const dataLastChangedAt = changeDates.length > 0
-    ? new Date(Math.max(...changeDates.map((d) => d.getTime()))).toISOString()
+  const lastDataChange = changeDates.length > 0
+    ? new Date(Math.max(...changeDates.map((d) => d.getTime())))
     : null;
 
   // Only today and future plans are handed to the UI as StoredPlan rows; the
@@ -198,6 +199,29 @@ export default async function PlanPage() {
       glycogenBattery: r.glycogenBattery,
       generatedAt:     r.generatedAt.toISOString(),
     }));
+
+  // Per-day staleness — server is the only source. Keyed by plan date.
+  // Events are grouped by UTC date string to match the client's existing
+  // eventsByDate keying; the shape check only cares whether any non-rest
+  // event exists on the day.
+  const eventsByUtcDate = new Map<string, typeof eventRows>();
+  for (const ev of eventRows) {
+    const key = ev.scheduledAt.toISOString().split("T")[0];
+    const arr = eventsByUtcDate.get(key) ?? [];
+    arr.push(ev);
+    eventsByUtcDate.set(key, arr);
+  }
+  const staleByDate: Record<string, boolean> = {};
+  for (const plan of initialPlans) {
+    const planRow = planRows.find((r) => r.planDate === plan.planDate);
+    if (!planRow) continue;
+    staleByDate[plan.planDate] = isPlanStale({
+      planGeneratedAt:   planRow.generatedAt,
+      planHasOnBike:     planRow.onBikeFuelling != null,
+      lastDataChange,
+      currentIsTraining: (eventsByUtcDate.get(plan.planDate) ?? []).some((e) => e.eventType !== "rest"),
+    });
+  }
 
   const yesterdayPlanRow = planRows.find((r) => r.planDate === yesterdayStr) ?? null;
   const yesterdayPlan = yesterdayPlanRow
@@ -237,12 +261,12 @@ export default async function PlanPage() {
         <div className="max-w-lg mx-auto px-4 pt-6">
           <PlanView
             initialPlans={initialPlans}
+            staleByDate={staleByDate}
             calendarEvents={planCalendarEvents}
             todayStr={todayStr}
             unitSystem={unitSystem}
             hasActiveProtocol={hasActivityTypes}
             hasWeeklyStrategy={hasWeeklyStrategy}
-            dataLastChangedAt={dataLastChangedAt}
             engineData={engineData}
             yesterdayPlan={yesterdayPlan}
             targetWeightKg={targetWeightKg}

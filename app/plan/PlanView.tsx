@@ -425,7 +425,7 @@ function DayCard({
                   onClick={(e) => { e.stopPropagation(); onGenerate(); }}
                   className="bg-amber-400/15 text-amber-400 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-400/30 hover:bg-amber-400/25 transition-colors"
                 >
-                  Regenerate
+                  Generate
                 </button>
               )}
               <span className="text-zinc-700 text-sm">{expanded ? "▼" : "▲"}</span>
@@ -469,7 +469,7 @@ function DayCard({
               </div>
             )}
 
-            {/* Meal plan — hidden when stale; brief + Regenerate badge take over */}
+            {/* Meal plan — hidden when stale; brief + Generate badge take over */}
             {showPlanContent && (
               <>
                 {plan.aiReasoning && (
@@ -532,24 +532,24 @@ function DayCard({
 
 export default function PlanView({
   initialPlans,
+  staleByDate,
   calendarEvents,
   todayStr,
   unitSystem,
   hasActiveProtocol,
   hasWeeklyStrategy,
-  dataLastChangedAt,
   engineData,
   yesterdayPlan,
   targetWeightKg,
   timezone,
 }: {
   initialPlans:      StoredPlan[];
+  staleByDate:       Record<string, boolean>;
   calendarEvents:    PlanCalendarEvent[];
   todayStr:          string;
   unitSystem:        UnitSystem;
   hasActiveProtocol: boolean;
   hasWeeklyStrategy: boolean;
-  dataLastChangedAt: string | null;
   engineData:        PlanEngineData;
   yesterdayPlan:     { glycogenBattery: number | null } | null;
   targetWeightKg:    number | null;
@@ -568,7 +568,6 @@ export default function PlanView({
   );
   const [events, setEvents] = useState<PlanCalendarEvent[]>(calendarEvents);
   const [generatingDates, setGeneratingDates] = useState<Set<string>>(new Set());
-  const [lastDataChange, setLastDataChange] = useState<string | null>(dataLastChangedAt);
   const [pickerState, setPickerState] = useState<{
     dateStr: string;
     events: Array<{ id: number; eventType: string; activityType: ActivityType }>;
@@ -776,7 +775,8 @@ export default function PlanView({
         notes:           event.notes,
       },
     ]);
-    setLastDataChange(new Date().toISOString());
+    // Staleness is server-decided — refetch so staleByDate reflects the new event.
+    router.refresh();
   }
 
   function handleEventUpdated(updated: EditableEvent) {
@@ -790,30 +790,12 @@ export default function PlanView({
           : e
       )
     );
-    setLastDataChange(new Date().toISOString());
+    router.refresh();
   }
 
   function handleEventDeleted(id: number) {
     setEvents((prev) => prev.filter((e) => e.id !== id));
-    setLastDataChange(new Date().toISOString());
-  }
-
-  // ── Per-day staleness ────────────────────────────────────────────────────
-
-  function isStale(plan: StoredPlan, eventsForDay: PlanCalendarEvent[]): boolean {
-    // Timestamp check: anything the plan was built from moved since generation.
-    const timeStale = !!(lastDataChange && new Date(plan.generatedAt) < new Date(lastDataChange));
-
-    // Shape check: deleting a training event nulls the plan's calendarEventId via
-    // the FK cascade but bumps no updatedAt we'd see here, so a once-training
-    // plan keeps looking fresh. onBikeFuelling being non-null is a reliable
-    // marker that it was built for a training day — compare that against the
-    // current set of events to catch both delete and rest→training adds.
-    const planWasTraining   = plan.onBikeFuelling != null;
-    const currentIsTraining = eventsForDay.some((e) => e.eventType !== "rest");
-    const shapeStale        = planWasTraining !== currentIsTraining;
-
-    return timeStale || shapeStale;
+    router.refresh();
   }
 
   // ── Event grouping ───────────────────────────────────────────────────────
@@ -933,7 +915,7 @@ export default function PlanView({
                 brief={brief}
                 events={eventsByDate.get(dateStr) ?? []}
                 isGenerating={generatingDates.has(dateStr)}
-                isStale={plan !== null && isStale(plan, eventsByDate.get(dateStr) ?? [])}
+                isStale={plan !== null && (staleByDate[dateStr] ?? false)}
                 hasActiveProtocol={hasActiveProtocol}
                 unitSystem={unitSystem}
                 activityTypes={activityTypes}
