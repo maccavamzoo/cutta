@@ -10,6 +10,7 @@ import {
   feedbackLog,
   weightLog,
   userActivityTypes,
+  weeklyStrategies,
 } from "@/lib/db/schema";
 import DailyDashboard, {
   type TodayPlan,
@@ -35,7 +36,7 @@ export default async function DashboardPage() {
 
   const { todayStr, todayStart, todayEnd } = getUserToday(timezoneRow?.timezone ?? null);
 
-  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weighInRows, activityTypeRows] = await Promise.all([
+  const [clerkUser, planRows, eventRows, profileRows, complianceRows, feedbackRows, weighInRows, activityTypeRows, strategyRows] = await Promise.all([
     currentUser(),
     db
       .select()
@@ -66,6 +67,7 @@ export default async function DashboardPage() {
         estimatedMaintenanceCalories: userProfiles.estimatedMaintenanceCalories,
         trackStoolHealth:             userProfiles.trackStoolHealth,
         unitSystem:                   userProfiles.unitSystem,
+        updatedAt:                    userProfiles.updatedAt,
       })
       .from(userProfiles)
       .where(eq(userProfiles.clerkUserId, userId))
@@ -115,15 +117,35 @@ export default async function DashboardPage() {
         defaultDurationMinutes:   userActivityTypes.defaultDurationMinutes,
         carbsGPerKg:              userActivityTypes.carbsGPerKg,
         proteinGPerKg:            userActivityTypes.proteinGPerKg,
+        updatedAt:                userActivityTypes.updatedAt,
       })
       .from(userActivityTypes)
       .where(eq(userActivityTypes.clerkUserId, userId))
       .orderBy(userActivityTypes.sortOrder),
+
+    db
+      .select({ updatedAt: weeklyStrategies.updatedAt })
+      .from(weeklyStrategies)
+      .where(and(eq(weeklyStrategies.clerkUserId, userId), eq(weeklyStrategies.isActive, true)))
+      .limit(1),
   ]);
 
   const planRow = planRows[0] ?? null;
 
-  const todayPlan: TodayPlan | null = planRow
+  // Plan is stale if anything it was built from has changed since generation.
+  // Same rule as the Plan page's isStale check so behaviour stays consistent.
+  const changeDates: Date[] = [
+    profileRows[0]?.updatedAt,
+    ...activityTypeRows.map((r) => r.updatedAt),
+    strategyRows[0]?.updatedAt,
+    ...eventRows.map((e) => e.updatedAt),
+  ].filter((d): d is Date => d instanceof Date);
+  const lastDataChange = changeDates.length > 0
+    ? new Date(Math.max(...changeDates.map((d) => d.getTime())))
+    : null;
+  const planIsStale = !!(planRow && lastDataChange && planRow.generatedAt < lastDataChange);
+
+  const todayPlan: TodayPlan | null = planRow && !planIsStale
     ? {
         meals:           (planRow.meals           as TodayPlan["meals"])           ?? [],
         onBikeFuelling:  (planRow.onBikeFuelling  as TodayPlan["onBikeFuelling"])  ?? null,
