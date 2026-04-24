@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DayPlanOutput } from "@/lib/ai/buildDayPlanPrompt";
 import BottomNav from "@/components/BottomNav";
@@ -567,6 +568,7 @@ export default function DailyDashboard({
   timezone?:          string;
   activityTypes?:     ActivityTypeOption[];
 }) {
+  const router = useRouter();
   const [weighInOpen,    setWeighInOpen]    = useState(false);
   const [checkInOpen,    setCheckInOpen]    = useState(false);
   const [savedCheckIn,   setSavedCheckIn]   = useState<ExistingCheckIn | null>(existingCheckIn);
@@ -761,6 +763,9 @@ export default function DailyDashboard({
             setDisplayWeight(weightKg);
             if (bodyFatPct !== null) setDisplayBf(bodyFatPct);
             setWeighInOpen(false);
+            // A weigh-in re-runs recalculateMaintenanceCalories server-side,
+            // which bumps userProfiles.updatedAt and makes today's plan stale.
+            router.refresh();
           }}
         />
       )}
@@ -800,10 +805,14 @@ export default function DailyDashboard({
                   : e
               )
             );
+            // Let the server recompute plan staleness — todayPlan is a server
+            // prop, so without this the stale plan would stay on screen.
+            router.refresh();
           }}
           onDeleted={(id) => {
             setEditingEvent(null);
             setEvents((prev) => prev.filter((e) => e.id !== id));
+            router.refresh();
           }}
         />
       )}
