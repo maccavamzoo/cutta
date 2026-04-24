@@ -21,7 +21,7 @@ import { rowToActivityType } from "@/lib/protocol";
 import { parseRate } from "@/lib/weight-projection";
 import { getCurrentWeightKg, NoWeightLogError } from "@/lib/weight";
 import { aggregateRecentFeedback } from "@/lib/recent-feedback";
-import { isPlanStale } from "@/lib/plan-staleness";
+import { isPlanStale, getLastDataChange } from "@/lib/plan-staleness";
 
 export default async function PlanPage() {
   const { userId } = await auth();
@@ -103,7 +103,6 @@ export default async function PlanPage() {
         targetWeightKg:               userProfiles.targetWeightKg,
         weightLossRate:               userProfiles.weightLossRate,
         unitSystem:                   userProfiles.unitSystem,
-        updatedAt:                    userProfiles.updatedAt,
         restDayCarbsGPerKg:           userProfiles.restDayCarbsGPerKg,
         restDayProteinGPerKg:         userProfiles.restDayProteinGPerKg,
         foodExclusions:               userProfiles.foodExclusions,
@@ -122,7 +121,6 @@ export default async function PlanPage() {
     db
       .select({
         id:             weeklyStrategies.id,
-        updatedAt:      weeklyStrategies.updatedAt,
         ingredientPool: weeklyStrategies.ingredientPool,
       })
       .from(weeklyStrategies)
@@ -170,16 +168,9 @@ export default async function PlanPage() {
   const targetWeightKg = profileRow?.targetWeightKg ? Number(profileRow.targetWeightKg) : null;
   const weightLossRateStr = profileRow?.weightLossRate ?? null;
 
-  // Data-change timestamp — single shared rule with /dashboard via isPlanStale.
-  const changeDates: Date[] = [
-    profileRow?.updatedAt,
-    ...activityTypeRows.map((r) => r.updatedAt),
-    strategyRows[0]?.updatedAt,
-    ...eventRows.map((e) => e.updatedAt),
-  ].filter((d): d is Date => d instanceof Date);
-  const lastDataChange = changeDates.length > 0
-    ? new Date(Math.max(...changeDates.map((d) => d.getTime())))
-    : null;
+  // Data-change timestamp — single shared rule with /dashboard via the helper,
+  // so both routes see every event-updatedAt regardless of date window.
+  const lastDataChange = await getLastDataChange(userId);
 
   // Only today and future plans are handed to the UI as StoredPlan rows; the
   // yesterday row is kept separately for glycogen carry-forward.
