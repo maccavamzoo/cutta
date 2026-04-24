@@ -342,10 +342,13 @@ function DayCard({
 
   const hasPlan   = plan !== null;
   const hasEvents = events.length > 0;
+  // A stale plan doesn't reflect current events / profile — hide its content
+  // and fall back to the deterministic brief until the user regenerates.
+  const showPlanContent = hasPlan && !isStale;
 
   return (
     <>
-      <div data-date={dateStr} className={`rounded-xl border transition-all ${isGenerating ? "border-lime-400/30 bg-zinc-900 shadow-[0_0_20px_rgba(163,230,53,0.08)]" : `${calorieBorder(plan?.totalCalories ?? null)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}`}>
+      <div data-date={dateStr} className={`rounded-xl border transition-all ${isGenerating ? "border-lime-400/30 bg-zinc-900 shadow-[0_0_20px_rgba(163,230,53,0.08)]" : `${calorieBorder(showPlanContent ? plan.totalCalories : brief.totalCalories)} ${isToday ? "bg-zinc-900" : "bg-zinc-900/50"}`}`}>
 
         {/* Header row — tap to expand/collapse */}
         <button className="w-full px-4 py-3 text-left" onClick={() => setExpanded((x) => !x)}>
@@ -387,13 +390,13 @@ function DayCard({
                 }
               </div>
 
-              {/* Macro summary — falls back to client-computed brief when no saved plan */}
+              {/* Macro summary — falls back to the brief when no saved plan or when the saved plan is stale */}
               <div className="mt-1.5">
                 <MacroRow
-                  cal={plan?.totalCalories   ?? brief.totalCalories}
-                  carbs={plan?.totalCarbsG   ?? brief.totalCarbsG}
-                  protein={plan?.totalProteinG ?? brief.totalProteinG}
-                  fat={plan?.totalFatG       ?? brief.totalFatG}
+                  cal={showPlanContent    ? plan.totalCalories  : brief.totalCalories}
+                  carbs={showPlanContent  ? plan.totalCarbsG    : brief.totalCarbsG}
+                  protein={showPlanContent ? plan.totalProteinG : brief.totalProteinG}
+                  fat={showPlanContent    ? plan.totalFatG      : brief.totalFatG}
                 />
               </div>
             </div>
@@ -435,7 +438,7 @@ function DayCard({
           <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-3">
 
             {/* Maths view — deterministic numbers from the engine, always shown */}
-            <MathsView brief={brief} timezone={timezone} hasAiContent={hasPlan} />
+            <MathsView brief={brief} timezone={timezone} hasAiContent={showPlanContent} />
 
             {/* Activity details */}
             {hasEvents && (
@@ -466,8 +469,8 @@ function DayCard({
               </div>
             )}
 
-            {/* Meal plan */}
-            {hasPlan && (
+            {/* Meal plan — hidden when stale; brief + Regenerate badge take over */}
+            {showPlanContent && (
               <>
                 {plan.aiReasoning && (
                   <p className="text-zinc-500 text-xs italic leading-relaxed">{plan.aiReasoning}</p>
@@ -478,7 +481,7 @@ function DayCard({
                     {plan.meals.map((meal, i) => <MealCard key={i} meal={meal} index={i} />)}
                   </div>
                 )}
-                {plan.onBikeFuelling && brief.dayType !== "rest" && <OnBikeCard fuelling={plan.onBikeFuelling} />}
+                {plan.onBikeFuelling && <OnBikeCard fuelling={plan.onBikeFuelling} />}
               </>
             )}
 
