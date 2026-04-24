@@ -800,9 +800,20 @@ export default function PlanView({
 
   // ── Per-day staleness ────────────────────────────────────────────────────
 
-  function isStale(plan: StoredPlan): boolean {
-    if (!lastDataChange) return false;
-    return new Date(plan.generatedAt) < new Date(lastDataChange);
+  function isStale(plan: StoredPlan, eventsForDay: PlanCalendarEvent[]): boolean {
+    // Timestamp check: anything the plan was built from moved since generation.
+    const timeStale = !!(lastDataChange && new Date(plan.generatedAt) < new Date(lastDataChange));
+
+    // Shape check: deleting a training event nulls the plan's calendarEventId via
+    // the FK cascade but bumps no updatedAt we'd see here, so a once-training
+    // plan keeps looking fresh. onBikeFuelling being non-null is a reliable
+    // marker that it was built for a training day — compare that against the
+    // current set of events to catch both delete and rest→training adds.
+    const planWasTraining   = plan.onBikeFuelling != null;
+    const currentIsTraining = eventsForDay.some((e) => e.eventType !== "rest");
+    const shapeStale        = planWasTraining !== currentIsTraining;
+
+    return timeStale || shapeStale;
   }
 
   // ── Event grouping ───────────────────────────────────────────────────────
@@ -922,7 +933,7 @@ export default function PlanView({
                 brief={brief}
                 events={eventsByDate.get(dateStr) ?? []}
                 isGenerating={generatingDates.has(dateStr)}
-                isStale={plan !== null && isStale(plan)}
+                isStale={plan !== null && isStale(plan, eventsByDate.get(dateStr) ?? [])}
                 hasActiveProtocol={hasActiveProtocol}
                 unitSystem={unitSystem}
                 activityTypes={activityTypes}

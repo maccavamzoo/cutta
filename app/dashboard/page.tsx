@@ -143,7 +143,22 @@ export default async function DashboardPage() {
   const lastDataChange = changeDates.length > 0
     ? new Date(Math.max(...changeDates.map((d) => d.getTime())))
     : null;
-  const planIsStale = !!(planRow && lastDataChange && planRow.generatedAt < lastDataChange);
+
+  // Shape check: catches event deletions / moves that the updatedAt scan misses.
+  // The FK cascade nulls fuellingPlans.calendarEventId on delete without bumping
+  // any row's updatedAt, so a once-training plan can look fresh even after its
+  // driving event is gone. onBikeFuelling being non-null is a reliable signal
+  // the plan was generated for training, so compare that against today's events.
+  const planWasTraining    = planRow?.onBikeFuelling != null;
+  const currentIsTraining  = eventRows.some((e) => e.eventType !== "rest");
+  const shapeMismatch      = planRow != null && planWasTraining !== currentIsTraining;
+
+  const planIsStale = !!(
+    planRow && (
+      (lastDataChange && planRow.generatedAt < lastDataChange) ||
+      shapeMismatch
+    )
+  );
 
   const todayPlan: TodayPlan | null = planRow && !planIsStale
     ? {
