@@ -1,59 +1,18 @@
-import type { Metadata, Viewport } from "next";
-import localFont from "next/font/local";
-import { ClerkProvider } from "@clerk/nextjs";
-import SwUpdateReloader from "./SwUpdateReloader";
-import "./globals.css";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+import type { Metadata } from 'next';
+import { ClerkProvider } from '@clerk/nextjs';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "Cutta",
-  description: "AI-powered performance fuelling system for endurance cyclists",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Cutta",
-  },
-  formatDetection: {
-    telephone: false,
-  },
+  title: 'Cutta',
+  description: 'Reactive cal tracker for endurance cyclists',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 };
 
-export const viewport: Viewport = {
-  themeColor: "#000000",
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider afterSignOutUrl="/sign-in">
       <html lang="en">
-        <head>
-          <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        </head>
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
-        >
-          <SwUpdateReloader />
-          {children}
-        </body>
+        <body>{children}</body>
       </html>
     </ClerkProvider>
   );
