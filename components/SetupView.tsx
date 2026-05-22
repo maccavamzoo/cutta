@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tappable, Mono } from './primitives';
 
 type Profile = { weight: number; height: number; age: number; sex: 'm' | 'f' };
@@ -9,6 +9,20 @@ export default function SetupView() {
   const [profile, setProfile] = useState<Profile>({ weight: 74, height: 178, age: 32, sex: 'm' });
   const [focused, setFocused] = useState<'weight' | 'height' | 'age'>('weight');
   const [saving, setSaving] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/profile').then(r => r.json()).then(p => {
+      if (!p) return;
+      setEditMode(true);
+      setProfile({
+        weight: Number(p.weight_kg),
+        height: Number(p.height_cm),
+        age: p.age,
+        sex: p.sex,
+      });
+    });
+  }, []);
 
   const bump = (delta: number) => {
     setProfile(p => ({ ...p, [focused]: Math.max(1, p[focused] + delta) }));
@@ -64,8 +78,7 @@ export default function SetupView() {
       <div style={{ padding: '64px 22px 26px' }}>
         <Mono style={{ color: 'var(--accent)' }}>cutta · setup</Mono>
         <div style={{ fontSize: 32, fontWeight: 400, lineHeight: 1.1, marginTop: 14, letterSpacing: -0.6, maxWidth: 280 }}>
-          Tell us about you.<br />
-          <span style={{ color: 'var(--text-dim)' }}>That&apos;s it.</span>
+          {editMode ? <>Update your<br /><span style={{ color: 'var(--text-dim)' }}>details.</span></> : <>Tell us about you.<br /><span style={{ color: 'var(--text-dim)' }}>That&apos;s it.</span></>}
         </div>
       </div>
 
@@ -121,7 +134,7 @@ export default function SetupView() {
             textAlign: 'center', fontSize: 16, fontWeight: 600, letterSpacing: 0.2,
           }}
         >
-          {saving ? 'Saving…' : 'Start tracking'}
+          {saving ? 'Saving…' : editMode ? 'Save changes' : 'Start tracking'}
         </Tappable>
       </div>
     </div>

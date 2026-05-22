@@ -179,9 +179,11 @@ function HomeScreen({
     <div style={{ height: '100svh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', color: 'var(--text)' }}>
       <div style={{ padding: '60px 22px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Mono style={{ color: 'var(--text-dim)' }}>{formatDayHeader()}</Mono>
-        <Mono style={{ color: 'var(--text-faint)' }} className="tnum">
-          {weightKg.toFixed(1)} kg
-        </Mono>
+        <Tappable onClick={() => { window.location.href = '/setup'; }} style={{ padding: '2px 0' }}>
+          <Mono style={{ color: 'var(--text-faint)' }} className="tnum">
+            {weightKg.toFixed(1)} kg
+          </Mono>
+        </Tappable>
       </div>
 
       <div style={{ padding: '34px 22px 8px' }}>
