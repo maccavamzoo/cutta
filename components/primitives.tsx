@@ -35,9 +35,9 @@ export function Tappable({
   );
 }
 
-export function Mono({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+export function Mono({ children, style, className }: { children: ReactNode; style?: CSSProperties; className?: string }) {
   return (
-    <span style={{
+    <span className={className} style={{
       fontFamily: '"JetBrains Mono", ui-monospace, monospace',
       fontSize: 11,
       letterSpacing: '0.08em',
