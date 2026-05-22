@@ -181,7 +181,7 @@ function HomeScreen({
     <div style={{ height: '100svh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', color: 'var(--text)' }}>
       <div style={{ padding: '60px 22px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Mono style={{ color: 'var(--text-dim)' }}>{formatDayHeader()}</Mono>
-        <Tappable onClick={onReweigh} style={{ padding: '2px 0' }}>
+        <Tappable onClick={() => { window.location.href = '/setup'; }} style={{ padding: '2px 0' }}>
           <Mono style={{ color: 'var(--text-faint)' }} className="tnum">
             {weightKg.toFixed(1)} kg
           </Mono>
@@ -214,7 +214,7 @@ function HomeScreen({
         <MacroRow label="fat" eaten={eatenF} target={fat_g} />
       </div>
 
-      <div style={{ padding: '20px 22px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div style={{ padding: '20px 22px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <Tappable onClick={onFood} style={{
           background: 'var(--accent)', color: 'var(--accent-ink)',
           borderRadius: 18, padding: '18px 16px',
@@ -231,6 +231,17 @@ function HomeScreen({
           border: '0.5px solid var(--line)',
         }}>
           <span style={{ fontSize: 20 }}>🚴</span>Activity
+        </Tappable>
+      </div>
+      <div style={{ padding: '8px 22px 0' }}>
+        <Tappable onClick={onReweigh} style={{
+          background: 'var(--surface)', color: 'var(--text-dim)',
+          borderRadius: 18, padding: '14px 16px',
+          display: 'flex', alignItems: 'center', gap: 10,
+          fontWeight: 500, fontSize: 15,
+          border: '0.5px solid var(--line)',
+        }}>
+          <span style={{ fontSize: 18 }}>⚖️</span>Weigh in
         </Tappable>
       </div>
 
