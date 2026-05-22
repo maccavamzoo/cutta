@@ -1,8 +1,17 @@
--- Drop v2 tables
+-- Drop all old tables
+DROP TABLE IF EXISTS calendar_events CASCADE;
+DROP TABLE IF EXISTS compliance_log CASCADE;
+DROP TABLE IF EXISTS training_log CASCADE;
+DROP TABLE IF EXISTS weekly_strategies CASCADE;
+DROP TABLE IF EXISTS weight_log CASCADE;
 DROP TABLE IF EXISTS fuelling_plans CASCADE;
 DROP TABLE IF EXISTS user_activity_types CASCADE;
 DROP TABLE IF EXISTS feedback_log CASCADE;
 DROP TABLE IF EXISTS protocols CASCADE;
+DROP TABLE IF EXISTS activity_logs CASCADE;
+DROP TABLE IF EXISTS food_logs CASCADE;
+DROP TABLE IF EXISTS weigh_ins CASCADE;
+DROP TABLE IF EXISTS user_profiles CASCADE;
 
 -- v3 schema
 CREATE TABLE user_profiles (
