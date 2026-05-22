@@ -1,20 +1,7 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { userProfiles } from "@/lib/db/schema";
+import dynamic from 'next/dynamic';
 
-export default async function Home() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+const HomeView = dynamic(() => import('@/components/HomeView'), { ssr: false });
 
-  const [profile] = await db
-    .select({ onboardingComplete: userProfiles.onboardingComplete })
-    .from(userProfiles)
-    .where(eq(userProfiles.clerkUserId, userId))
-    .limit(1);
-
-  if (!profile?.onboardingComplete) redirect("/onboarding");
-
-  redirect("/dashboard");
+export default function HomePage() {
+  return <HomeView />;
 }

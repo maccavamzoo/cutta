@@ -2,19 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
 :root {
-  --background: #000000;
-  --foreground: #ededed;
+  --accent: #D6FF3A;
+  --accent-ink: #0a0a0b;
+  --bg: #0a0a0b;
+  --bg-soft: #111113;
+  --surface: #17171a;
+  --surface-hi: #1f1f23;
+  --line: rgba(255,255,255,0.06);
+  --line-strong: rgba(255,255,255,0.12);
+  --text: #f4f4f5;
+  --text-dim: rgba(244,244,245,0.55);
+  --text-faint: rgba(244,244,245,0.32);
+  --warn: #ff5b4a;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  overscroll-behavior: none;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum","ss01";
+}
+
+@keyframes cutta-spin {
+  to { transform: rotate(360deg); }
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
 }
