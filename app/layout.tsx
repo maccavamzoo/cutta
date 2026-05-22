@@ -12,7 +12,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <ClerkProvider afterSignOutUrl="/sign-in">
       <html lang="en">
-        <body>{children}</body>
+        <body>
+          <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100svh', position: 'relative' }}>
+            {children}
+          </div>
+        </body>
       </html>
     </ClerkProvider>
   );

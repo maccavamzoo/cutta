@@ -20,9 +20,10 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        position: 'absolute', inset: 0,
-        transform: mounted ? 'translateY(0)' : 'translateY(100%)',
+        position: 'absolute', top: 0, bottom: 0,
+        left: '50%', transform: mounted ? 'translateX(-50%)' : 'translateX(-50%) translateY(100%)',
         transition: 'transform 320ms cubic-bezier(.2,.7,.2,1)',
+        width: '100%', maxWidth: 430,
       }}>
         {children}
       </div>
