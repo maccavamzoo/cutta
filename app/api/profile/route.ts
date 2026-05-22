@@ -22,17 +22,27 @@ export async function POST(req: Request) {
   const { weight_kg, height_cm, age, sex, unit } = body;
 
   const sql = getDb();
-  const rows = await sql`
-    INSERT INTO user_profiles (clerk_user_id, weight_kg, height_cm, age, sex, unit)
-    VALUES (${userId}, ${weight_kg}, ${height_cm}, ${age}, ${sex}, ${unit ?? 'metric'})
-    ON CONFLICT (clerk_user_id) DO UPDATE SET
-      weight_kg  = EXCLUDED.weight_kg,
-      height_cm  = EXCLUDED.height_cm,
-      age        = EXCLUDED.age,
-      sex        = EXCLUDED.sex,
-      unit       = EXCLUDED.unit,
-      updated_at = now()
-    RETURNING *
+  const existing = await sql`
+    SELECT clerk_user_id FROM user_profiles WHERE clerk_user_id = ${userId}
   `;
+
+  let rows;
+  if (existing.length > 0) {
+    rows = await sql`
+      UPDATE user_profiles SET
+        height_cm  = ${height_cm},
+        age        = ${age},
+        sex        = ${sex},
+        updated_at = now()
+      WHERE clerk_user_id = ${userId}
+      RETURNING *
+    `;
+  } else {
+    rows = await sql`
+      INSERT INTO user_profiles (clerk_user_id, weight_kg, height_cm, age, sex, unit)
+      VALUES (${userId}, ${weight_kg}, ${height_cm}, ${age}, ${sex}, ${unit ?? 'metric'})
+      RETURNING *
+    `;
+  }
   return NextResponse.json(rows[0]);
 }

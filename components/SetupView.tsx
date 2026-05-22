@@ -15,6 +15,7 @@ export default function SetupView() {
     fetch('/api/profile').then(r => r.json()).then(p => {
       if (!p) return;
       setEditMode(true);
+      setFocused('height');
       setProfile({
         weight: Number(p.weight_kg),
         height: Number(p.height_cm),
@@ -30,16 +31,17 @@ export default function SetupView() {
 
   const save = async () => {
     setSaving(true);
+    const body: Record<string, unknown> = {
+      height_cm: profile.height,
+      age: profile.age,
+      sex: profile.sex,
+      unit: 'metric',
+    };
+    if (!editMode) body.weight_kg = profile.weight;
     await fetch('/api/profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        weight_kg: profile.weight,
-        height_cm: profile.height,
-        age: profile.age,
-        sex: profile.sex,
-        unit: 'metric',
-      }),
+      body: JSON.stringify(body),
     });
     window.location.href = '/';
   };
@@ -78,12 +80,14 @@ export default function SetupView() {
       <div style={{ padding: '64px 22px 26px' }}>
         <Mono style={{ color: 'var(--accent)' }}>cutta · setup</Mono>
         <div style={{ fontSize: 32, fontWeight: 400, lineHeight: 1.1, marginTop: 14, letterSpacing: -0.6, maxWidth: 280 }}>
-          {editMode ? <>Update your<br /><span style={{ color: 'var(--text-dim)' }}>details.</span></> : <>Tell us about you.<br /><span style={{ color: 'var(--text-dim)' }}>That&apos;s it.</span></>}
+          {editMode
+            ? <>Update your<br /><span style={{ color: 'var(--text-dim)' }}>details.</span></>
+            : <>Tell us about you.<br /><span style={{ color: 'var(--text-dim)' }}>That&apos;s it.</span></>}
         </div>
       </div>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <Field k="weight" label="Weight" unit="kg" />
+        {!editMode && <Field k="weight" label="Weight" unit="kg" />}
         <Field k="height" label="Height" unit="cm" />
         <Field k="age" label="Age" unit="yr" />
 
