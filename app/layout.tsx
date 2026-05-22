@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Cutta',
-  description: 'Reactive cal tracker for endurance cyclists',
+  description: 'Reactive cal log for endurance cyclists',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 };
 

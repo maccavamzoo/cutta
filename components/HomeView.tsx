@@ -128,6 +128,7 @@ function HomeScreen({
   activityLogs,
   onFood,
   onActivity,
+  onReweigh,
 }: {
   profile: Profile;
   weighIn: WeighIn;
@@ -135,6 +136,7 @@ function HomeScreen({
   activityLogs: ActivityLog[];
   onFood: () => void;
   onActivity: () => void;
+  onReweigh: () => void;
 }) {
   const weightKg = Number(weighIn.weight_kg);
   const bmr = calcBMR(weightKg, Number(profile.height_cm), profile.age, profile.sex);
@@ -179,7 +181,7 @@ function HomeScreen({
     <div style={{ height: '100svh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', color: 'var(--text)' }}>
       <div style={{ padding: '60px 22px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Mono style={{ color: 'var(--text-dim)' }}>{formatDayHeader()}</Mono>
-        <Tappable onClick={() => { window.location.href = '/setup'; }} style={{ padding: '2px 0' }}>
+        <Tappable onClick={onReweigh} style={{ padding: '2px 0' }}>
           <Mono style={{ color: 'var(--text-faint)' }} className="tnum">
             {weightKg.toFixed(1)} kg
           </Mono>
@@ -295,6 +297,7 @@ export default function HomeView() {
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [modal, setModal] = useState<'food' | 'activity' | null>(null);
+  const [reweighing, setReweighing] = useState(false);
 
   const today = localDate();
 
@@ -335,6 +338,7 @@ export default function HomeView() {
     });
     const w = await res.json();
     setWeighIn(w);
+    setReweighing(false);
   };
 
   const handleFoodSave = async (estimate: { label: string; cals: number; macros: { p: number; c: number; f: number } }) => {
@@ -388,7 +392,7 @@ export default function HomeView() {
 
   return (
     <>
-      {!weighIn ? (
+      {(!weighIn || reweighing) ? (
         <PreWeighIn lastWeighIn={lastWeighIn} onDone={handleWeighIn} />
       ) : (
         <HomeScreen
@@ -398,6 +402,7 @@ export default function HomeView() {
           activityLogs={activityLogs}
           onFood={() => setModal('food')}
           onActivity={() => setModal('activity')}
+          onReweigh={() => setReweighing(true)}
         />
       )}
       {modal === 'food' && (

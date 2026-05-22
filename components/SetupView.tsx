@@ -138,7 +138,7 @@ export default function SetupView() {
             textAlign: 'center', fontSize: 16, fontWeight: 600, letterSpacing: 0.2,
           }}
         >
-          {saving ? 'Saving…' : editMode ? 'Save changes' : 'Start tracking'}
+          {saving ? 'Saving…' : 'Save'}
         </Tappable>
       </div>
     </div>
