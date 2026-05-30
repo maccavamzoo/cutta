@@ -5,7 +5,7 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { image_base64, hint } = await req.json();
+  const { image_base64, mime_type, hint } = await req.json();
   if (!image_base64) return NextResponse.json({ error: 'image_base64 required' }, { status: 400 });
 
   const Anthropic = (await import('@anthropic-ai/sdk')).default;
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
         content: [
           {
             type: 'image',
-            source: { type: 'base64', media_type: 'image/jpeg', data: image_base64 },
+            source: { type: 'base64', media_type: (mime_type || 'image/jpeg') as 'image/jpeg', data: image_base64 },
           },
           {
             type: 'text',

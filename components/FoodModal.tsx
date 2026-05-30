@@ -114,14 +114,14 @@ export default function FoodModal({ onClose, onSave }: {
     return stopCamera;
   }, []);
 
-  const analyzeImage = async (base64: string) => {
+  const analyzeImage = async (base64: string, mimeType = 'image/jpeg') => {
     stopCamera();
     setStage('analyzing');
     setError(null);
     const res = await fetch('/api/estimate-food', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image_base64: base64, hint }),
+      body: JSON.stringify({ image_base64: base64, mime_type: mimeType, hint }),
     });
     if (!res.ok) {
       setError('Could not identify food. Try again.');
@@ -148,7 +148,11 @@ export default function FoodModal({ onClose, onSave }: {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => analyzeImage((ev.target?.result as string).split(',')[1]);
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const mimeType = dataUrl.split(';')[0].split(':')[1];
+      analyzeImage(dataUrl.split(',')[1], mimeType);
+    };
     reader.readAsDataURL(file);
   };
 
