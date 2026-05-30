@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Tappable, Mono, BigNum } from './primitives';
 import { calcActivityCals } from '@/lib/maths';
 
@@ -31,47 +31,45 @@ function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () =
   );
 }
 
-function DurationSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const min = 15, max = 240;
-  const pct = (value - min) / (max - min);
-  const ref = useRef<HTMLDivElement>(null);
+function DurationPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const hours = Math.floor(value / 60);
+  const mins = value % 60;
 
-  const handle = (clientX: number) => {
-    if (!ref.current) return;
-    const r = ref.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
-    onChange(Math.round((min + x * (max - min)) / 5) * 5);
+  const btnStyle: React.CSSProperties = {
+    width: 40, height: 40, borderRadius: 12,
+    background: 'var(--surface)', border: '0.5px solid var(--line)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 20, fontWeight: 300, color: 'var(--text)', flexShrink: 0,
+  };
+
+  const adjustHours = (d: number) => {
+    const h = Math.max(0, Math.min(12, hours + d));
+    onChange(Math.max(5, h * 60 + mins));
+  };
+
+  const adjustMins = (d: number) => {
+    const m = Math.max(0, Math.min(55, Math.round(mins / 5) * 5 + d));
+    onChange(Math.max(5, hours * 60 + m));
   };
 
   return (
-    <div
-      ref={ref}
-      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); handle(e.clientX); }}
-      onPointerMove={(e) => { if (e.buttons) handle(e.clientX); }}
-      style={{
-        marginTop: 12, height: 44, position: 'relative',
-        display: 'flex', alignItems: 'center',
-        touchAction: 'none', cursor: 'pointer',
-      }}
-    >
-      <div style={{ position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.07)' }}>
-        <div style={{ height: '100%', borderRadius: 4, width: `${pct * 100}%`, background: 'var(--accent)' }} />
+    <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Tappable onClick={() => adjustHours(-1)} style={btnStyle}>−</Tappable>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <span className="tnum" style={{ fontSize: 36, fontWeight: 300, color: 'var(--text)' }}>{hours}</span>
+          <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 14, color: 'var(--text-dim)', marginLeft: 4 }}>h</span>
+        </div>
+        <Tappable onClick={() => adjustHours(+1)} style={btnStyle}>+</Tappable>
       </div>
-      <div style={{
-        position: 'absolute', left: `calc(${pct * 100}% - 12px)`,
-        width: 24, height: 24, borderRadius: '50%',
-        background: 'var(--accent)',
-        boxShadow: '0 0 0 6px rgba(214,255,58,0.13)',
-      }} />
-      {[30, 60, 90, 120, 180].map(t => (
-        <div key={t} style={{
-          position: 'absolute',
-          left: `${(t - min) / (max - min) * 100}%`,
-          transform: 'translateX(-50%)', top: 28,
-          fontSize: 10, fontFamily: '"JetBrains Mono", monospace',
-          color: 'var(--text-faint)',
-        }}>{t}</div>
-      ))}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Tappable onClick={() => adjustMins(-5)} style={btnStyle}>−</Tappable>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <span className="tnum" style={{ fontSize: 36, fontWeight: 300, color: 'var(--text)' }}>{String(mins).padStart(2, '0')}</span>
+          <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 14, color: 'var(--text-dim)', marginLeft: 4 }}>m</span>
+        </div>
+        <Tappable onClick={() => adjustMins(+5)} style={btnStyle}>+</Tappable>
+      </div>
     </div>
   );
 }
@@ -133,14 +131,8 @@ export default function ActivityModal({
         </div>
 
         <div style={{ padding: '22px 22px 0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <Mono style={{ color: 'var(--text-faint)' }}>duration</Mono>
-            <div>
-              <span className="tnum" style={{ fontSize: 24, fontWeight: 400, color: 'var(--text)' }}>{duration}</span>
-              <Mono style={{ color: 'var(--text-faint)', marginLeft: 4 }}>min</Mono>
-            </div>
-          </div>
-          <DurationSlider value={duration} onChange={setDuration} />
+          <Mono style={{ color: 'var(--text-faint)' }}>duration</Mono>
+          <DurationPicker value={duration} onChange={setDuration} />
         </div>
 
         <div style={{ padding: '24px 22px 0' }}>

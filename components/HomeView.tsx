@@ -27,6 +27,14 @@ function localDate() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function formatDuration(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 function timeStamp(iso: string) {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -284,7 +292,7 @@ function HomeScreen({
               </div>
               <Mono style={{ color: 'var(--text-faint)' }} className="tnum">
                 {timeStamp(l.logged_at)}
-                {l.kind === 'activity' ? ` · ${(l as ActivityLog).duration_min}min` : ''}
+                {l.kind === 'activity' ? ` · ${formatDuration((l as ActivityLog).duration_min)}` : ''}
               </Mono>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
