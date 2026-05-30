@@ -133,6 +133,7 @@ function HomeScreen({
   onFood,
   onActivity,
   onReweigh,
+  onFoodDelete,
 }: {
   profile: Profile;
   weighIn: WeighIn;
@@ -141,6 +142,7 @@ function HomeScreen({
   onFood: () => void;
   onActivity: () => void;
   onReweigh: () => void;
+  onFoodDelete: (id: number) => void;
 }) {
   const weightKg = Number(weighIn.weight_kg);
   const bmr = calcBMR(weightKg, Number(profile.height_cm), profile.age, profile.sex);
@@ -285,14 +287,24 @@ function HomeScreen({
                 {l.kind === 'activity' ? ` · ${(l as ActivityLog).duration_min}min` : ''}
               </Mono>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <span className="tnum" style={{
-                fontSize: 17, fontWeight: 500,
-                color: l.kind === 'activity' ? 'var(--accent)' : 'var(--text)',
-              }}>
-                {l.kind === 'activity' ? '−' : ''}{l.cals}
-              </span>
-              <Mono style={{ color: 'var(--text-faint)', marginLeft: 4 }}>cal</Mono>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ textAlign: 'right' }}>
+                <span className="tnum" style={{
+                  fontSize: 17, fontWeight: 500,
+                  color: l.kind === 'activity' ? 'var(--accent)' : 'var(--text)',
+                }}>
+                  {l.kind === 'activity' ? '−' : ''}{l.cals}
+                </span>
+                <Mono style={{ color: 'var(--text-faint)', marginLeft: 4 }}>cal</Mono>
+              </div>
+              {l.kind === 'food' && (
+                <Tappable onClick={() => onFoodDelete(l.id)} style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  background: 'var(--surface)', border: '0.5px solid var(--line)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--text-faint)', fontSize: 16, flexShrink: 0,
+                }}>×</Tappable>
+              )}
             </div>
           </div>
         ))}
@@ -364,6 +376,11 @@ export default function HomeView() {
     setModal(null);
   };
 
+  const handleFoodDelete = async (id: number) => {
+    await fetch(`/api/food-log/${id}`, { method: 'DELETE' });
+    setFoodLogs(l => l.filter(f => f.id !== id));
+  };
+
   const handleActivitySave = async (entry: { activity_type: string; duration_min: number; intensity: string; cals: number }) => {
     const res = await fetch('/api/activity-log', {
       method: 'POST',
@@ -412,6 +429,7 @@ export default function HomeView() {
           onFood={() => setModal('food')}
           onActivity={() => setModal('activity')}
           onReweigh={() => setReweighing(true)}
+          onFoodDelete={handleFoodDelete}
         />
       )}
       {modal === 'food' && (

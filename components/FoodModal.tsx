@@ -387,8 +387,20 @@ export default function FoodModal({ onClose, onSave }: {
           </div>
 
           <div style={{ padding: '20px 22px 0' }}>
-            <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: -0.4 }}>{estimate.label}</div>
-            <Mono style={{ color: 'var(--text-faint)', marginTop: 6 }}>tap any value to nudge</Mono>
+            <input
+              type="text"
+              value={estimate.label}
+              onChange={e => setEstimate({ ...estimate, label: e.target.value })}
+              style={{
+                fontSize: 22, fontWeight: 500, letterSpacing: -0.4,
+                background: 'transparent', border: 'none',
+                borderBottom: '1px solid var(--line-strong)',
+                color: 'var(--text)', outline: 'none',
+                width: '100%', padding: '2px 0',
+                fontFamily: 'system-ui, sans-serif',
+              }}
+            />
+            <Mono style={{ color: 'var(--text-faint)', marginTop: 8 }}>tap any value to nudge</Mono>
           </div>
 
           <div style={{ padding: '18px 22px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
