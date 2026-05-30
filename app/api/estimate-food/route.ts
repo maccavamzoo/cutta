@@ -5,7 +5,7 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { image_base64 } = await req.json();
+  const { image_base64, hint } = await req.json();
   if (!image_base64) return NextResponse.json({ error: 'image_base64 required' }, { status: 400 });
 
   const Anthropic = (await import('@anthropic-ai/sdk')).default;
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
           },
           {
             type: 'text',
-            text: `Estimate the calories and macros in this food photo. Reply with only valid JSON in this exact format:
+            text: `Estimate the calories and macros in this food photo.${hint ? ` User note: ${hint}.` : ''} Reply with only valid JSON in this exact format:
 {"label":"brief food description","cals":number,"macros":{"p":number,"c":number,"f":number}}
 Where p=protein grams, c=carbs grams, f=fat grams. Be concise with the label (max 40 chars). No markdown, no explanation.`,
           },

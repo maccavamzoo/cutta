@@ -44,9 +44,11 @@ function formatDayHeader() {
 function PreWeighIn({
   lastWeighIn,
   onDone,
+  onSkip,
 }: {
   lastWeighIn: WeighIn | null;
   onDone: (weightKg: number) => void;
+  onSkip: (() => void) | null;
 }) {
   const [val, setVal] = useState('');
   const display = val || (lastWeighIn ? Number(lastWeighIn.weight_kg).toFixed(1) : '0.0');
@@ -65,9 +67,11 @@ function PreWeighIn({
     <div style={{ height: '100svh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' }}>
       <div style={{ padding: '64px 22px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Mono style={{ color: 'var(--text-dim)' }}>{formatDayHeader()}</Mono>
-        <Tappable onClick={() => onDone(lastWeighIn ? Number(lastWeighIn.weight_kg) : 0)} style={{ padding: 6 }}>
-          <Mono style={{ color: 'var(--text-faint)' }}>skip →</Mono>
-        </Tappable>
+        {onSkip && (
+          <Tappable onClick={onSkip} style={{ padding: 6 }}>
+            <Mono style={{ color: 'var(--text-faint)' }}>skip →</Mono>
+          </Tappable>
+        )}
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 22px' }}>
@@ -332,16 +336,6 @@ export default function HomeView() {
   }, [today, router]);
 
   const handleWeighIn = async (weightKg: number) => {
-    if (weightKg <= 0) {
-      // skip — use last weight if available
-      if (lastWeighIn) {
-        setWeighIn(lastWeighIn);
-      } else {
-        // can't proceed without any weight — redirect to setup
-        router.replace('/setup');
-      }
-      return;
-    }
     const res = await fetch('/api/weigh-in', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -403,8 +397,12 @@ export default function HomeView() {
 
   return (
     <>
-      {(!weighIn || reweighing) ? (
-        <PreWeighIn lastWeighIn={lastWeighIn} onDone={handleWeighIn} />
+      {(!effectiveWeighIn || reweighing) ? (
+        <PreWeighIn
+          lastWeighIn={lastWeighIn}
+          onDone={handleWeighIn}
+          onSkip={effectiveWeighIn ? () => setReweighing(false) : null}
+        />
       ) : (
         <HomeScreen
           profile={profile}
